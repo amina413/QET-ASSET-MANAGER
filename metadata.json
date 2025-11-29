@@ -1,0 +1,7 @@
+{
+  "name": "PTDF Asset Management System",
+  "description": "A comprehensive fixed asset management dashboard for PTDF, featuring asset tracking, reporting, depreciation calculation, and AI-powered insights.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

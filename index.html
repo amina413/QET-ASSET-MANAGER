@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <title>PTDF Asset Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ptdf: {
+                50: '#eefdf4',  // Very light green
+                100: '#dcfce9',
+                200: '#bbf7d0',
+                300: '#006B3E', // Mapped for lighter usage if needed, but keeping branding strict
+                500: '#22c55e', // Fallback standard green
+                600: '#006B3E', // PRIMARY BRAND COLOR (Dark Green)
+                700: '#005532', // Darker Green for hover
+                800: '#004226', // Deep Green
+                900: '#00331e', // Very Deep Green
+              },
+              accent: {
+                50: '#fffdf0',
+                100: '#fff9c2',
+                500: '#FFCC00', // PRIMARY ACCENT (Gold/Yellow)
+                600: '#e6b800',
+                700: '#b38f00',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #006B3E; /* Updated to Brand Green */
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #004226; /* Updated to Darker Green */
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-50 text-slate-900 antialiased overflow-hidden">
+    <div id="root"></div>
+  </body>
+</html>
