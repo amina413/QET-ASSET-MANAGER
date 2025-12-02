@@ -13,13 +13,17 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isMobileOpen, setIsMobileOpen, currentUser, onLogout }) => {
-  const menuItems = [
-    { view: View.DASHBOARD, label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-    { view: View.ASSET_REGISTRATION, label: 'Register Asset', icon: <PlusCircle size={20} /> },
-    { view: View.ASSET_LOOKUP, label: 'Scan & Lookup', icon: <ScanLine size={20} /> },
-    { view: View.REPORTS, label: 'Reports', icon: <FileBarChart size={20} /> },
-    { view: View.USER_MANAGEMENT, label: 'User Admin', icon: <Users size={20} /> },
+  // Define base menu items
+  const allMenuItems = [
+    { view: View.DASHBOARD, label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian', 'Auditor'] },
+    { view: View.ASSET_REGISTRATION, label: 'Register Asset', icon: <PlusCircle size={20} />, roles: ['System Admin', 'Asset Manager'] }, // Auditors cannot register
+    { view: View.ASSET_LOOKUP, label: 'Scan & Lookup', icon: <ScanLine size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian', 'Auditor'] },
+    { view: View.REPORTS, label: 'Reports', icon: <FileBarChart size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor'] },
+    { view: View.USER_MANAGEMENT, label: 'User Admin', icon: <Users size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor'] }, // Auditors view-only
   ];
+
+  // Filter items based on current user role
+  const menuItems = allMenuItems.filter(item => item.roles.includes(currentUser.role));
 
   return (
     <>

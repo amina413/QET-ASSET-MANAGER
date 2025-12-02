@@ -52,7 +52,8 @@ const App: React.FC = () => {
       case View.REPORTS:
         return <Reports />;
       case View.USER_MANAGEMENT:
-        return <UserManagement />;
+        // Pass currentUser to handle RBAC (e.g. Auditors can't add users)
+        return <UserManagement currentUser={currentUser} />;
       default:
         return <Dashboard 
           currentUser={currentUser} 

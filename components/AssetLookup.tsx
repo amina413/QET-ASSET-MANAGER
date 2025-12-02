@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Scan, Search, MapPin, User, Calendar, AlertTriangle, ArrowRightLeft, FileText, Camera, X, Loader2, Image as ImageIcon, ChevronRight, ScanLine, Calculator, RefreshCw } from 'lucide-react';
+import { Scan, Search, MapPin, User, Calendar, AlertTriangle, ArrowRightLeft, FileText, Camera, X, Loader2, Image as ImageIcon, ChevronRight, ScanLine, Calculator, RefreshCw, Table } from 'lucide-react';
 import { MOCK_ASSETS } from '../constants';
 import { Asset } from '../types';
 import { GoogleGenAI } from "@google/genai";
@@ -13,7 +13,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '' }) => 
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [searchResults, setSearchResults] = useState<Asset[]>([]);
   const [activeAsset, setActiveAsset] = useState<Asset | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'depreciation'>('overview');
 
   // Camera & Image Analysis State
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -28,6 +28,12 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '' }) => 
   const [calcSalvage, setCalcSalvage] = useState<number>(0);
   const [calcLife, setCalcLife] = useState<number>(5);
   const [calcDate, setCalcDate] = useState<string>('');
+
+  // Report Issue State
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [reportType, setReportType] = useState('Damage');
+  const [reportDesc, setReportDesc] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -46,7 +52,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '' }) => 
   useEffect(() => {
     if (activeAsset) {
       setCalcCost(activeAsset.acquisitionCost);
-      setCalcSalvage(0); // Default assumption
+      setCalcSalvage(0); // Default assumption as data is missing in mock
       setCalcLife(5); // Default assumption
       setCalcDate(activeAsset.acquisitionDate);
     }
@@ -57,16 +63,72 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '' }) => 
     
     const acquisition = new Date(calcDate);
     const today = new Date();
-    const diffTime = Math.abs(today.getTime() - acquisition.getTime());
+    
+    // Prevent future dates from causing calculation errors
+    if (acquisition > today) return calcCost;
+
+    const diffTime = today.getTime() - acquisition.getTime();
     const yearsElapsed = diffTime / (1000 * 60 * 60 * 24 * 365.25);
     
-    // Straight Line Depreciation
+    if (calcLife <= 0) return calcCost;
+
+    // Straight Line Depreciation: (Cost - Salvage) / Life * YearsElapsed
     const depreciableAmount = calcCost - calcSalvage;
     const annualDepreciation = depreciableAmount / calcLife;
     const totalDepreciation = annualDepreciation * yearsElapsed;
     
     const currentValue = calcCost - totalDepreciation;
     return Math.max(calcSalvage, currentValue); // Value cannot go below salvage
+  };
+
+  const generateDepreciationSchedule = () => {
+    const schedule = [];
+    if (!calcDate) return [];
+
+    const depreciableAmount = calcCost - calcSalvage;
+    const annualDepreciation = depreciableAmount / calcLife;
+    const startYear = new Date(calcDate).getFullYear();
+    let currentBookValue = calcCost;
+    let accumulatedDepreciation = 0;
+
+    for (let i = 0; i <= calcLife; i++) {
+       const year = startYear + i;
+       let expense = 0;
+       
+       if (i > 0) {
+         // Simple logic: Full year depreciation for simplicity in this MVP
+         expense = i === calcLife ? (currentBookValue - calcSalvage) : annualDepreciation;
+         // Adjust if expense creates negative value (rounding issues)
+         if (currentBookValue - expense < calcSalvage) {
+            expense = currentBookValue - calcSalvage;
+         }
+       }
+
+       accumulatedDepreciation += expense;
+       currentBookValue -= expense;
+
+       // Stop if we've reached the end of life or value is 0/salvage
+       if (i > 0) {
+          schedule.push({
+            year,
+            opening: currentBookValue + expense,
+            expense,
+            accumulated: accumulatedDepreciation,
+            closing: currentBookValue
+          });
+       }
+    }
+    return schedule;
+  };
+
+  const submitReport = () => {
+    setIsSubmittingReport(true);
+    setTimeout(() => {
+        setIsSubmittingReport(false);
+        setIsReportOpen(false);
+        setReportDesc('');
+        alert(`Issue reported successfully for ${activeAsset?.productId}. Maintenance team notified.`);
+    }, 1500);
   };
 
   // Text Search Logic
@@ -580,6 +642,14 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '' }) => 
                 >
                   History
                 </button>
+                <button 
+                  onClick={() => setActiveTab('depreciation')}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+                    activeTab === 'depreciation' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Depreciation
+                </button>
               </div>
 
               {/* Overview Tab Content */}
@@ -651,9 +721,55 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '' }) => 
                 </div>
               )}
 
+              {/* Depreciation Schedule Tab Content */}
+              {activeTab === 'depreciation' && (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 animate-fadeIn">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Depreciation Schedule</h3>
+                    <button onClick={() => setIsCalculatorOpen(true)} className="text-xs text-ptdf-600 flex items-center hover:underline">
+                      <Calculator size={14} className="mr-1" /> Adjust Parameters
+                    </button>
+                  </div>
+                  
+                  <div className="bg-slate-50 p-3 rounded-lg mb-4 text-xs text-slate-600 flex justify-between">
+                     <span><strong>Method:</strong> Straight-Line</span>
+                     <span><strong>Useful Life:</strong> {calcLife} Years</span>
+                     <span><strong>Salvage:</strong> ₦{calcSalvage.toLocaleString()}</span>
+                  </div>
+
+                  <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-500">
+                        <tr>
+                          <th className="p-3 font-semibold border-b">Year</th>
+                          <th className="p-3 font-semibold border-b text-right">Opening</th>
+                          <th className="p-3 font-semibold border-b text-right">Expense</th>
+                          <th className="p-3 font-semibold border-b text-right">Accumulated</th>
+                          <th className="p-3 font-semibold border-b text-right">Closing</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {generateDepreciationSchedule().map((row) => (
+                          <tr key={row.year} className="hover:bg-slate-50">
+                            <td className="p-3 font-medium text-slate-700">{row.year}</td>
+                            <td className="p-3 text-right text-slate-600">₦{Math.round(row.opening).toLocaleString()}</td>
+                            <td className="p-3 text-right text-red-500 font-medium">-₦{Math.round(row.expense).toLocaleString()}</td>
+                            <td className="p-3 text-right text-slate-600">₦{Math.round(row.accumulated).toLocaleString()}</td>
+                            <td className="p-3 text-right font-bold text-slate-800">₦{Math.round(row.closing).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="grid grid-cols-1 gap-3 pt-2">
-                <button className="flex items-center justify-center p-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 shadow-sm transition-colors">
+                <button 
+                  onClick={() => setIsReportOpen(true)}
+                  className="flex items-center justify-center p-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 shadow-sm transition-colors"
+                >
                   <AlertTriangle size={18} className="mr-2 text-amber-500" />
                   Report Condition Issue
                 </button>
@@ -661,16 +777,63 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '' }) => 
                   <ArrowRightLeft size={18} className="mr-2 text-ptdf-600" />
                   Initiate Transfer
                 </button>
-                <button 
-                  onClick={() => setIsCalculatorOpen(true)}
-                  className="flex items-center justify-center p-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 shadow-sm transition-colors"
-                >
-                  <FileText size={18} className="mr-2 text-accent-600" />
-                  View Depreciation Schedule
-                </button>
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* REPORT ISSUE MODAL */}
+      {isReportOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 animate-fadeIn p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-800">Report Asset Issue</h3>
+              <button onClick={() => setIsReportOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Issue Type</label>
+                <select 
+                  value={reportType}
+                  onChange={(e) => setReportType(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-ptdf-500"
+                >
+                  <option value="Damage">Physical Damage</option>
+                  <option value="Malfunction">Functional Malfunction</option>
+                  <option value="Lost">Lost / Stolen</option>
+                  <option value="Maintenance">Routine Maintenance Needed</option>
+                </select>
+              </div>
+              <div>
+                 <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                 <textarea 
+                   value={reportDesc}
+                   onChange={(e) => setReportDesc(e.target.value)}
+                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg h-24 resize-none outline-none focus:ring-2 focus:ring-ptdf-500"
+                   placeholder="Describe the issue in detail..."
+                 />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button 
+                onClick={() => setIsReportOpen(false)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={submitReport}
+                disabled={isSubmittingReport || !reportDesc}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center disabled:opacity-50"
+              >
+                {isSubmittingReport && <Loader2 size={16} className="animate-spin mr-2" />}
+                Submit Report
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
