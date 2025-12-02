@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View, User } from '../types';
-import { LayoutDashboard, PlusCircle, ScanLine, FileBarChart, Users, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, ScanLine, FileBarChart, Users, Menu, X, LogOut, AlertTriangle } from 'lucide-react';
 
 interface SidebarProps {
   currentView: View;
@@ -16,10 +16,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isMobile
   // Define base menu items
   const allMenuItems = [
     { view: View.DASHBOARD, label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian', 'Auditor'] },
-    { view: View.ASSET_REGISTRATION, label: 'Register Asset', icon: <PlusCircle size={20} />, roles: ['System Admin', 'Asset Manager'] }, // Auditors cannot register
+    // Custodians can now register assets (within their jurisdiction logic handled in component)
+    { view: View.ASSET_REGISTRATION, label: 'Register Asset', icon: <PlusCircle size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian'] }, 
     { view: View.ASSET_LOOKUP, label: 'Scan & Lookup', icon: <ScanLine size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian', 'Auditor'] },
-    { view: View.REPORTS, label: 'Reports', icon: <FileBarChart size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor'] },
-    { view: View.USER_MANAGEMENT, label: 'User Admin', icon: <Users size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor'] }, // Auditors view-only
+    { view: View.REPORT_ISSUE, label: 'Report Issue', icon: <AlertTriangle size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian'] },
+    { view: View.REPORTS, label: 'Reports', icon: <FileBarChart size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor', 'Custodian'] },
+    // Custodians view User Admin (read-only handled in component)
+    { view: View.USER_MANAGEMENT, label: 'User Admin', icon: <Users size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor', 'Custodian'] }, 
   ];
 
   // Filter items based on current user role

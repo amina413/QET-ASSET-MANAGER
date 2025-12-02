@@ -11,22 +11,43 @@
           extend: {
             colors: {
               ptdf: {
-                50: '#eefdf4',  // Very light green
+                50: '#eefdf4',
                 100: '#dcfce9',
                 200: '#bbf7d0',
-                300: '#006B3E', // Mapped for lighter usage if needed, but keeping branding strict
-                500: '#22c55e', // Fallback standard green
-                600: '#006B3E', // PRIMARY BRAND COLOR (Dark Green)
-                700: '#005532', // Darker Green for hover
-                800: '#004226', // Deep Green
-                900: '#00331e', // Very Deep Green
+                300: '#006B3E',
+                500: '#22c55e',
+                600: '#006B3E',
+                700: '#005532',
+                800: '#004226',
+                900: '#00331e',
               },
               accent: {
                 50: '#fffdf0',
                 100: '#fff9c2',
-                500: '#FFCC00', // PRIMARY ACCENT (Gold/Yellow)
+                500: '#FFCC00',
                 600: '#e6b800',
                 700: '#b38f00',
+              }
+            },
+            animation: {
+              fadeIn: 'fadeIn 0.5s ease-out',
+              slideIn: 'slideIn 0.3s ease-out',
+              blob: 'blob 7s infinite',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideIn: {
+                '0%': { transform: 'translateY(10px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              blob: {
+                '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                '100%': { transform: 'translate(0px, 0px) scale(1)' },
               }
             }
           }
@@ -35,6 +56,10 @@
     </script>
     <!-- SheetJS for Excel processing -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- Polyfill for process to prevent ReferenceError -->
+    <script>
+      window.process = window.process || { env: {} };
+    </script>
     <style>
       /* Custom scrollbar for webkit */
       ::-webkit-scrollbar {
@@ -45,16 +70,17 @@
         background: #f1f5f9; 
       }
       ::-webkit-scrollbar-thumb {
-        background: #006B3E; /* Updated to Brand Green */
+        background: #006B3E; 
         border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #004226; /* Updated to Darker Green */
+        background: #004226; 
       }
     </style>
   <script type="importmap">
 {
   "imports": {
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",

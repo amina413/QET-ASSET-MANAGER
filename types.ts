@@ -6,6 +6,7 @@ export enum View {
   ASSET_LOOKUP = 'ASSET_LOOKUP',
   REPORTS = 'REPORTS',
   USER_MANAGEMENT = 'USER_MANAGEMENT',
+  REPORT_ISSUE = 'REPORT_ISSUE',
 }
 
 export type UserRole = 'System Admin' | 'Asset Manager' | 'Custodian' | 'Auditor';
@@ -22,6 +23,16 @@ export interface Asset {
   custodian: string;
   status: 'Active' | 'Disposed' | 'Maintenance' | 'Pending Transfer';
   image?: string;
+}
+
+export interface AssetHistoryEvent {
+  id: string;
+  assetId: string;
+  date: string;
+  action: string;
+  user: string;
+  details: string;
+  type: 'Registration' | 'Transfer' | 'Maintenance' | 'Audit' | 'Issue';
 }
 
 export interface User {

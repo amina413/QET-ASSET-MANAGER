@@ -49,6 +49,8 @@ const App: React.FC = () => {
         return <AssetForm />;
       case View.ASSET_LOOKUP:
         return <AssetLookup initialSearchTerm={dashboardSearchTerm} />;
+      case View.REPORT_ISSUE:
+        return <AssetLookup initialSearchTerm={dashboardSearchTerm} isReportMode={true} />;
       case View.REPORTS:
         return <Reports />;
       case View.USER_MANAGEMENT:
@@ -73,7 +75,7 @@ const App: React.FC = () => {
         currentView={currentView} 
         setCurrentView={(view) => {
           // Reset search term when navigating away manually
-          if (view !== View.ASSET_LOOKUP) setDashboardSearchTerm('');
+          if (view !== View.ASSET_LOOKUP && view !== View.REPORT_ISSUE) setDashboardSearchTerm('');
           setCurrentView(view);
         }} 
         isMobileOpen={isMobileOpen}

@@ -79,6 +79,24 @@ const AssetForm: React.FC = () => {
     setCurrentStep(0);
   };
 
+  const handlePrintTag = () => {
+    const content = document.getElementById('asset-tag-card');
+    if (content) {
+      const printWindow = window.open('', '', 'height=600,width=800');
+      if (printWindow) {
+        printWindow.document.write('<html><head><title>Print Asset Tag</title>');
+        printWindow.document.write('<script src="https://cdn.tailwindcss.com"></script>');
+        printWindow.document.write('</head><body class="flex flex-col items-center justify-center h-screen bg-white">');
+        printWindow.document.write(content.outerHTML);
+        // Hide the printer icon in the print view if it was cloned
+        printWindow.document.write('<style>.print-hidden { display: none !important; }</style>');
+        printWindow.document.write('<script>setTimeout(() => { window.print(); window.close(); }, 800);</script>');
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+      }
+    }
+  };
+
   // --- Bulk Upload Handlers ---
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -282,9 +300,11 @@ const AssetForm: React.FC = () => {
                   The asset has been added to the register. A unique barcode has been generated for tracking.
                 </p>
 
-                <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-xl p-6 w-full max-w-sm mb-8 relative">
-                  <div className="absolute top-0 right-0 p-2 text-slate-400">
-                    <Printer size={20} className="hover:text-slate-600 cursor-pointer" />
+                <div id="asset-tag-card" className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-xl p-6 w-full max-w-sm mb-8 relative">
+                  <div className="absolute top-0 right-0 p-2 text-slate-400 print-hidden">
+                    <button onClick={handlePrintTag} title="Print Tag">
+                      <Printer size={20} className="hover:text-slate-600 cursor-pointer" />
+                    </button>
                   </div>
                   <div className="text-center">
                     <h3 className="font-bold text-slate-900 text-lg mb-1">PTDF ASSET TAG</h3>
@@ -301,12 +321,21 @@ const AssetForm: React.FC = () => {
                   </div>
                 </div>
 
-                <button 
-                  onClick={resetForm}
-                  className="flex items-center px-6 py-3 bg-ptdf-600 text-white rounded-lg hover:bg-ptdf-700 transition-colors shadow-lg shadow-ptdf-200"
-                >
-                  <Plus size={18} className="mr-2" /> Register Another Asset
-                </button>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={handlePrintTag}
+                    className="flex items-center px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                  >
+                    <Printer size={18} className="mr-2" /> Print Tag
+                  </button>
+
+                  <button 
+                    onClick={resetForm}
+                    className="flex items-center px-6 py-3 bg-ptdf-600 text-white rounded-lg hover:bg-ptdf-700 transition-colors shadow-lg shadow-ptdf-200"
+                  >
+                    <Plus size={18} className="mr-2" /> Register Another Asset
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit}>

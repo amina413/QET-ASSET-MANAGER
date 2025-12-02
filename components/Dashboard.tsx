@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { ASSET_DISTRIBUTION, DEPRECIATION_DATA } from '../constants';
-import { ArrowUpRight, AlertCircle, DollarSign, Package, Search, Bell, ChevronDown, LogOut, User as UserIcon, Settings, X } from 'lucide-react';
+import { ASSET_DISTRIBUTION, DEPRECIATION_DATA, MOCK_ASSETS } from '../constants';
+import { ArrowUpRight, AlertCircle, DollarSign, Package, Search, Bell, ChevronDown, LogOut, User as UserIcon, Settings, X, MapPin } from 'lucide-react';
 import { User } from '../types';
 
 // Palette: Brand Greens + Gold Accent
@@ -69,13 +69,39 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
     { id: 3, title: 'New Asset Registered', desc: 'Toyota Hilux (PTDF-8821) added.', time: '1 day ago', unread: false },
   ];
 
+  // JURISDICTION LOGIC
+  // If user is Custodian, filter stats to their implied location (Mock logic: "Abuja HQ" for Emeka)
+  const isCustodian = currentUser.role === 'Custodian';
+  const userJurisdiction = isCustodian ? "Abuja HQ" : null;
+
+  const relevantAssets = isCustodian 
+    ? MOCK_ASSETS.filter(a => a.location.includes("Abuja")) 
+    : MOCK_ASSETS;
+
+  // Recalculate basic metrics based on jurisdiction
+  const totalAssets = relevantAssets.length;
+  const totalValue = relevantAssets.reduce((sum, a) => sum + a.acquisitionCost, 0);
+  const netBookValue = relevantAssets.reduce((sum, a) => sum + a.netBookValue, 0);
+  const pendingDisposal = isCustodian ? 2 : 45; // Mock adjustment
+
+  const formatCurrency = (val: number) => {
+    if (val >= 1000000000) return `₦${(val/1000000000).toFixed(1)}B`;
+    if (val >= 1000000) return `₦${(val/1000000).toFixed(1)}M`;
+    return `₦${val.toLocaleString()}`;
+  };
+
   return (
     <div className="space-y-6 pb-20 md:pb-0">
       {/* Header with Search and Profile */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Executive Dashboard</h1>
-          <p className="text-slate-500 text-sm">Welcome back, <span className="font-semibold text-ptdf-600">{currentUser.name}</span>.</p>
+          <h1 className="text-2xl font-bold text-slate-800">
+            {isCustodian ? 'Jurisdiction Dashboard' : 'Executive Dashboard'}
+          </h1>
+          <p className="text-slate-500 text-sm">
+            Welcome back, <span className="font-semibold text-ptdf-600">{currentUser.name}</span>.
+            {isCustodian && <span className="ml-2 inline-flex items-center text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600"><MapPin size={10} className="mr-1"/> Abuja HQ Zone</span>}
+          </p>
         </div>
 
         <div className="flex items-center space-x-4 relative">
@@ -137,7 +163,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
                </div>
                <div className="hidden md:block text-left">
                  <p className="text-sm font-medium text-slate-700 leading-tight">{currentUser.name}</p>
-                 <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{currentUser.role}</p>
+                 <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">{currentUser.role}</p>
                </div>
                <ChevronDown size={14} className="text-slate-400 hidden md:block" />
             </div>
@@ -173,27 +199,27 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard 
           title="Total Assets" 
-          value="8,450" 
+          value={totalAssets.toLocaleString()} 
           icon={<Package className="text-ptdf-600" size={24} />} 
-          trend="+12 this month"
+          trend={isCustodian ? "+2 this month" : "+12 this month"}
           color="bg-ptdf-600"
         />
         <MetricCard 
-          title="Total Acquisition Value" 
-          value="₦1.5 Billion" 
+          title="Acquisition Value" 
+          value={formatCurrency(totalValue)} 
           icon={<DollarSign className="text-accent-600" size={24} />} 
           trend="+5.2% YoY"
           color="bg-accent-500"
         />
         <MetricCard 
           title="Net Book Value" 
-          value="₦850 Million" 
+          value={formatCurrency(netBookValue)} 
           icon={<div className="font-bold text-ptdf-800">NBV</div>} 
           color="bg-ptdf-800"
         />
         <MetricCard 
           title="Pending Disposal" 
-          value="45" 
+          value={pendingDisposal.toString()} 
           icon={<AlertCircle className="text-red-500" size={24} />} 
           color="bg-red-500"
         />
