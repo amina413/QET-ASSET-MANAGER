@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { ASSET_DISTRIBUTION, DEPRECIATION_DATA, MOCK_ASSETS } from '../constants';
 import { ArrowUpRight, AlertCircle, DollarSign, Package, Search, Bell, ChevronDown, LogOut, User as UserIcon, Settings, X, MapPin } from 'lucide-react';
-import { User } from '../types';
+import { User, View } from '../types';
 
 // Palette: Brand Greens + Gold Accent
 const COLORS = ['#006B3E', '#005532', '#FFCC00', '#22c55e', '#bbf7d0'];
@@ -12,6 +12,7 @@ interface DashboardProps {
   currentUser: User;
   onNavigateToSearch: (term: string) => void;
   onLogout: () => void;
+  onNavigate?: (view: View) => void;
 }
 
 const MetricCard: React.FC<{ title: string; value: string; icon: React.ReactNode; trend?: string; color: string }> = ({ title, value, icon, trend, color }) => (
@@ -34,15 +35,21 @@ const MetricCard: React.FC<{ title: string; value: string; icon: React.ReactNode
   </div>
 );
 
-const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, onLogout }) => {
+const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, onLogout, onNavigate }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   
+  // Notification State
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: 'Asset Transfer Request', desc: 'IT Dept requested transfer of 5 Laptops.', time: '2 hrs ago', unread: true },
+    { id: 2, title: 'Maintenance Due', desc: 'Generator Set A requires servicing.', time: '5 hrs ago', unread: true },
+    { id: 3, title: 'New Asset Registered', desc: 'Toyota Hilux (PTDF-8821) added.', time: '1 day ago', unread: false },
+  ]);
+  
   const notificationRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
@@ -63,26 +70,32 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
     }
   };
 
-  const mockNotifications = [
-    { id: 1, title: 'Asset Transfer Request', desc: 'IT Dept requested transfer of 5 Laptops.', time: '2 hrs ago', unread: true },
-    { id: 2, title: 'Maintenance Due', desc: 'Generator Set A requires servicing.', time: '5 hrs ago', unread: true },
-    { id: 3, title: 'New Asset Registered', desc: 'Toyota Hilux (PTDF-8821) added.', time: '1 day ago', unread: false },
-  ];
+  const handleMarkAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+  };
 
-  // JURISDICTION LOGIC
-  // If user is Custodian, filter stats to their implied location (Mock logic: "Abuja HQ" for Emeka)
+  const handleViewAllNotifications = () => {
+    setShowNotifications(false);
+    // Navigate to Profile as it contains the Activity Feed which serves as history
+    if (onNavigate) onNavigate(View.PROFILE);
+  };
+
+  const handlePendingAction = () => {
+    // Navigate to Asset Management for approvals/reviews
+    if (onNavigate) onNavigate(View.ASSET_MANAGEMENT);
+  };
+
+  const unreadCount = notifications.filter(n => n.unread).length;
+
   const isCustodian = currentUser.role === 'Custodian';
-  const userJurisdiction = isCustodian ? "Abuja HQ" : null;
-
   const relevantAssets = isCustodian 
     ? MOCK_ASSETS.filter(a => a.location.includes("Abuja")) 
     : MOCK_ASSETS;
 
-  // Recalculate basic metrics based on jurisdiction
   const totalAssets = relevantAssets.length;
   const totalValue = relevantAssets.reduce((sum, a) => sum + a.acquisitionCost, 0);
   const netBookValue = relevantAssets.reduce((sum, a) => sum + a.netBookValue, 0);
-  const pendingDisposal = isCustodian ? 2 : 45; // Mock adjustment
+  const pendingDisposal = isCustodian ? 2 : 45;
 
   const formatCurrency = (val: number) => {
     if (val >= 1000000000) return `₦${(val/1000000000).toFixed(1)}B`;
@@ -92,7 +105,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
 
   return (
     <div className="space-y-6 pb-20 md:pb-0">
-      {/* Header with Search and Profile */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">
@@ -105,7 +117,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
         </div>
 
         <div className="flex items-center space-x-4 relative">
-          {/* Quick Search */}
           <form onSubmit={handleSearchSubmit} className="relative hidden md:block">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
             <input 
@@ -117,24 +128,32 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
             />
           </form>
 
-          {/* Notifications */}
           <div className="relative" ref={notificationRef}>
             <button 
               onClick={() => setShowNotifications(!showNotifications)}
               className="p-2 relative text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
             >
               <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              )}
             </button>
             
             {showNotifications && (
               <div className="absolute right-0 top-12 w-80 bg-white rounded-xl shadow-xl border border-slate-100 z-50 animate-fadeIn">
                 <div className="p-4 border-b border-slate-50 flex justify-between items-center">
                   <h3 className="font-bold text-slate-800">Notifications</h3>
-                  <button className="text-xs text-ptdf-600 hover:underline">Mark all read</button>
+                  {unreadCount > 0 && (
+                    <button 
+                      onClick={handleMarkAllRead}
+                      className="text-xs text-ptdf-600 hover:underline"
+                    >
+                      Mark all read
+                    </button>
+                  )}
                 </div>
                 <div className="max-h-64 overflow-y-auto">
-                  {mockNotifications.map(notif => (
+                  {notifications.map(notif => (
                     <div key={notif.id} className={`p-4 border-b border-slate-50 hover:bg-slate-50 cursor-pointer ${notif.unread ? 'bg-blue-50/30' : ''}`}>
                       <div className="flex justify-between items-start mb-1">
                         <span className={`text-sm font-semibold ${notif.unread ? 'text-slate-900' : 'text-slate-600'}`}>{notif.title}</span>
@@ -146,13 +165,17 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
                   ))}
                 </div>
                 <div className="p-3 text-center border-t border-slate-50">
-                  <button className="text-xs font-medium text-ptdf-600 hover:text-ptdf-800">View All Notifications</button>
+                  <button 
+                    onClick={handleViewAllNotifications}
+                    className="text-xs font-medium text-ptdf-600 hover:text-ptdf-800"
+                  >
+                    View All Notifications
+                  </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* User Profile Dropdown */}
           <div className="relative" ref={userMenuRef}>
             <div 
               onClick={() => setShowUserMenu(!showUserMenu)}
@@ -175,10 +198,16 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
                    <p className="text-xs text-slate-500">{currentUser.email}</p>
                 </div>
                 <div className="p-2">
-                  <button className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg flex items-center">
+                  <button 
+                    onClick={() => { if(onNavigate) onNavigate(View.PROFILE); setShowUserMenu(false); }}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg flex items-center"
+                  >
                     <UserIcon size={16} className="mr-2" /> My Profile
                   </button>
-                  <button className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg flex items-center">
+                  <button 
+                    onClick={() => { if(onNavigate) onNavigate(View.SETTINGS); setShowUserMenu(false); }}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg flex items-center"
+                  >
                     <Settings size={16} className="mr-2" /> Account Settings
                   </button>
                   <div className="h-px bg-slate-100 my-1"></div>
@@ -195,7 +224,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
         </div>
       </div>
 
-      {/* Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard 
           title="Total Assets" 
@@ -225,9 +253,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
         />
       </div>
 
-      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Distribution Chart */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
           <h3 className="text-lg font-semibold text-slate-800 mb-4">Asset Distribution by Category</h3>
           <div className="h-64 w-full">
@@ -254,7 +280,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
           </div>
         </div>
 
-        {/* Depreciation Chart */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
           <h3 className="text-lg font-semibold text-slate-800 mb-4">Accumulated Depreciation (Last 5 Quarters)</h3>
           <div className="h-64 w-full">
@@ -271,11 +296,15 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
         </div>
       </div>
 
-      {/* Action Panel */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
         <div className="flex justify-between items-center mb-4">
            <h3 className="text-lg font-semibold text-slate-800">Pending Approvals</h3>
-           <button className="text-sm text-ptdf-600 hover:text-ptdf-800 font-medium">View All</button>
+           <button 
+            onClick={handlePendingAction}
+            className="text-sm text-ptdf-600 hover:text-ptdf-800 font-medium"
+           >
+             View All
+           </button>
         </div>
         
         <div className="space-y-4">
@@ -288,7 +317,12 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
                   <p className="text-xs text-slate-500">Requested by IT Department • 2 hours ago</p>
                 </div>
               </div>
-              <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 hover:border-ptdf-300 transition-all">Review</button>
+              <button 
+                onClick={handlePendingAction}
+                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 hover:border-ptdf-300 transition-all"
+              >
+                Review
+              </button>
             </div>
           ))}
         </div>

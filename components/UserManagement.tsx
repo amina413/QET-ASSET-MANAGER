@@ -2,13 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { MOCK_USERS } from '../constants';
 import { User, UserRole } from '../types';
-import { Plus, Edit2, Trash2, Shield, X, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Shield, X, Loader2, ArrowLeft } from 'lucide-react';
 
 interface UserManagementProps {
   currentUser: User;
+  onBack?: () => void;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -81,6 +82,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
 
   return (
     <div className="max-w-6xl mx-auto pb-20">
+      {onBack && (
+        <button 
+          onClick={onBack}
+          className="flex items-center text-sm text-slate-500 hover:text-ptdf-600 mb-6 transition-colors group"
+        >
+          <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
+          Back to Dashboard
+        </button>
+      )}
+
       <div className="flex justify-between items-center mb-8">
         <div>
            <h1 className="text-2xl font-bold text-slate-800">User & Role Management</h1>

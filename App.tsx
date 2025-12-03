@@ -7,7 +7,10 @@ import AssetForm from './components/AssetForm';
 import AssetLookup from './components/AssetLookup';
 import Reports from './components/Reports';
 import UserManagement from './components/UserManagement';
+import WipManagement from './components/WipManagement';
 import GeminiAssistant from './components/GeminiAssistant';
+import Profile from './components/Profile';
+import Settings from './components/Settings';
 import Login from './components/Login';
 import { Menu } from 'lucide-react';
 
@@ -33,6 +36,11 @@ const App: React.FC = () => {
     setCurrentView(View.ASSET_LOOKUP);
   };
 
+  const handleBackToDashboard = () => {
+    setCurrentView(View.DASHBOARD);
+    setDashboardSearchTerm('');
+  };
+
   const renderView = () => {
     if (!currentUser) return <Login onLogin={handleLogin} />;
 
@@ -43,24 +51,31 @@ const App: React.FC = () => {
             currentUser={currentUser} 
             onNavigateToSearch={handleDashboardSearch} 
             onLogout={handleLogout}
+            onNavigate={(view) => setCurrentView(view)}
           />
         );
       case View.ASSET_REGISTRATION:
-        return <AssetForm />;
+        return <AssetForm onBack={handleBackToDashboard} />;
       case View.ASSET_LOOKUP:
-        return <AssetLookup initialSearchTerm={dashboardSearchTerm} />;
-      case View.REPORT_ISSUE:
-        return <AssetLookup initialSearchTerm={dashboardSearchTerm} isReportMode={true} />;
+        return <AssetLookup initialSearchTerm={dashboardSearchTerm} onBack={handleBackToDashboard} />;
+      case View.ASSET_MANAGEMENT:
+        return <AssetLookup initialSearchTerm={dashboardSearchTerm} managementMode={true} onBack={handleBackToDashboard} />;
+      case View.WIP_MANAGEMENT:
+        return <WipManagement onBack={handleBackToDashboard} />;
       case View.REPORTS:
-        return <Reports />;
+        return <Reports onBack={handleBackToDashboard} />;
       case View.USER_MANAGEMENT:
-        // Pass currentUser to handle RBAC (e.g. Auditors can't add users)
-        return <UserManagement currentUser={currentUser} />;
+        return <UserManagement currentUser={currentUser} onBack={handleBackToDashboard} />;
+      case View.PROFILE:
+        return <Profile currentUser={currentUser} onBack={handleBackToDashboard} />;
+      case View.SETTINGS:
+        return <Settings onBack={handleBackToDashboard} />;
       default:
         return <Dashboard 
           currentUser={currentUser} 
           onNavigateToSearch={handleDashboardSearch}
-          onLogout={handleLogout} 
+          onLogout={handleLogout}
+          onNavigate={(view) => setCurrentView(view)}
         />;
     }
   };
@@ -74,8 +89,7 @@ const App: React.FC = () => {
       <Sidebar 
         currentView={currentView} 
         setCurrentView={(view) => {
-          // Reset search term when navigating away manually
-          if (view !== View.ASSET_LOOKUP && view !== View.REPORT_ISSUE) setDashboardSearchTerm('');
+          if (view !== View.ASSET_LOOKUP && view !== View.ASSET_MANAGEMENT) setDashboardSearchTerm('');
           setCurrentView(view);
         }} 
         isMobileOpen={isMobileOpen}
@@ -85,7 +99,6 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 p-4 md:p-8 h-screen overflow-y-auto relative">
-        {/* Mobile Menu Button */}
         <button 
           onClick={() => setIsMobileOpen(true)}
           className="md:hidden absolute top-4 right-4 p-2 text-slate-600 bg-white rounded-md shadow-sm z-30"
@@ -93,10 +106,8 @@ const App: React.FC = () => {
           <Menu size={24} />
         </button>
 
-        {/* View Content */}
         {renderView()}
 
-        {/* AI Integration */}
         <GeminiAssistant />
       </main>
     </div>

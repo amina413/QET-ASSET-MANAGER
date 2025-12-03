@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View, User } from '../types';
-import { LayoutDashboard, PlusCircle, ScanLine, FileBarChart, Users, Menu, X, LogOut, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, ScanLine, FileBarChart, Users, Menu, X, LogOut, Briefcase, Construction } from 'lucide-react';
 
 interface SidebarProps {
   currentView: View;
@@ -18,8 +18,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isMobile
     { view: View.DASHBOARD, label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian', 'Auditor'] },
     // Custodians can now register assets (within their jurisdiction logic handled in component)
     { view: View.ASSET_REGISTRATION, label: 'Register Asset', icon: <PlusCircle size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian'] }, 
+    { view: View.WIP_MANAGEMENT, label: 'Work in Progress', icon: <Construction size={20} />, roles: ['System Admin', 'Asset Manager'] },
     { view: View.ASSET_LOOKUP, label: 'Scan & Lookup', icon: <ScanLine size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian', 'Auditor'] },
-    { view: View.REPORT_ISSUE, label: 'Report Issue', icon: <AlertTriangle size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian'] },
+    { view: View.ASSET_MANAGEMENT, label: 'Asset Management', icon: <Briefcase size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian'] },
     { view: View.REPORTS, label: 'Reports', icon: <FileBarChart size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor', 'Custodian'] },
     // Custodians view User Admin (read-only handled in component)
     { view: View.USER_MANAGEMENT, label: 'User Admin', icon: <Users size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor', 'Custodian'] }, 

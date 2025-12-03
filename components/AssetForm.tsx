@@ -1,7 +1,8 @@
 
 import React, { useState, useRef } from 'react';
-import { CATEGORIES, LOCATIONS, MOCK_USERS } from '../constants';
-import { CheckCircle, ChevronRight, Save, UploadCloud, FileSpreadsheet, Download, AlertCircle, Check, X, FileText, Printer, Plus } from 'lucide-react';
+import { CATEGORIES, LOCATIONS, MOCK_USERS, MOCK_ASSETS } from '../constants';
+import { Asset, ConditionCode } from '../types';
+import { CheckCircle, ChevronRight, Save, UploadCloud, FileSpreadsheet, Download, AlertCircle, Check, X, FileText, Printer, Plus, ArrowLeft } from 'lucide-react';
 
 const steps = ['Acquisition Details', 'Physical Details', 'Custodian & Financial'];
 
@@ -24,13 +25,34 @@ interface RegisteredAsset {
   barcode: string;
 }
 
-const AssetForm: React.FC = () => {
+interface AssetFormProps {
+  onBack?: () => void;
+}
+
+const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
   const [mode, setMode] = useState<'single' | 'bulk'>('single');
   
   // Single Entry State
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registeredAsset, setRegisteredAsset] = useState<RegisteredAsset | null>(null);
+  
+  // Form Data State (Required to persist data across steps)
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    cost: '',
+    date: '',
+    vendor: '',
+    invoice: '',
+    model: '',
+    life: '',
+    location: '',
+    condition: 'New',
+    custodian: '',
+    depreciationMethod: 'Straight-Line',
+    salvageValue: ''
+  });
 
   // Bulk Upload State
   const [dragActive, setDragActive] = useState(false);
@@ -47,11 +69,44 @@ const AssetForm: React.FC = () => {
     if (currentStep > 0) setCurrentStep(currentStep - 1);
   };
 
-  const generateBarcode = () => {
-    // Simulate unique ID generation
-    const timestamp = Date.now().toString().slice(-4);
+  const generateBarcode = (category: string) => {
+    let prefix = 'PTDF';
+    
+    switch (category) {
+      case 'IT and Office Equipment':
+        prefix = 'ITE';
+        break;
+      case 'Vehicles':
+        prefix = 'VH';
+        break;
+      case 'Furniture and Fittings':
+        prefix = 'FAF';
+        break;
+      case 'Plant and Machinery':
+        prefix = 'PMA';
+        break;
+      case 'Land & Buildings':
+        prefix = 'LND';
+        break;
+      case 'Software Licenses':
+        prefix = 'SFW';
+        break;
+      default:
+        prefix = 'PTDF';
+    }
+
     const random = Math.floor(1000 + Math.random() * 9000);
-    return `PTDF-${random}`;
+    return `${prefix}-${random}`;
+  };
+
+  const mapConditionToCode = (condition: string): ConditionCode => {
+    switch(condition) {
+      case 'New': return 'A1';
+      case 'Good': return 'A2';
+      case 'Fair': return 'A3';
+      case 'Poor': return 'A4';
+      default: return 'A2';
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -60,13 +115,31 @@ const AssetForm: React.FC = () => {
     
     // Simulate API call and ID generation
     setTimeout(() => {
-      const newId = generateBarcode();
-      const assetName = (e.target as any)[0]?.value || "New Asset"; // Simplified value retrieval for demo
+      const newId = generateBarcode(formData.category);
+      const assetName = formData.name || "New Asset";
       
+      // Store asset in Mock Database (Session Persistence)
+      const newAsset: Asset = {
+        id: (MOCK_ASSETS.length + 100).toString(),
+        productId: newId,
+        name: assetName,
+        category: formData.category,
+        acquisitionCost: parseFloat(formData.cost) || 0,
+        acquisitionDate: formData.date || new Date().toISOString().split('T')[0],
+        netBookValue: parseFloat(formData.cost) || 0,
+        location: formData.location || 'Unassigned',
+        custodian: MOCK_USERS.find(u => u.id === formData.custodian)?.name || 'Unassigned',
+        status: 'Active',
+        conditionCode: mapConditionToCode(formData.condition),
+        image: 'https://picsum.photos/200/200'
+      };
+
+      MOCK_ASSETS.push(newAsset);
+
       setRegisteredAsset({
         name: assetName,
         productId: newId,
-        barcode: newId // In a real app, this might be a different format
+        barcode: newId
       });
       
       setIsSubmitting(false);
@@ -76,6 +149,21 @@ const AssetForm: React.FC = () => {
 
   const resetForm = () => {
     setRegisteredAsset(null);
+    setFormData({
+      name: '',
+      category: '',
+      cost: '',
+      date: '',
+      vendor: '',
+      invoice: '',
+      model: '',
+      life: '',
+      location: '',
+      condition: 'New',
+      custodian: '',
+      depreciationMethod: 'Straight-Line',
+      salvageValue: ''
+    });
     setCurrentStep(0);
   };
 
@@ -87,9 +175,14 @@ const AssetForm: React.FC = () => {
         printWindow.document.write('<html><head><title>Print Asset Tag</title>');
         printWindow.document.write('<script src="https://cdn.tailwindcss.com"></script>');
         printWindow.document.write('</head><body class="flex flex-col items-center justify-center h-screen bg-white">');
+        
+        // Wrap content to ensure styles apply correctly during print
+        printWindow.document.write('<div class="scale-125 transform origin-center">');
         printWindow.document.write(content.outerHTML);
+        printWindow.document.write('</div>');
+
         // Hide the printer icon in the print view if it was cloned
-        printWindow.document.write('<style>.print-hidden { display: none !important; }</style>');
+        printWindow.document.write('<style>.print-hidden { display: none !important; } body { -webkit-print-color-adjust: exact; }</style>');
         printWindow.document.write('<script>setTimeout(() => { window.print(); window.close(); }, 800);</script>');
         printWindow.document.write('</body></html>');
         printWindow.document.close();
@@ -203,13 +296,48 @@ const AssetForm: React.FC = () => {
   };
 
   const handleBulkImport = () => {
-    const validCount = parsedData.filter(d => d.isValid).length;
-    if (validCount === 0) return;
+    const validRows = parsedData.filter(d => d.isValid);
+    if (validRows.length === 0) return;
     
     setIsSubmitting(true);
     setTimeout(() => {
+      const createdAssets: Asset[] = [];
+
+      validRows.forEach((row, idx) => {
+        // Generate Unique Product ID / Tag with Barcode
+        const newId = generateBarcode(row.category);
+        
+        // Create Asset Object
+        const newAsset: Asset = {
+            id: (Date.now() + idx).toString(), // Unique internal ID
+            productId: newId,
+            name: row.name,
+            category: row.category,
+            acquisitionCost: Number(row.cost),
+            acquisitionDate: row.date || new Date().toISOString().split('T')[0],
+            netBookValue: Number(row.cost), // Initial NBV
+            location: row.location,
+            custodian: 'Unassigned', // Bulk upload default
+            status: 'Active',
+            conditionCode: 'A1', // Default to New/Perfect
+            image: `https://picsum.photos/200/200?random=${idx}`
+        };
+
+        createdAssets.push(newAsset);
+      });
+
+      // Update Global Asset Register (Simulated DB)
+      // This automatically updates Reports and Search results
+      MOCK_ASSETS.push(...createdAssets);
+
       setIsSubmitting(false);
-      alert(`Successfully imported ${validCount} assets to the register.`);
+      
+      // Provide detailed feedback with generated tags
+      const tagSummary = createdAssets.map(a => `- ${a.name}: ${a.productId}`).slice(0, 10).join('\n');
+      const moreCount = createdAssets.length > 10 ? `\n...and ${createdAssets.length - 10} more.` : '';
+      
+      alert(`Successfully registered ${createdAssets.length} assets.\n\nGenerated Tags:\n${tagSummary}${moreCount}\n\nThese assets are now live in the Reports and Asset Lookup.`);
+      
       setParsedData([]);
     }, 2000);
   };
@@ -221,7 +349,7 @@ const AssetForm: React.FC = () => {
     const ws = XLSX.utils.json_to_sheet([
       { 
         "Asset Name": "HP EliteBook", 
-        "Category": "IT Equipment", 
+        "Category": "IT and Office Equipment", 
         "Acquisition Cost": 850000, 
         "Acquisition Date": "2023-01-15", 
         "Location": "Abuja HQ",
@@ -230,7 +358,7 @@ const AssetForm: React.FC = () => {
       },
       { 
         "Asset Name": "Office Chair", 
-        "Category": "Furniture", 
+        "Category": "Furniture and Fittings", 
         "Acquisition Cost": 45000, 
         "Acquisition Date": "2023-02-20", 
         "Location": "Lagos Office",
@@ -245,6 +373,16 @@ const AssetForm: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
+      {onBack && (
+        <button 
+          onClick={onBack}
+          className="flex items-center text-sm text-slate-500 hover:text-ptdf-600 mb-6 transition-colors group"
+        >
+          <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
+          Back to Dashboard
+        </button>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Register New Asset</h1>
         
@@ -297,27 +435,29 @@ const AssetForm: React.FC = () => {
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800 mb-2">Registration Successful!</h2>
                 <p className="text-slate-500 mb-8 text-center max-w-md">
-                  The asset has been added to the register. A unique barcode has been generated for tracking.
+                  The asset has been added to the register and assigned a unique ID.
                 </p>
 
-                <div id="asset-tag-card" className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-xl p-6 w-full max-w-sm mb-8 relative">
+                {/* Barcode / Tag Display */}
+                <div id="asset-tag-card" className="bg-slate-50 border-4 border-slate-800 border-double rounded-xl p-6 w-full max-w-sm mb-8 relative">
                   <div className="absolute top-0 right-0 p-2 text-slate-400 print-hidden">
                     <button onClick={handlePrintTag} title="Print Tag">
                       <Printer size={20} className="hover:text-slate-600 cursor-pointer" />
                     </button>
                   </div>
                   <div className="text-center">
-                    <h3 className="font-bold text-slate-900 text-lg mb-1">PTDF ASSET TAG</h3>
-                    <div className="h-16 bg-white border border-slate-300 my-3 flex items-center justify-center overflow-hidden">
+                    <h3 className="font-bold text-slate-900 text-xl mb-1 tracking-tight">PTDF ASSET TAG</h3>
+                    <div className="h-20 bg-white border border-slate-300 my-4 flex items-center justify-center overflow-hidden px-2">
                       {/* CSS Barcode Simulation */}
-                      <div className="flex items-end h-10 space-x-[2px] opacity-80">
-                         {[...Array(30)].map((_, i) => (
-                           <div key={i} className="bg-black w-[2px] sm:w-[3px]" style={{height: `${30 + Math.random() * 70}%`}}></div>
+                      <div className="flex items-end h-14 space-x-[3px] w-full justify-center opacity-90">
+                         {[...Array(40)].map((_, i) => (
+                           <div key={i} className="bg-black" style={{width: Math.random() > 0.5 ? '2px' : '4px', height: `${40 + Math.random() * 60}%`}}></div>
                          ))}
                       </div>
                     </div>
-                    <p className="font-mono text-xl font-bold tracking-widest text-slate-800">{registeredAsset.productId}</p>
-                    <p className="text-xs text-slate-500 mt-1">{registeredAsset.name}</p>
+                    <p className="font-mono text-2xl font-bold tracking-widest text-slate-900">{registeredAsset.productId}</p>
+                    <p className="text-xs text-slate-500 mt-2 font-medium">{registeredAsset.name}</p>
+                    <p className="text-[10px] text-slate-400 mt-2 uppercase">Property of Petroleum Tech. Dev. Fund</p>
                   </div>
                 </div>
 
@@ -345,30 +485,63 @@ const AssetForm: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Asset Name</label>
-                        <input type="text" className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 focus:border-ptdf-500 outline-none" placeholder="e.g. HP EliteBook" />
+                        <input 
+                          type="text" 
+                          value={formData.name}
+                          onChange={(e) => setFormData({...formData, name: e.target.value})}
+                          className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 focus:border-ptdf-500 outline-none" 
+                          placeholder="e.g. HP EliteBook" 
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-                        <select className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none">
+                        <select 
+                          value={formData.category}
+                          onChange={(e) => setFormData({...formData, category: e.target.value})}
+                          className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
+                        >
                           <option value="">Select Category</option>
                           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Acquisition Cost (₦)</label>
-                        <input type="number" className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" placeholder="0.00" />
+                        <input 
+                          type="number" 
+                          value={formData.cost}
+                          onChange={(e) => setFormData({...formData, cost: e.target.value})}
+                          className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" 
+                          placeholder="0.00" 
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Acquisition Date</label>
-                        <input type="date" className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" />
+                        <input 
+                          type="date" 
+                          value={formData.date}
+                          onChange={(e) => setFormData({...formData, date: e.target.value})}
+                          className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" 
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Vendor Name</label>
-                        <input type="text" className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" placeholder="Supplier Name" />
+                        <input 
+                          type="text" 
+                          value={formData.vendor}
+                          onChange={(e) => setFormData({...formData, vendor: e.target.value})}
+                          className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" 
+                          placeholder="Supplier Name" 
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Number</label>
-                        <input type="text" className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" placeholder="INV-####" />
+                        <input 
+                          type="text" 
+                          value={formData.invoice}
+                          onChange={(e) => setFormData({...formData, invoice: e.target.value})}
+                          className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" 
+                          placeholder="INV-####" 
+                        />
                       </div>
                     </div>
                   </div>
@@ -380,22 +553,42 @@ const AssetForm: React.FC = () => {
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div>
                        <label className="block text-sm font-medium text-slate-700 mb-1">Model / Serial Number</label>
-                       <input type="text" className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" placeholder="S/N" />
+                       <input 
+                         type="text" 
+                         value={formData.model}
+                         onChange={(e) => setFormData({...formData, model: e.target.value})}
+                         className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" 
+                         placeholder="S/N" 
+                       />
                      </div>
                      <div>
                        <label className="block text-sm font-medium text-slate-700 mb-1">Expected Useful Life (Years)</label>
-                       <input type="number" className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" placeholder="e.g. 5" />
+                       <input 
+                         type="number" 
+                         value={formData.life}
+                         onChange={(e) => setFormData({...formData, life: e.target.value})}
+                         className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" 
+                         placeholder="e.g. 5" 
+                       />
                      </div>
                      <div>
                        <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
-                       <select className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none">
+                       <select 
+                         value={formData.location}
+                         onChange={(e) => setFormData({...formData, location: e.target.value})}
+                         className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
+                       >
                          <option value="">Select Location</option>
                          {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
                        </select>
                      </div>
                      <div>
                        <label className="block text-sm font-medium text-slate-700 mb-1">Condition</label>
-                       <select className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none">
+                       <select 
+                         value={formData.condition}
+                         onChange={(e) => setFormData({...formData, condition: e.target.value})}
+                         className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
+                       >
                          <option value="New">New</option>
                          <option value="Good">Good</option>
                          <option value="Fair">Fair</option>
@@ -422,14 +615,22 @@ const AssetForm: React.FC = () => {
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div>
                        <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Custodian</label>
-                       <select className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none">
+                       <select 
+                         value={formData.custodian}
+                         onChange={(e) => setFormData({...formData, custodian: e.target.value})}
+                         className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
+                       >
                          <option value="">Search User...</option>
                          {MOCK_USERS.map(u => <option key={u.id} value={u.id}>{u.name} ({u.department})</option>)}
                        </select>
                      </div>
                      <div>
                        <label className="block text-sm font-medium text-slate-700 mb-1">Depreciation Method</label>
-                       <select className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none">
+                       <select 
+                         value={formData.depreciationMethod}
+                         onChange={(e) => setFormData({...formData, depreciationMethod: e.target.value})}
+                         className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
+                       >
                          <option value="Straight-Line">Straight-Line</option>
                          <option value="Double Declining Balance">Double Declining Balance</option>
                          <option value="Sum of Years">Sum of Years</option>
@@ -438,7 +639,13 @@ const AssetForm: React.FC = () => {
                      </div>
                      <div>
                        <label className="block text-sm font-medium text-slate-700 mb-1">Salvage Value (₦)</label>
-                       <input type="number" className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" placeholder="0.00" />
+                       <input 
+                         type="number" 
+                         value={formData.salvageValue}
+                         onChange={(e) => setFormData({...formData, salvageValue: e.target.value})}
+                         className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" 
+                         placeholder="0.00" 
+                       />
                      </div>
                    </div>
                  </div>

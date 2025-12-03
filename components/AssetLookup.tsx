@@ -1,20 +1,25 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Scan, Search, MapPin, User, Calendar, AlertTriangle, ArrowRightLeft, FileText, Camera, X, Loader2, Image as ImageIcon, ChevronRight, ScanLine, Calculator, RefreshCw, Table, Printer, History } from 'lucide-react';
-import { MOCK_ASSETS, MOCK_ASSET_HISTORY } from '../constants';
-import { Asset } from '../types';
+import { Scan, Search, MapPin, User, Calendar, AlertTriangle, ArrowRightLeft, FileText, Camera, X, Loader2, Image as ImageIcon, ChevronRight, ScanLine, Calculator, RefreshCw, Table, Printer, History, Briefcase, Activity, Filter, CheckCircle2, BoxSelect, TrendingUp, Truck, ArrowLeft } from 'lucide-react';
+import { MOCK_ASSETS, MOCK_ASSET_HISTORY, CONDITION_DESCRIPTIONS, LOCATIONS, MOCK_USERS } from '../constants';
+import { Asset, ConditionCode } from '../types';
 import { GoogleGenAI } from "@google/genai";
 
 interface AssetLookupProps {
   initialSearchTerm?: string;
-  isReportMode?: boolean;
+  managementMode?: boolean;
+  onBack?: () => void;
 }
 
-const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isReportMode = false }) => {
+const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', managementMode = false, onBack }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [searchResults, setSearchResults] = useState<Asset[]>([]);
   const [activeAsset, setActiveAsset] = useState<Asset | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'depreciation'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'transfers' | 'depreciation'>('overview');
+
+  // Filters
+  const [conditionFilter, setConditionFilter] = useState<string>('All');
+  const [locationFilter, setLocationFilter] = useState<string>('All');
 
   // Camera & Image Analysis State
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -35,6 +40,23 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
   const [reportType, setReportType] = useState('Damage');
   const [reportDesc, setReportDesc] = useState('');
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  // Transfer Asset State (Wizard & Modal)
+  const [isTransferWizardOpen, setIsTransferWizardOpen] = useState(false);
+  const [transferWizardStep, setTransferWizardStep] = useState<1 | 2>(1);
+  const [transferSearchTerm, setTransferSearchTerm] = useState('');
+  const [transferWizardResults, setTransferWizardResults] = useState<Asset[]>([]);
+  
+  const [isTransferOpen, setIsTransferOpen] = useState(false); // Used for direct asset transfer
+  const [transferAssetTarget, setTransferAssetTarget] = useState<Asset | null>(null); 
+  const [transferLocation, setTransferLocation] = useState('');
+  const [transferCustodian, setTransferCustodian] = useState('');
+  const [isTransferring, setIsTransferring] = useState(false);
+
+  // Update Condition State
+  const [isConditionOpen, setIsConditionOpen] = useState(false);
+  const [newConditionCode, setNewConditionCode] = useState<ConditionCode>('A1');
+  const [isUpdatingCondition, setIsUpdatingCondition] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -56,8 +78,20 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
       setCalcSalvage(0); // Default assumption as data is missing in mock
       setCalcLife(5); // Default assumption
       setCalcDate(activeAsset.acquisitionDate);
+      if (activeAsset.conditionCode) {
+        setNewConditionCode(activeAsset.conditionCode);
+      }
     }
   }, [activeAsset]);
+
+  // Helper to get color for Condition Code
+  const getConditionColor = (code?: ConditionCode) => {
+    if (!code) return 'bg-slate-100 text-slate-700 border-slate-200';
+    if (['A1', 'A2'].includes(code)) return 'bg-green-100 text-green-700 border-green-200'; // Good
+    if (['A3', 'A4'].includes(code)) return 'bg-amber-100 text-amber-800 border-amber-200'; // Fair/Poor
+    if (['F1', 'F2', 'F3'].includes(code)) return 'bg-red-100 text-red-700 border-red-200'; // Damaged
+    return 'bg-slate-100 text-slate-700 border-slate-200';
+  };
 
   const calculateDepreciation = () => {
     if (!calcCost || !calcDate) return 0;
@@ -97,9 +131,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
        let expense = 0;
        
        if (i > 0) {
-         // Simple logic: Full year depreciation for simplicity in this MVP
          expense = i === calcLife ? (currentBookValue - calcSalvage) : annualDepreciation;
-         // Adjust if expense creates negative value (rounding issues)
          if (currentBookValue - expense < calcSalvage) {
             expense = currentBookValue - calcSalvage;
          }
@@ -108,7 +140,6 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
        accumulatedDepreciation += expense;
        currentBookValue -= expense;
 
-       // Stop if we've reached the end of life or value is 0/salvage
        if (i > 0) {
           schedule.push({
             year,
@@ -132,6 +163,80 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
     }, 1500);
   };
 
+  const openTransferModal = (asset: Asset) => {
+    setTransferAssetTarget(asset);
+    setIsTransferOpen(true);
+  };
+
+  const openTransferWizard = () => {
+    setIsTransferWizardOpen(true);
+    setTransferWizardStep(1);
+    setTransferSearchTerm('');
+    setTransferWizardResults([]);
+    setTransferAssetTarget(null);
+  };
+
+  const handleTransferWizardSearch = (term: string) => {
+    setTransferSearchTerm(term);
+    if (!term) {
+        setTransferWizardResults([]);
+        return;
+    }
+    const results = MOCK_ASSETS.filter(a => 
+        a.productId.toLowerCase().includes(term.toLowerCase()) || 
+        a.name.toLowerCase().includes(term.toLowerCase())
+    );
+    setTransferWizardResults(results);
+  };
+
+  const selectAssetForWizard = (asset: Asset) => {
+    setTransferAssetTarget(asset);
+    setTransferWizardStep(2);
+  };
+
+  const submitTransfer = () => {
+    const target = transferAssetTarget || activeAsset;
+    if (!target) return;
+
+    setIsTransferring(true);
+    setTimeout(() => {
+      setIsTransferring(false);
+      setIsTransferOpen(false);
+      setIsTransferWizardOpen(false);
+      
+      // Update local state to reflect change immediately in UI
+      if (activeAsset && activeAsset.id === target.id) {
+        setActiveAsset({
+          ...activeAsset,
+          location: transferLocation,
+          custodian: transferCustodian
+        });
+      }
+
+      // Update search results if present
+      if (searchResults.length > 0) {
+        setSearchResults(prev => prev.map(a => a.id === target.id ? { ...a, location: transferLocation, custodian: transferCustodian } : a));
+      }
+
+      alert(`Asset ${target.productId} successfully transferred to ${transferLocation}.`);
+      setTransferLocation('');
+      setTransferCustodian('');
+      setTransferAssetTarget(null);
+    }, 1500);
+  };
+
+  const submitConditionUpdate = () => {
+    setIsUpdatingCondition(true);
+    setTimeout(() => {
+      setIsUpdatingCondition(false);
+      setIsConditionOpen(false);
+      if (activeAsset) {
+        setActiveAsset({ ...activeAsset, conditionCode: newConditionCode });
+      }
+      alert(`Condition updated to ${newConditionCode} - ${CONDITION_DESCRIPTIONS[newConditionCode]}.`);
+    }, 1000);
+  };
+
   const handlePrintTag = () => {
     if (!activeAsset) return;
 
@@ -141,7 +246,6 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
       printWindow.document.write('<script src="https://cdn.tailwindcss.com"></script>');
       printWindow.document.write('</head><body class="flex flex-col items-center justify-center h-screen bg-white">');
       
-      // Dynamic content for the tag with simulated barcode
       const tagContent = `
         <div class="bg-slate-50 border-4 border-slate-900 border-double rounded-xl p-8 w-96 text-center shadow-none print:shadow-none">
             <h3 class="font-bold text-slate-900 text-2xl mb-2 tracking-tighter">PTDF ASSET TAG</h3>
@@ -166,18 +270,20 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
   // Text Search Logic
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    if (!term.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    const results = MOCK_ASSETS.filter(a =>
-      a.productId.toLowerCase().includes(term.toLowerCase()) ||
-      a.name.toLowerCase().includes(term.toLowerCase()) ||
-      a.category.toLowerCase().includes(term.toLowerCase()) ||
-      a.custodian.toLowerCase().includes(term.toLowerCase())
-    );
-    setSearchResults(results);
-    setActiveAsset(null); // Reset detail view when searching
+    const results = MOCK_ASSETS.filter(a => {
+      const matchesTerm = 
+        a.productId.toLowerCase().includes(term.toLowerCase()) ||
+        a.name.toLowerCase().includes(term.toLowerCase()) ||
+        a.category.toLowerCase().includes(term.toLowerCase()) ||
+        a.custodian.toLowerCase().includes(term.toLowerCase());
+      
+      const matchesCondition = managementMode ? (conditionFilter === 'All' || a.conditionCode === conditionFilter) : true;
+      const matchesLocation = locationFilter === 'All' || a.location === locationFilter;
+      
+      return matchesTerm && matchesCondition && matchesLocation;
+    });
+    setSearchResults(term ? results : []);
+    setActiveAsset(null);
     setIsCalculatorOpen(false);
   };
 
@@ -188,21 +294,14 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
     setActiveTab('overview');
     setPreviewImage(null);
     setIsCalculatorOpen(false);
-    
-    // Auto-open report modal if in report mode
-    if (isReportMode) {
-      setIsReportOpen(true);
-    }
   };
 
-  // Camera Functions
   const startCamera = async () => {
     try {
       setIsCameraOpen(true);
       setActiveAsset(null);
       setSearchResults([]);
       setPreviewImage(null);
-      setIsCalculatorOpen(false);
       
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' }
@@ -210,8 +309,6 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        
-        // Attempt to start native barcode scanning if supported
         if ('BarcodeDetector' in window) {
            startNativeScanner();
         }
@@ -243,19 +340,18 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
                handleNativeScan(code);
              }
           } catch (e) {
-            // Quietly fail for frame errors
+            // Quietly fail
           }
         }
-      }, 500); // Check every 500ms
+      }, 500); 
     } catch (e) {
-      console.error("Native barcode detection failed to initialize", e);
+      console.error("Native scanner init failed", e);
       setIsNativeScanning(false);
     }
   };
 
   const handleNativeScan = (code: string) => {
     stopCamera();
-    // Try to find exact match
     const asset = MOCK_ASSETS.find(a => a.productId === code || a.id === code);
     if (asset) {
       selectAsset(asset);
@@ -292,7 +388,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
         const base64Image = dataUrl.split(',')[1];
         
         stopCamera();
-        setPreviewImage(dataUrl); // Set preview for the analysis screen
+        setPreviewImage(dataUrl); 
         setAnalysisMode(mode);
         analyzeImageWithGemini(base64Image, mode);
       }
@@ -306,7 +402,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
       reader.onloadend = () => {
         const result = reader.result as string;
         const base64String = result.split(',')[1];
-        setPreviewImage(result); // Set preview for the analysis screen
+        setPreviewImage(result);
         setAnalysisMode('general');
         analyzeImageWithGemini(base64String, 'general');
       };
@@ -327,47 +423,15 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      // Context: We provide the current inventory to the model so it can fuzzy match
       const assetInventory = MOCK_ASSETS.map(a => 
         `ID: "${a.id}", ProductCode: "${a.productId}", Name: "${a.name}", Category: "${a.category}"`
       ).join('\n');
 
       let prompt = '';
-      
       if (mode === 'barcode') {
-        prompt = `
-          You are a specialized barcode and text reader for asset management.
-          
-          Task: Analyze this image to find the Asset Product ID.
-          1. Look specifically for barcodes, QR codes, or text labels containing format like 'PTDF-XXXX'.
-          2. Ignore background objects; focus on the label.
-          3. Match the found ID against this inventory list:
-          
-          ${assetInventory}
-          
-          Output:
-          Return ONLY the raw ID (e.g., "1") of the matching asset from the inventory list.
-          If you see a code that matches the format but isn't in the list, return "null".
-          If no code is found, return "null".
-          Do not include any explanation or markdown.
-        `;
+        prompt = `You are a specialized barcode reader. Analyze this image to find the Asset Product ID. Match found ID against this inventory list:\n${assetInventory}\nReturn ONLY the raw ID (e.g., "1") or "null".`;
       } else {
-        prompt = `
-          You are the visual scanner for the PTDF Asset Management System.
-          
-          Task: Identify the asset in this image.
-          1. Look for visual characteristics (laptop, car, chair).
-          2. Also look for any visible text or labels.
-          3. Try to match it to the best candidate in this inventory list:
-          
-          ${assetInventory}
-          
-          Output:
-          Return ONLY the raw ID of the single best matching asset.
-          If you cannot find a strong match, return the string "null".
-          Do not include markdown formatting or extra text.
-        `;
+        prompt = `You are an asset scanner. Identify the asset in this image. Try to match it to this inventory:\n${assetInventory}\nReturn ONLY the raw ID or "null".`;
       }
 
       const response = await ai.models.generateContent({
@@ -382,7 +446,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
         ]
       });
 
-      const resultId = response.text.trim().replace(/['"`]/g, ''); // Clean up quotes
+      const resultId = response.text.trim().replace(/['"`]/g, '');
       console.log(`Gemini identified Asset ID (${mode} mode):`, resultId);
 
       if (resultId && resultId !== "null") {
@@ -394,546 +458,807 @@ const AssetLookup: React.FC<AssetLookupProps> = ({ initialSearchTerm = '', isRep
           setPreviewImage(null);
         }
       } else {
-        alert(mode === 'barcode' 
-          ? "Could not read a valid barcode or Product ID from the image. Try moving closer or using 'Identify Object'." 
-          : "Could not confidently identify an asset from this image. Please try searching by name or ID.");
+        alert("Could not confidentially identify the asset.");
         setPreviewImage(null);
       }
 
     } catch (error) {
       console.error("Gemini analysis failed:", error);
-      alert("Visual analysis failed. Please check your connection.");
+      alert("Visual analysis failed.");
       setPreviewImage(null);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  // Filter history for the active asset and sort by date descending
   const assetHistory = activeAsset 
     ? MOCK_ASSET_HISTORY.filter(h => h.assetId === activeAsset.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     : [];
+    
+  // Filter transfers specifically for the Transfers tab
+  const assetTransfers = assetHistory.filter(h => h.type === 'Transfer');
 
-  // Clean up camera on unmount
   useEffect(() => {
     return () => stopCamera();
   }, []);
 
   return (
-    <div className="max-w-2xl mx-auto pb-24">
-      {/* Hidden Elements */}
+    <div className="max-w-4xl mx-auto pb-24">
       <canvas ref={canvasRef} className="hidden" />
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        accept="image/*" 
-        className="hidden" 
-        onChange={handleFileUpload}
-      />
+      <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={handleFileUpload} />
 
-      {/* Main Search & Action Header */}
-      <div className={`bg-white p-6 rounded-xl shadow-sm border mb-6 space-y-4 ${isReportMode ? 'border-amber-200 bg-amber-50' : 'border-slate-100'}`}>
-        {isReportMode && (
-          <div className="flex items-center gap-2 mb-2 text-amber-800">
-            <AlertTriangle size={24} />
-            <h2 className="text-xl font-bold">Report Asset Issue</h2>
-          </div>
-        )}
+      {onBack && (
+        <button 
+          onClick={() => {
+             // If navigating away from active asset or just back to main dashboard
+             if (activeAsset) {
+                setActiveAsset(null);
+                setSearchResults([]);
+             } else {
+                onBack();
+             }
+          }}
+          className="flex items-center text-sm text-slate-500 hover:text-ptdf-600 mb-6 transition-colors group"
+        >
+          <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
+          {activeAsset ? 'Back to Search' : 'Back to Dashboard'}
+        </button>
+      )}
+
+      {/* Header */}
+      <div className={`bg-white p-6 rounded-xl shadow-sm border mb-6 space-y-4 ${managementMode ? 'border-ptdf-200 bg-ptdf-50' : 'border-slate-100'}`}>
+        <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3 text-ptdf-800">
+                {managementMode ? <Briefcase size={28} /> : <ScanLine size={28} />}
+                <div>
+                    <h2 className="text-2xl font-bold">{managementMode ? 'Asset Management' : 'Asset Lookup'}</h2>
+                    <p className="text-sm text-slate-500 opacity-80">{managementMode ? 'Update conditions, transfer assets, and manage lifecycle.' : 'Scan or search to view asset details.'}</p>
+                </div>
+            </div>
+        </div>
         
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text"
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-            placeholder={isReportMode ? "Find asset to report (ID, Name)..." : "Search assets by ID, Name, Category..."} 
-            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-ptdf-500 outline-none text-slate-700 placeholder:text-slate-400"
-          />
-          {searchTerm && (
-            <button 
-              onClick={() => { setSearchTerm(''); setSearchResults([]); }}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              <X size={16} />
-            </button>
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text"
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder={managementMode ? "Search by ID, Name, or Custodian..." : "Search assets..."} 
+              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-ptdf-500 outline-none text-slate-700"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => { setSearchTerm(''); setSearchResults([]); }}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          <div className="relative w-full md:w-48">
+             <select 
+               value={locationFilter} 
+               onChange={(e) => { setLocationFilter(e.target.value); if(searchTerm) handleSearch(searchTerm); }}
+               className="w-full pl-3 pr-8 py-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-ptdf-500 outline-none text-slate-700 appearance-none"
+             >
+                <option value="All">All Locations</option>
+                {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+             </select>
+             <MapPin className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+          </div>
+          
+          {managementMode && (
+              <div className="relative w-full md:w-48">
+                 <select 
+                   value={conditionFilter} 
+                   onChange={(e) => { setConditionFilter(e.target.value); if(searchTerm) handleSearch(searchTerm); }}
+                   className="w-full pl-3 pr-8 py-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-ptdf-500 outline-none text-slate-700 appearance-none"
+                 >
+                    <option value="All">All Conditions</option>
+                    <option value="A1">A1 - New Perfect</option>
+                    <option value="A2">A2 - Used Good</option>
+                    <option value="A3">A3 - Used Fair</option>
+                    <option value="A4">A4 - Used Poor</option>
+                    <option value="F1">F1 - Minor Repairs</option>
+                    <option value="F2">F2 - Major Repairs</option>
+                    <option value="F3">F3 - Unsalvageable</option>
+                 </select>
+                 <Filter className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+              </div>
           )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-4">
-          <button 
-            onClick={startCamera}
-            className="flex flex-col items-center justify-center p-4 bg-white border border-ptdf-200 rounded-xl text-ptdf-700 hover:bg-ptdf-50 transition-colors shadow-sm"
-          >
-            <Camera size={24} className="mb-2" />
-            <span className="text-sm font-semibold">{isReportMode ? 'Scan to Report' : 'Scan Barcode'}</span>
-          </button>
-          
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center justify-center p-4 bg-white border border-accent-200 rounded-xl text-accent-700 hover:bg-accent-50 transition-colors shadow-sm"
-          >
-            <ImageIcon size={24} className="mb-2" />
-            <span className="text-sm font-semibold">Upload Photo</span>
-          </button>
-        </div>
-        
-        {isReportMode && !searchTerm && !activeAsset && (
-          <p className="text-sm text-slate-500 text-center italic">
-            Scan a barcode or search for an asset to open the report form.
-          </p>
+        {!managementMode && (
+            <div className="grid grid-cols-2 gap-4">
+            <button 
+                onClick={startCamera}
+                className="flex flex-col items-center justify-center p-4 bg-white border border-ptdf-200 rounded-xl text-ptdf-700 hover:bg-ptdf-50 transition-colors shadow-sm"
+            >
+                <Camera size={24} className="mb-2" />
+                <span className="text-sm font-semibold">Scan Barcode</span>
+            </button>
+            
+            <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="flex flex-col items-center justify-center p-4 bg-white border border-accent-200 rounded-xl text-accent-700 hover:bg-accent-50 transition-colors shadow-sm"
+            >
+                <ImageIcon size={24} className="mb-2" />
+                <span className="text-sm font-semibold">Upload Photo</span>
+            </button>
+            </div>
         )}
       </div>
 
-      {/* DYNAMIC CONTENT AREA */}
-
-      {/* 1. Camera View */}
+      {/* Rest of the component (Camera, Search Results, Details) remains same, just ensuring search logic uses filters */}
+      
+      {/* Camera View */}
       {isCameraOpen && (
-        <div className="relative bg-black rounded-xl overflow-hidden shadow-lg mb-6 animate-fadeIn">
+        <div className="relative bg-black rounded-xl overflow-hidden shadow-lg mb-6">
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-96 object-cover" />
           <div className="absolute top-4 right-4 z-20">
-            <button onClick={stopCamera} className="p-2 bg-black/50 text-white rounded-full">
-              <X size={24} />
-            </button>
+            <button onClick={stopCamera} className="p-2 bg-black/50 text-white rounded-full"><X size={24} /></button>
           </div>
-          
-          {/* Scanner Overlay */}
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-            <div className={`w-64 h-40 border-2 rounded-lg relative transition-colors ${isNativeScanning ? 'border-green-400 shadow-[0_0_15px_rgba(74,222,128,0.5)]' : 'border-ptdf-500/70'}`}>
-              <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-ptdf-500 -mt-1 -ml-1"></div>
-              <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-ptdf-500 -mt-1 -mr-1"></div>
-              <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-ptdf-500 -mb-1 -ml-1"></div>
-              <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-ptdf-500 -mb-1 -mr-1"></div>
-              <div className="absolute inset-x-0 top-1/2 h-0.5 bg-red-500/50 animate-pulse"></div>
-            </div>
-          </div>
-
-          {/* Status Indicator */}
-          {isNativeScanning && (
-            <div className="absolute top-4 left-4 z-20 bg-black/50 px-3 py-1 rounded-full flex items-center gap-2">
-               <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-               </span>
-               <span className="text-white text-xs font-medium">Auto-Scanning...</span>
-            </div>
-          )}
-          
-          {/* Dedicated Control Buttons */}
           <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 z-20 px-4">
-            <button 
-              onClick={() => captureAndAnalyze('barcode')}
-              className="flex-1 max-w-[160px] py-3 bg-ptdf-600 text-white rounded-full font-bold shadow-lg hover:bg-ptdf-700 flex items-center justify-center"
-            >
-              <ScanLine size={20} className="mr-2" /> Capture Code
-            </button>
-            <button 
-              onClick={() => captureAndAnalyze('general')}
-              className="flex-1 max-w-[160px] py-3 bg-white text-slate-900 rounded-full font-bold shadow-lg hover:bg-slate-100 flex items-center justify-center"
-            >
-              <Camera size={20} className="mr-2" /> Identify Object
-            </button>
+            <button onClick={() => captureAndAnalyze('barcode')} className="flex-1 py-3 bg-ptdf-600 text-white rounded-full font-bold">Capture Code</button>
+            <button onClick={() => captureAndAnalyze('general')} className="flex-1 py-3 bg-white text-slate-900 rounded-full font-bold">Identify Object</button>
           </div>
         </div>
       )}
 
-      {/* 2. Analyzing State */}
+      {/* Analyzing Loader */}
       {isAnalyzing && (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 text-center mb-6 animate-fadeIn">
-          {previewImage && (
-             <div className="mb-4 relative w-full h-56 bg-slate-50 rounded-lg overflow-hidden border border-slate-100">
-               <img src={previewImage} alt="Scanning" className="w-full h-full object-contain" />
-               <div className="absolute inset-0 bg-white/60 flex items-center justify-center backdrop-blur-[1px]">
-                  <Loader2 size={48} className="animate-spin text-ptdf-600" />
-               </div>
-             </div>
-          )}
-          {!previewImage && <Loader2 size={48} className="animate-spin text-ptdf-600 mx-auto mb-4" />}
-          <h3 className="text-lg font-bold text-slate-800">
-            {analysisMode === 'barcode' ? 'Reading Barcode...' : 'Looking for asset...'}
-          </h3>
-          <p className="text-slate-500">
-            {analysisMode === 'barcode' 
-              ? 'Analyzing image to extract Product ID.' 
-              : 'Analyzing visual features to match inventory.'}
-          </p>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 text-center mb-6">
+           <Loader2 size={48} className="animate-spin text-ptdf-600 mx-auto mb-4" />
+           <p className="text-slate-500">Looking for asset...</p>
         </div>
       )}
 
-      {/* 3. Search Results List */}
+      {/* Search Results */}
       {!activeAsset && searchResults.length > 0 && !isCameraOpen && !isAnalyzing && (
-        <div className="space-y-4 animate-slideIn">
+        <div className="space-y-4">
           <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider ml-1">Search Results ({searchResults.length})</h3>
           {searchResults.map((asset) => (
-            <div 
-              key={asset.id} 
-              onClick={() => selectAsset(asset)}
-              className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between hover:border-ptdf-300 cursor-pointer transition-all"
-            >
-              <div className="flex items-center space-x-4">
+            <div key={asset.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between hover:border-ptdf-300 cursor-pointer transition-all">
+              <div className="flex items-center space-x-4 flex-1" onClick={() => selectAsset(asset)}>
                 <img src={asset.image} alt={asset.name} className="w-12 h-12 rounded-lg object-cover bg-slate-200" />
                 <div>
                   <h4 className="font-bold text-slate-800">{asset.name}</h4>
-                  <p className="text-xs text-slate-500">{asset.productId} • {asset.location}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{asset.productId}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${getConditionColor(asset.conditionCode)}`}>{asset.conditionCode}</span>
+                      <span className="text-[10px] text-slate-500 flex items-center gap-0.5"><MapPin size={10}/> {asset.location}</span>
+                  </div>
                 </div>
               </div>
-              <ChevronRight size={20} className="text-slate-400" />
+              <div className="flex items-center gap-2">
+                 {managementMode && (
+                   <button onClick={() => openTransferModal(asset)} className="p-2 text-ptdf-600 hover:bg-ptdf-50 rounded-lg" title="Quick Transfer">
+                     <ArrowRightLeft size={18} />
+                   </button>
+                 )}
+                 <button onClick={() => selectAsset(asset)} className="p-2 text-slate-400 hover:text-slate-600">
+                    <ChevronRight size={20} />
+                 </button>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* 4. Asset Detail View */}
+      {/* Asset Detail View - (Keeping existing detailed implementation) */}
       {activeAsset && !isCameraOpen && !isAnalyzing && (
         <div className="space-y-4 animate-slideIn">
-          {/* Detail Header */}
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Asset Details</h3>
-            <button onClick={() => { setActiveAsset(null); setPreviewImage(null); }} className="text-sm text-ptdf-600 hover:underline">Back to Search</button>
+            <button onClick={() => { setActiveAsset(null); setPreviewImage(null); }} className="text-sm text-ptdf-600 hover:underline">Back to List</button>
           </div>
 
-          {/* Asset Header Card */}
           <div className="bg-white p-6 rounded-xl shadow-md border-l-4 border-ptdf-600 relative overflow-hidden">
              <div className="flex justify-between items-start relative z-10">
                 <div>
-                   <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full mb-2 ${
-                     activeAsset.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                   }`}>
-                     {activeAsset.status}
-                   </span>
+                   <div className="flex gap-2 mb-2">
+                     <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${activeAsset.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                       {activeAsset.status}
+                     </span>
+                     {activeAsset.conditionCode && (
+                       <span className={`inline-block px-2 py-1 text-xs font-bold rounded-full border ${getConditionColor(activeAsset.conditionCode)}`}>
+                         Condition: {activeAsset.conditionCode}
+                       </span>
+                     )}
+                   </div>
                    <h2 className="text-xl font-bold text-slate-900">{activeAsset.name}</h2>
                    <p className="text-sm font-mono text-slate-500 mt-1">{activeAsset.productId}</p>
+                   {activeAsset.conditionCode && (
+                     <p className="text-xs text-slate-500 mt-2 font-medium">{CONDITION_DESCRIPTIONS[activeAsset.conditionCode]}</p>
+                   )}
+                   <div className="mt-4 text-sm text-slate-600 space-y-1">
+                       <p><span className="font-semibold">Location:</span> {activeAsset.location}</p>
+                       <p><span className="font-semibold">Custodian:</span> {activeAsset.custodian}</p>
+                   </div>
                 </div>
-                <img src={activeAsset.image} alt="Asset" className="w-16 h-16 rounded-lg object-cover bg-slate-200" />
+                <img src={activeAsset.image} alt="Asset" className="w-24 h-24 rounded-lg object-cover bg-slate-200 border border-slate-200" />
              </div>
           </div>
 
-          {/* DEPRECIATION CALCULATOR MODAL / VIEW */}
-          {isCalculatorOpen ? (
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-ptdf-200 animate-fadeIn">
-              <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <div className="flex items-center text-ptdf-700">
-                  <Calculator className="mr-2" size={20} />
-                  <h3 className="font-bold text-lg">Depreciation Estimator</h3>
-                </div>
-                <button onClick={() => setIsCalculatorOpen(false)} className="text-slate-400 hover:text-slate-600">
-                  <X size={20} />
-                </button>
-              </div>
+           {/* Tab Navigation */}
+           <div className="flex space-x-1 bg-slate-100 p-1 rounded-xl">
+             <button 
+               onClick={() => setActiveTab('overview')}
+               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'overview' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+             >
+               Overview
+             </button>
+             <button 
+               onClick={() => setActiveTab('history')}
+               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'history' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+             >
+               Full History
+             </button>
+             <button 
+               onClick={() => setActiveTab('transfers')}
+               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'transfers' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+             >
+               Transfer Log
+             </button>
+             <button 
+               onClick={() => setActiveTab('depreciation')}
+               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'depreciation' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+             >
+               Depreciation
+             </button>
+           </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Purchase Date</label>
-                  <input 
-                    type="date" 
-                    value={calcDate}
-                    onChange={(e) => setCalcDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Acquisition Cost (₦)</label>
-                  <input 
-                    type="number" 
-                    value={calcCost}
-                    onChange={(e) => setCalcCost(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Salvage Value (₦)</label>
-                  <input 
-                    type="number" 
-                    value={calcSalvage}
-                    onChange={(e) => setCalcSalvage(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Useful Life (Years)</label>
-                  <input 
-                    type="number" 
-                    value={calcLife}
-                    onChange={(e) => setCalcLife(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="bg-slate-900 rounded-xl p-6 text-white text-center">
-                <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">Estimated Book Value</p>
-                <div className="text-3xl font-bold font-mono">
-                  ₦{calculateDepreciation().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <p className="text-xs text-slate-500 mt-2">Based on Straight-Line Method</p>
-              </div>
-
-              <button 
-                onClick={() => setIsCalculatorOpen(false)}
-                className="w-full mt-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors"
-              >
-                Close Calculator
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* Normal Tabs */}
-              <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg">
-                <button 
-                  onClick={() => setActiveTab('overview')}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                    activeTab === 'overview' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  Overview
-                </button>
-                <button 
-                  onClick={() => setActiveTab('history')}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                    activeTab === 'history' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  History
-                </button>
-                <button 
-                  onClick={() => setActiveTab('depreciation')}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                    activeTab === 'depreciation' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  Depreciation
-                </button>
-              </div>
-
-              {/* Overview Tab Content */}
-              {activeTab === 'overview' && (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 animate-fadeIn">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Financial & Location</h3>
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Net Book Value</p>
-                      <p className="text-lg font-bold text-slate-800">₦{activeAsset.netBookValue.toLocaleString()}</p>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Acquisition Cost</p>
-                      <p className="text-lg font-bold text-slate-800">₦{activeAsset.acquisitionCost.toLocaleString()}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-start">
-                      <MapPin className="text-ptdf-500 mt-1 mr-3" size={18} />
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">Current Location</p>
-                        <p className="text-sm text-slate-500">{activeAsset.location}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start">
-                      <User className="text-ptdf-500 mt-1 mr-3" size={18} />
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">Custodian</p>
-                        <p className="text-sm text-slate-500">{activeAsset.custodian}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start">
-                      <Calendar className="text-ptdf-500 mt-1 mr-3" size={18} />
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">Acquisition Date</p>
-                        <p className="text-sm text-slate-500">{activeAsset.acquisitionDate}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* History Tab Content */}
-              {activeTab === 'history' && (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 animate-fadeIn">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Asset Audit Log & History</h3>
-                  
-                  {assetHistory.length > 0 ? (
-                    <div className="relative border-l-2 border-slate-200 ml-3 space-y-8 pl-6 py-2">
-                      {assetHistory.map((event) => (
-                        <div key={event.id} className="relative group">
-                          {/* Dot Indicator */}
-                          <div className={`absolute -left-[31px] h-4 w-4 rounded-full border-2 border-white shadow-sm ring-2 ring-white transition-all ${
-                            event.type === 'Audit' ? 'bg-green-500' :
-                            event.type === 'Maintenance' ? 'bg-amber-500' :
-                            event.type === 'Issue' ? 'bg-red-500' :
-                            event.type === 'Registration' ? 'bg-slate-500' : 'bg-blue-500'
-                          }`}></div>
-                          
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
-                            <div>
-                              <p className="text-sm font-bold text-slate-800">{event.action}</p>
-                              <p className="text-xs text-slate-600 mt-1 leading-relaxed">{event.details}</p>
-                              <p className="text-xs text-slate-400 mt-1 flex items-center gap-1 font-medium">
-                                <User size={12} /> {event.user}
-                              </p>
-                            </div>
-                            <span className="text-xs font-mono text-slate-400 whitespace-nowrap bg-slate-50 px-2 py-1 rounded border border-slate-100 self-start mt-2 sm:mt-0">
-                              {event.date}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                      <History size={32} className="mx-auto text-slate-300 mb-2" />
-                      <p className="text-sm text-slate-500 font-medium">No detailed history records found.</p>
-                      <p className="text-xs text-slate-400">Activities like transfers and audits will appear here.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Depreciation Schedule Tab Content */}
-              {activeTab === 'depreciation' && (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 animate-fadeIn">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Depreciation Schedule</h3>
-                    <button onClick={() => setIsCalculatorOpen(true)} className="text-xs text-ptdf-600 flex items-center hover:underline">
-                      <Calculator size={14} className="mr-1" /> Adjust Parameters
-                    </button>
-                  </div>
-                  
-                  <div className="bg-slate-50 p-3 rounded-lg mb-4 text-xs text-slate-600 flex justify-between">
-                     <span><strong>Method:</strong> Straight-Line</span>
-                     <span><strong>Useful Life:</strong> {calcLife} Years</span>
-                     <span><strong>Salvage:</strong> ₦{calcSalvage.toLocaleString()}</span>
-                  </div>
-
-                  <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-slate-50 text-slate-500">
-                        <tr>
-                          <th className="p-3 font-semibold border-b">Year</th>
-                          <th className="p-3 font-semibold border-b text-right">Opening</th>
-                          <th className="p-3 font-semibold border-b text-right">Expense</th>
-                          <th className="p-3 font-semibold border-b text-right">Accumulated</th>
-                          <th className="p-3 font-semibold border-b text-right">Closing</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {generateDepreciationSchedule().map((row) => (
-                          <tr key={row.year} className="hover:bg-slate-50">
-                            <td className="p-3 font-medium text-slate-700">{row.year}</td>
-                            <td className="p-3 text-right text-slate-600">₦{Math.round(row.opening).toLocaleString()}</td>
-                            <td className="p-3 text-right text-red-500 font-medium">-₦{Math.round(row.expense).toLocaleString()}</td>
-                            <td className="p-3 text-right text-slate-600">₦{Math.round(row.accumulated).toLocaleString()}</td>
-                            <td className="p-3 text-right font-bold text-slate-800">₦{Math.round(row.closing).toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-1 gap-3 pt-2">
-                <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    onClick={handlePrintTag}
-                    className="flex items-center justify-center p-3 bg-ptdf-50 border border-ptdf-200 rounded-xl text-ptdf-700 font-medium hover:bg-ptdf-100 shadow-sm transition-colors"
-                  >
-                    <Printer size={18} className="mr-2" />
-                    Print Asset Tag
-                  </button>
-                  <button className="flex items-center justify-center p-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 shadow-sm transition-colors">
-                    <ArrowRightLeft size={18} className="mr-2 text-slate-500" />
-                    Initiate Transfer
-                  </button>
-                </div>
-                
-                <button 
-                  onClick={() => setIsReportOpen(true)}
-                  className={`flex items-center justify-center p-3 border rounded-xl font-medium shadow-sm transition-colors ${isReportMode ? 'bg-red-600 text-white border-red-700 hover:bg-red-700' : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'}`}
-                >
-                  <AlertTriangle size={18} className={`mr-2 ${isReportMode ? 'text-white' : 'text-amber-600'}`} />
-                  {isReportMode ? 'Log Issue Now' : 'Report Condition Issue'}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* REPORT ISSUE MODAL */}
-      {isReportOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 animate-fadeIn p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-800">Report Asset Issue</h3>
-              <button onClick={() => setIsReportOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-            </div>
-            
-            <div className="space-y-4">
-              {activeAsset && (
-                 <div className="bg-slate-50 p-3 rounded-lg flex items-center gap-3">
-                    <img src={activeAsset.image} className="w-10 h-10 rounded object-cover" />
-                    <div>
-                       <p className="text-sm font-bold text-slate-900">{activeAsset.name}</p>
-                       <p className="text-xs text-slate-500">{activeAsset.productId}</p>
-                    </div>
+           {/* Tabs Content */}
+           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 min-h-[300px]">
+             {activeTab === 'overview' && (
+               <div className="space-y-6">
+                 <div className="grid grid-cols-2 gap-6">
+                   <div>
+                     <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Financials</p>
+                     <p className="text-sm text-slate-600">Acquisition: <span className="font-bold">₦{activeAsset.acquisitionCost.toLocaleString()}</span></p>
+                     <p className="text-sm text-slate-600">NBV: <span className="font-bold text-ptdf-700">₦{activeAsset.netBookValue.toLocaleString()}</span></p>
+                     <p className="text-xs text-slate-400 mt-1">Purchased: {activeAsset.acquisitionDate}</p>
+                   </div>
+                   <div>
+                     <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Category</p>
+                     <p className="text-sm font-medium text-slate-800">{activeAsset.category}</p>
+                   </div>
                  </div>
-              )}
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Issue Type</label>
-                <select 
-                  value={reportType}
-                  onChange={(e) => setReportType(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-ptdf-500"
-                >
-                  <option value="Damage">Physical Damage</option>
-                  <option value="Malfunction">Functional Malfunction</option>
-                  <option value="Lost">Lost / Stolen</option>
-                  <option value="Maintenance">Routine Maintenance Needed</option>
-                </select>
-              </div>
-              <div>
-                 <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                 <textarea 
-                   value={reportDesc}
-                   onChange={(e) => setReportDesc(e.target.value)}
-                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg h-24 resize-none outline-none focus:ring-2 focus:ring-ptdf-500"
-                   placeholder="Describe the issue in detail..."
-                 />
-              </div>
-            </div>
+                 {isCalculatorOpen && (
+                   <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mt-4 animate-fadeIn">
+                      <div className="flex items-center gap-2 mb-3 text-ptdf-700 font-bold border-b border-slate-200 pb-2">
+                         <Calculator size={18} />
+                         <span>Depreciation Calculator (Straight Line)</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                         <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Cost (₦)</label>
+                            <input type="number" value={calcCost} onChange={e => setCalcCost(Number(e.target.value))} className="w-full p-2 rounded border border-slate-300 text-sm bg-white" />
+                         </div>
+                         <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Salvage Value (₦)</label>
+                            <input type="number" value={calcSalvage} onChange={e => setCalcSalvage(Number(e.target.value))} className="w-full p-2 rounded border border-slate-300 text-sm bg-white" />
+                         </div>
+                         <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Useful Life (Years)</label>
+                            <input type="number" value={calcLife} onChange={e => setCalcLife(Number(e.target.value))} className="w-full p-2 rounded border border-slate-300 text-sm bg-white" />
+                         </div>
+                         <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Purchase Date</label>
+                            <input type="date" value={calcDate} onChange={e => setCalcDate(e.target.value)} className="w-full p-2 rounded border border-slate-300 text-sm bg-white" />
+                         </div>
+                      </div>
+                      <div className="flex justify-between items-center bg-white p-3 rounded border border-slate-200">
+                         <span className="text-sm text-slate-600 font-medium">Estimated Current Book Value:</span>
+                         <span className="text-lg font-bold text-ptdf-700">₦{Math.round(calculateDepreciation()).toLocaleString()}</span>
+                      </div>
+                   </div>
+                 )}
+                 {!isCalculatorOpen && (
+                   <button onClick={() => setIsCalculatorOpen(true)} className="w-full py-2 bg-slate-50 text-ptdf-600 font-medium rounded-lg hover:bg-slate-100 flex items-center justify-center gap-2 text-sm border border-slate-200 transition-colors">
+                      <Calculator size={16} /> Open Depreciation Calculator
+                   </button>
+                 )}
+               </div>
+             )}
 
-            <div className="flex justify-end gap-3 mt-6">
-              <button 
-                onClick={() => setIsReportOpen(false)}
-                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={submitReport}
-                disabled={isSubmittingReport || !reportDesc}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center disabled:opacity-50"
-              >
-                {isSubmittingReport && <Loader2 size={16} className="animate-spin mr-2" />}
-                Submit Report
-              </button>
-            </div>
+             {activeTab === 'history' && (
+               <div className="space-y-0 relative">
+                  <div className="absolute left-6 top-4 bottom-4 w-px bg-slate-200"></div>
+                  {assetHistory.map((event, idx) => (
+                    <div key={event.id} className="relative pl-14 py-3 group">
+                       <div className={`absolute left-4 top-4 w-4 h-4 rounded-full border-2 border-white shadow-sm z-10 ${
+                         event.type === 'Registration' ? 'bg-green-500' : 
+                         event.type === 'Issue' ? 'bg-red-500' :
+                         event.type === 'Transfer' ? 'bg-blue-500' :
+                         event.type === 'Maintenance' ? 'bg-amber-500' : 'bg-slate-400'
+                       }`}></div>
+                       
+                       <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm hover:shadow-md hover:border-ptdf-200 transition-all">
+                          <div className="flex justify-between items-start mb-1">
+                             <h4 className="text-sm font-bold text-slate-800">{event.action}</h4>
+                             <span className="text-xs text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">{event.date}</span>
+                          </div>
+                          <p className="text-xs text-slate-600 mb-2">{event.details}</p>
+                          <div className="flex items-center text-xs text-slate-400">
+                             <User size={12} className="mr-1" />
+                             {event.user}
+                          </div>
+                       </div>
+                    </div>
+                  ))}
+                  {assetHistory.length === 0 && <p className="text-center text-slate-400 py-8">No history available.</p>}
+               </div>
+             )}
+
+             {activeTab === 'transfers' && (
+               <div className="animate-fadeIn">
+                 <h4 className="text-sm font-bold text-slate-700 mb-4 flex items-center">
+                   <Truck size={16} className="mr-2 text-ptdf-600" />
+                   Movement History
+                 </h4>
+                 {assetTransfers.length > 0 ? (
+                   <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                     <table className="w-full text-left text-sm">
+                       <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                         <tr>
+                           <th className="p-3 font-semibold w-32">Date</th>
+                           <th className="p-3 font-semibold">From Location</th>
+                           <th className="p-3 font-semibold">To Location</th>
+                           <th className="p-3 font-semibold">Custodian</th>
+                           <th className="p-3 font-semibold">Authorized By</th>
+                         </tr>
+                       </thead>
+                       <tbody className="divide-y divide-slate-100">
+                         {assetTransfers.map((event) => (
+                           <tr key={event.id} className="hover:bg-slate-50">
+                             <td className="p-3 text-slate-600 font-mono text-xs">{event.date.split(' ')[0]}</td>
+                             <td className="p-3 text-slate-700">
+                                {event.fromLocation ? (
+                                  <span className="flex items-center gap-1"><MapPin size={12} className="text-red-400"/> {event.fromLocation}</span>
+                                ) : <span className="text-slate-400 italic">--</span>}
+                             </td>
+                             <td className="p-3 text-slate-800 font-medium">
+                                {event.toLocation ? (
+                                  <span className="flex items-center gap-1"><MapPin size={12} className="text-green-500"/> {event.toLocation}</span>
+                                ) : <span className="text-slate-400 italic">--</span>}
+                             </td>
+                             <td className="p-3 text-slate-600">
+                                {event.toCustodian || <span className="text-slate-400 italic">--</span>}
+                             </td>
+                             <td className="p-3 text-xs text-slate-500">{event.user}</td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                   </div>
+                 ) : (
+                   <div className="text-center py-12 bg-slate-50 rounded-lg border border-slate-200 border-dashed">
+                      <ArrowRightLeft size={32} className="mx-auto mb-2 text-slate-300" />
+                      <p className="text-slate-500 font-medium">No Transfer Records Found</p>
+                      <p className="text-xs text-slate-400">This asset has not been moved since registration.</p>
+                   </div>
+                 )}
+               </div>
+             )}
+
+             {activeTab === 'depreciation' && (
+               <div className="animate-fadeIn">
+                 <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-sm font-bold text-slate-700 flex items-center">
+                      <TrendingUp size={16} className="mr-2 text-ptdf-600" />
+                      Depreciation Schedule (Projected)
+                    </h4>
+                    <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">Method: Straight Line</span>
+                 </div>
+                 
+                 <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-60">
+                    <table className="w-full text-left text-sm">
+                       <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0">
+                          <tr>
+                             <th className="p-3 font-semibold">Year</th>
+                             <th className="p-3 font-semibold text-right">Opening Value</th>
+                             <th className="p-3 font-semibold text-right">Expense</th>
+                             <th className="p-3 font-semibold text-right">Accumulated</th>
+                             <th className="p-3 font-semibold text-right">Closing Value</th>
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-slate-100">
+                          {generateDepreciationSchedule().map((row, idx) => (
+                             <tr key={idx} className="hover:bg-slate-50">
+                                <td className="p-3 font-medium text-slate-800">{row.year}</td>
+                                <td className="p-3 text-right text-slate-600">₦{Math.round(row.opening).toLocaleString()}</td>
+                                <td className="p-3 text-right text-red-500 font-medium">-₦{Math.round(row.expense).toLocaleString()}</td>
+                                <td className="p-3 text-right text-slate-600">₦{Math.round(row.accumulated).toLocaleString()}</td>
+                                <td className="p-3 text-right font-bold text-ptdf-700">₦{Math.round(row.closing).toLocaleString()}</td>
+                             </tr>
+                          ))}
+                          {generateDepreciationSchedule().length === 0 && (
+                            <tr><td colSpan={5} className="p-4 text-center text-slate-500">Missing acquisition date or cost data.</td></tr>
+                          )}
+                       </tbody>
+                    </table>
+                 </div>
+               </div>
+             )}
+           </div>
+
+          {/* Action Buttons Grid */}
+          <div className="grid grid-cols-2 gap-3 pt-2">
+             <button onClick={handlePrintTag} className="p-4 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 flex flex-col items-center justify-center gap-2 shadow-sm">
+               <Printer size={20} className="text-slate-400" /> 
+               <span>Print Tag</span>
+             </button>
+             
+             {managementMode ? (
+                <>
+                <button onClick={() => openTransferModal(activeAsset)} className="p-4 bg-ptdf-600 text-white rounded-xl font-medium hover:bg-ptdf-700 flex flex-col items-center justify-center gap-2 shadow-md">
+                    <ArrowRightLeft size={20} /> 
+                    <span>Transfer Asset</span>
+                </button>
+
+                <button onClick={() => setIsConditionOpen(true)} className="p-4 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 flex flex-col items-center justify-center gap-2 shadow-sm">
+                    <Activity size={20} className="text-blue-500" /> 
+                    <span>Update Condition</span>
+                </button>
+                </>
+             ) : (
+                <button onClick={() => openTransferModal(activeAsset)} className="p-4 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 flex flex-col items-center justify-center gap-2 shadow-sm">
+                    <ArrowRightLeft size={20} className="text-slate-400" /> 
+                    <span>Transfer</span>
+                </button>
+             )}
+             
+             <button onClick={() => setIsReportOpen(true)} className="p-4 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl font-medium hover:bg-amber-100 flex flex-col items-center justify-center gap-2 shadow-sm">
+                <AlertTriangle size={20} className="text-amber-600" /> 
+                <span>Report Issue</span>
+             </button>
           </div>
         </div>
       )}
 
-      {/* Empty State */}
-      {!activeAsset && !isCameraOpen && !isAnalyzing && searchResults.length === 0 && (
+      {/* DEFAULT MANAGEMENT DASHBOARD (When in management mode and no asset selected) - (Keeping existing) */}
+      {managementMode && !activeAsset && !searchTerm && searchResults.length === 0 && (
+          <div className="mt-8">
+              {/* Quick Actions Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                  <div 
+                    onClick={openTransferWizard} 
+                    className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:border-ptdf-500 transition-all group relative overflow-hidden"
+                  >
+                      <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10">
+                          <ArrowRightLeft size={80} className="text-ptdf-600" />
+                      </div>
+                      <div className="flex items-center gap-4 relative z-10">
+                          <div className="bg-ptdf-50 p-4 rounded-full text-ptdf-600 group-hover:bg-ptdf-600 group-hover:text-white transition-colors">
+                              <ArrowRightLeft size={24} />
+                          </div>
+                          <div>
+                              <h3 className="font-bold text-lg text-slate-800">Transfer Asset</h3>
+                              <p className="text-sm text-slate-500">Move asset to new branch or custodian</p>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div 
+                    onClick={() => { /* Could open a generic issue log */ }} 
+                    className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:border-amber-500 transition-all group relative overflow-hidden"
+                  >
+                      <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10">
+                          <AlertTriangle size={80} className="text-amber-600" />
+                      </div>
+                      <div className="flex items-center gap-4 relative z-10">
+                          <div className="bg-amber-50 p-4 rounded-full text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                              <AlertTriangle size={24} />
+                          </div>
+                          <div>
+                              <h3 className="font-bold text-lg text-slate-800">Log Incident</h3>
+                              <p className="text-sm text-slate-500">Report damage, loss, or maintenance needs</p>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <h3 className="text-lg font-bold text-slate-800 mb-4">Assets Needing Attention</h3>
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                          <tr>
+                              <th className="p-4 font-semibold">Asset</th>
+                              <th className="p-4 font-semibold">Location</th>
+                              <th className="p-4 font-semibold">Current Condition</th>
+                              <th className="p-4 font-semibold text-right">Action</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                          {MOCK_ASSETS.filter(a => ['F1', 'F2', 'F3', 'A3', 'A4'].includes(a.conditionCode || '')).map(asset => (
+                              <tr key={asset.id} className="hover:bg-slate-50">
+                                  <td className="p-4">
+                                      <div className="font-bold text-slate-800">{asset.name}</div>
+                                      <div className="text-xs text-slate-500">{asset.productId}</div>
+                                  </td>
+                                  <td className="p-4 text-slate-600">{asset.location}</td>
+                                  <td className="p-4">
+                                      <span className={`inline-block px-2 py-1 text-xs font-bold rounded border ${getConditionColor(asset.conditionCode)}`}>
+                                          {asset.conditionCode}
+                                      </span>
+                                  </td>
+                                  <td className="p-4 text-right flex justify-end gap-2">
+                                      <button onClick={() => openTransferModal(asset)} className="text-slate-600 hover:text-ptdf-600 p-1.5 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors" title="Transfer Asset">
+                                          <ArrowRightLeft size={16} />
+                                      </button>
+                                      <button onClick={() => selectAsset(asset)} className="text-ptdf-600 hover:text-ptdf-800 font-medium text-xs border border-ptdf-200 px-3 py-1.5 rounded-lg hover:bg-ptdf-50 transition-colors">
+                                          Manage
+                                      </button>
+                                  </td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+                  {MOCK_ASSETS.filter(a => ['F1', 'F2', 'F3', 'A3', 'A4'].includes(a.conditionCode || '')).length === 0 && (
+                      <div className="p-8 text-center text-slate-500 flex flex-col items-center">
+                          <CheckCircle2 size={32} className="text-green-500 mb-2 opacity-50" />
+                          <p>All assets are in Good Condition (A1/A2).</p>
+                          <p className="text-xs mt-2">Use search to find assets for transfer.</p>
+                      </div>
+                  )}
+              </div>
+          </div>
+      )}
+
+      {/* Transfer Wizard, Condition Update, Transfer Modal, Report Modal are kept as is ... */}
+      {/* ... (Including rest of the existing modals to ensure nothing breaks) ... */}
+      {isTransferWizardOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl animate-blob">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold text-slate-800">Asset Transfer Wizard</h3>
+                    <button onClick={() => setIsTransferWizardOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                </div>
+
+                {/* Wizard Step 1: Search */}
+                {transferWizardStep === 1 && (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Step 1: Find Asset to Transfer</label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                                <input 
+                                    type="text" 
+                                    autoFocus
+                                    placeholder="Search by name or ID..."
+                                    value={transferSearchTerm}
+                                    onChange={(e) => handleTransferWizardSearch(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg bg-slate-50">
+                            {transferWizardResults.length > 0 ? (
+                                transferWizardResults.map(asset => (
+                                    <div 
+                                        key={asset.id} 
+                                        onClick={() => selectAssetForWizard(asset)}
+                                        className="p-3 border-b border-slate-100 last:border-0 hover:bg-white cursor-pointer flex justify-between items-center"
+                                    >
+                                        <div>
+                                            <p className="font-bold text-sm text-slate-800">{asset.name}</p>
+                                            <p className="text-xs text-slate-500">{asset.productId}</p>
+                                        </div>
+                                        <ChevronRight size={16} className="text-slate-400" />
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="p-8 text-center text-slate-400 text-sm">
+                                    {transferSearchTerm ? 'No assets found.' : 'Start typing to find an asset.'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Wizard Step 2: Details */}
+                {transferWizardStep === 2 && transferAssetTarget && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between bg-ptdf-50 p-3 rounded-lg border border-ptdf-100">
+                             <div>
+                                 <p className="text-xs text-ptdf-600 font-bold uppercase">Selected Asset</p>
+                                 <p className="font-bold text-slate-800">{transferAssetTarget.name}</p>
+                                 <p className="text-xs text-slate-500">{transferAssetTarget.productId}</p>
+                             </div>
+                             <button onClick={() => setTransferWizardStep(1)} className="text-xs text-ptdf-600 underline">Change</button>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">New Location</label>
+                            <select 
+                                className="w-full p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-ptdf-500" 
+                                value={transferLocation} 
+                                onChange={e => setTransferLocation(e.target.value)}
+                            >
+                                <option value="">Select Destination Branch/Location</option>
+                                {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">New Custodian</label>
+                            <select 
+                                className="w-full p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-ptdf-500" 
+                                value={transferCustodian} 
+                                onChange={e => setTransferCustodian(e.target.value)}
+                            >
+                                <option value="">Select Receiving Custodian</option>
+                                {MOCK_USERS.map(u => <option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}
+                            </select>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button onClick={() => setIsTransferWizardOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                            <button 
+                                onClick={submitTransfer} 
+                                disabled={!transferLocation || !transferCustodian || isTransferring} 
+                                className="px-4 py-2 bg-ptdf-600 text-white rounded-lg flex items-center disabled:opacity-50 hover:bg-ptdf-700"
+                            >
+                                {isTransferring && <Loader2 size={16} className="animate-spin mr-2" />} Confirm Transfer
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+      )}
+
+      {/* Legacy/Direct Modals */}
+      {isConditionOpen && (
+            <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl animate-blob">
+                 <h3 className="text-lg font-bold text-slate-800 mb-4">Update Asset Condition</h3>
+                 <div className="space-y-2 mb-6 max-h-80 overflow-y-auto">
+                    {(Object.keys(CONDITION_DESCRIPTIONS) as ConditionCode[]).map((code) => (
+                      <label key={code} className={`flex items-center p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-all ${newConditionCode === code ? 'border-ptdf-500 bg-ptdf-50 ring-1 ring-ptdf-500' : 'border-slate-200'}`}>
+                         <input 
+                           type="radio" 
+                           name="condition" 
+                           className="text-ptdf-600 focus:ring-ptdf-500 mr-3"
+                           checked={newConditionCode === code}
+                           onChange={() => setNewConditionCode(code)}
+                         />
+                         <div>
+                            <span className={`inline-block px-2 py-0.5 text-xs font-bold rounded mr-2 border ${getConditionColor(code)}`}>{code}</span>
+                            <span className="text-sm text-slate-600">{CONDITION_DESCRIPTIONS[code]}</span>
+                         </div>
+                      </label>
+                    ))}
+                 </div>
+                 <div className="flex justify-end gap-3">
+                   <button onClick={() => setIsConditionOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                   <button onClick={submitConditionUpdate} className="px-4 py-2 bg-ptdf-600 text-white rounded-lg flex items-center hover:bg-ptdf-700">
+                     {isUpdatingCondition && <Loader2 size={16} className="animate-spin mr-2" />} Update Status
+                   </button>
+                 </div>
+              </div>
+            </div>
+          )}
+
+          {isTransferOpen && (
+            <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl animate-blob">
+                 <h3 className="text-lg font-bold text-slate-800 mb-2">Transfer Asset</h3>
+                 <p className="text-sm text-slate-500 mb-6">
+                    Moving <span className="font-semibold text-slate-700">{(transferAssetTarget || activeAsset)?.name}</span> ({(transferAssetTarget || activeAsset)?.productId})
+                 </p>
+                 
+                 <div className="space-y-4 mb-6">
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                         <p className="text-xs text-slate-400 uppercase font-semibold">Current Location</p>
+                         <div className="flex items-center gap-2 mt-1 text-slate-700 font-medium">
+                            <MapPin size={16} />
+                            {(transferAssetTarget || activeAsset)?.location}
+                         </div>
+                    </div>
+
+                    <div className="relative">
+                        <div className="absolute left-6 -top-3 w-0.5 h-4 bg-slate-200"></div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">New Location</label>
+                      <select 
+                        className="w-full p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-ptdf-500" 
+                        value={transferLocation} 
+                        onChange={e => setTransferLocation(e.target.value)}
+                      >
+                        <option value="">Select Destination Branch/Location</option>
+                        {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">New Custodian</label>
+                      <select 
+                        className="w-full p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-ptdf-500" 
+                        value={transferCustodian} 
+                        onChange={e => setTransferCustodian(e.target.value)}
+                      >
+                        <option value="">Select Receiving Custodian</option>
+                        {MOCK_USERS.map(u => <option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}
+                      </select>
+                    </div>
+                 </div>
+                 <div className="flex justify-end gap-3">
+                   <button onClick={() => setIsTransferOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                   <button onClick={submitTransfer} disabled={!transferLocation || !transferCustodian || isTransferring} className="px-4 py-2 bg-ptdf-600 text-white rounded-lg flex items-center disabled:opacity-50 hover:bg-ptdf-700">
+                     {isTransferring && <Loader2 size={16} className="animate-spin mr-2" />} Confirm Transfer
+                   </button>
+                 </div>
+              </div>
+            </div>
+          )}
+
+          {isReportOpen && (
+            <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 animate-fadeIn p-4">
+              <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-slate-800">Report Asset Issue</h3>
+                  <button onClick={() => setIsReportOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Issue Type</label>
+                    <select 
+                      value={reportType}
+                      onChange={(e) => setReportType(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-ptdf-500"
+                    >
+                      <option value="Damage">Physical Damage</option>
+                      <option value="Malfunction">Functional Malfunction</option>
+                      <option value="Lost">Lost / Stolen</option>
+                      <option value="Maintenance">Routine Maintenance Needed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <textarea 
+                      value={reportDesc}
+                      onChange={(e) => setReportDesc(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg h-24 resize-none outline-none focus:ring-2 focus:ring-ptdf-500"
+                      placeholder="Describe the issue in detail..."
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 mt-6">
+                  <button 
+                    onClick={() => setIsReportOpen(false)}
+                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={submitReport}
+                    disabled={isSubmittingReport || !reportDesc}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center disabled:opacity-50"
+                  >
+                    {isSubmittingReport && <Loader2 size={16} className="animate-spin mr-2" />}
+                    Submit Report
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+      {!managementMode && !activeAsset && !isCameraOpen && !isAnalyzing && searchResults.length === 0 && (
         <div className="text-center py-16 text-slate-400">
-          <Scan size={48} className="mx-auto mb-4 opacity-20" />
+          <ScanLine size={48} className="mx-auto mb-4 opacity-20" />
           <p className="text-lg font-medium text-slate-500">
-             {isReportMode ? 'Start Report Process' : 'Ready to Search'}
+             Asset Lookup
           </p>
           <p className="text-sm">
-             {isReportMode ? 'Scan or search for the asset you want to report.' : 'Scan a barcode, upload a photo, or search by text.'}
+             Scan a barcode or search by ID/Name/Location to view details.
           </p>
         </div>
       )}
