@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  /* PTDF Brand Colors */
+  --color-ptdf-50: #eefdf4;
+  --color-ptdf-100: #dcfce9;
+  --color-ptdf-200: #bbf7d0;
+  --color-ptdf-300: #006B3E;
+  --color-ptdf-500: #22c55e;
+  --color-ptdf-600: #006B3E;
+  --color-ptdf-700: #005532;
+  --color-ptdf-800: #004226;
+  --color-ptdf-900: #00331e;
+
+  /* Accent Colors */
+  --color-accent-50: #fffdf0;
+  --color-accent-100: #fff9c2;
+  --color-accent-400: #FFCC00;
+  --color-accent-500: #FFCC00;
+  --color-accent-600: #e6b800;
+  --color-accent-700: #b38f00;
+
+  /* Animations */
+  --animate-fadeIn: fadeIn 0.5s ease-out;
+  --animate-slideIn: slideIn 0.3s ease-out;
+  --animate-blob: blob 7s infinite;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  0% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+/* Custom scrollbar for webkit - moved from index.html */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #006B3E;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #004226;
+}
