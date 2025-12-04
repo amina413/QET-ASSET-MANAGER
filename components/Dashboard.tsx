@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { ASSET_DISTRIBUTION, DEPRECIATION_DATA, MOCK_ASSETS } from '../constants';
-import { ArrowUpRight, AlertCircle, DollarSign, Package, Search, Bell, ChevronDown, LogOut, User as UserIcon, Settings, X, MapPin } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { ASSET_DISTRIBUTION, MOCK_ASSETS } from '../constants';
+import { ArrowUpRight, AlertCircle, DollarSign, Package, Search, Bell, ChevronDown, LogOut, User as UserIcon, Settings, X, MapPin, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { User, View } from '../types';
 
 // Palette: Brand Greens + Gold Accent
@@ -40,6 +40,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   
+  // Sliding Chart State
+  const [valuationView, setValuationView] = useState<'location' | 'category'>('location');
+  const [isPaused, setIsPaused] = useState(false);
+
   // Notification State
   const [notifications, setNotifications] = useState([
     { id: 1, title: 'Asset Transfer Request', desc: 'IT Dept requested transfer of 5 Laptops.', time: '2 hrs ago', unread: true },
@@ -63,6 +67,15 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Auto-slide effect for Valuation Chart
+  useEffect(() => {
+    if (isPaused) return;
+    const interval = setInterval(() => {
+      setValuationView(prev => prev === 'location' ? 'category' : 'location');
+    }, 6000); // Switch every 6 seconds
+    return () => clearInterval(interval);
+  }, [isPaused]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
@@ -76,12 +89,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
 
   const handleViewAllNotifications = () => {
     setShowNotifications(false);
-    // Navigate to Profile as it contains the Activity Feed which serves as history
     if (onNavigate) onNavigate(View.PROFILE);
   };
 
   const handlePendingAction = () => {
-    // Navigate to Asset Management for approvals/reviews
     if (onNavigate) onNavigate(View.ASSET_MANAGEMENT);
   };
 
@@ -92,10 +103,34 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
     ? MOCK_ASSETS.filter(a => a.location.includes("Abuja")) 
     : MOCK_ASSETS;
 
+  // --- Calculations ---
   const totalAssets = relevantAssets.length;
   const totalValue = relevantAssets.reduce((sum, a) => sum + a.acquisitionCost, 0);
   const netBookValue = relevantAssets.reduce((sum, a) => sum + a.netBookValue, 0);
   const pendingDisposal = isCustodian ? 2 : 45;
+
+  // Calculate Total Current Depreciation (Annual Expense)
+  const totalCurrentDepreciation = relevantAssets.reduce((sum, asset) => {
+    const life = asset.usefulLife || 5;
+    const salvage = asset.salvageValue || 0;
+    // Simple Straight Line: (Cost - Salvage) / Life
+    const annualDepr = (asset.acquisitionCost - salvage) / life;
+    return sum + (annualDepr > 0 ? annualDepr : 0);
+  }, 0);
+
+  // Aggregate Data for Sliding Chart (Value by Location)
+  const valueByLocationData = Object.values(relevantAssets.reduce((acc, asset) => {
+    if (!acc[asset.location]) acc[asset.location] = { name: asset.location, value: 0 };
+    acc[asset.location].value += asset.netBookValue; // Using NBV for "Value"
+    return acc;
+  }, {} as Record<string, { name: string, value: number }>));
+
+  // Aggregate Data for Sliding Chart (Value by Category)
+  const valueByCategoryData = Object.values(relevantAssets.reduce((acc, asset) => {
+    if (!acc[asset.category]) acc[asset.category] = { name: asset.category, value: 0 };
+    acc[asset.category].value += asset.netBookValue;
+    return acc;
+  }, {} as Record<string, { name: string, value: number }>));
 
   const formatCurrency = (val: number) => {
     if (val >= 1000000000) return `₦${(val/1000000000).toFixed(1)}B`;
@@ -254,8 +289,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Quantity Distribution Chart */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4">Asset Distribution by Category</h3>
+          <h3 className="text-lg font-semibold text-slate-800 mb-4">Asset Quantity by Category</h3>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -280,18 +316,53 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4">Accumulated Depreciation (Last 5 Quarters)</h3>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={DEPRECIATION_DATA}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} />
-                <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#006B3E" strokeWidth={3} activeDot={{ r: 8 }} />
-              </LineChart>
-            </ResponsiveContainer>
+        {/* Sliding Valuation Display */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+          <div className="flex justify-between items-start mb-4">
+             <div>
+                <p className="text-xs text-slate-500 font-bold uppercase">Total Current Depreciation</p>
+                <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totalCurrentDepreciation)} <span className="text-xs text-slate-400 font-normal">/ year</span></h3>
+             </div>
+             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                <button 
+                  onClick={() => setIsPaused(!isPaused)} 
+                  className="p-1 rounded hover:bg-white text-slate-500" 
+                  title={isPaused ? "Play" : "Pause"}
+                >
+                  {isPaused ? <Play size={14}/> : <Pause size={14}/>}
+                </button>
+                <button 
+                  onClick={() => setValuationView(prev => prev === 'location' ? 'category' : 'location')}
+                  className="p-1 rounded hover:bg-white text-slate-500"
+                >
+                  {valuationView === 'location' ? <ChevronRight size={14}/> : <ChevronLeft size={14}/>}
+                </button>
+             </div>
+          </div>
+          
+          <div className="flex-1 flex flex-col">
+             <div className="flex items-center justify-between mb-2">
+                 <h4 className="text-sm font-semibold text-ptdf-700 animate-fadeIn">
+                   {valuationView === 'location' ? 'Total Asset Value by Location' : 'Total Asset Value by Category'}
+                 </h4>
+                 <span className="text-[10px] text-slate-400 uppercase tracking-widest">{valuationView === 'location' ? '1 of 2' : '2 of 2'}</span>
+             </div>
+             <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                   <BarChart data={valuationView === 'location' ? valueByLocationData : valueByCategoryData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10}} interval={0} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10}} tickFormatter={(val) => `₦${val/1000000}M`} />
+                      <Tooltip formatter={(value) => formatCurrency(Number(value))} cursor={{fill: 'transparent'}} />
+                      <Bar 
+                        dataKey="value" 
+                        fill={valuationView === 'location' ? '#006B3E' : '#FFCC00'} 
+                        radius={[4, 4, 0, 0]} 
+                        barSize={40}
+                      />
+                   </BarChart>
+                </ResponsiveContainer>
+             </div>
           </div>
         </div>
       </div>

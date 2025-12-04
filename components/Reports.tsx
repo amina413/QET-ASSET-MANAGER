@@ -1,15 +1,17 @@
 
 import React, { useState } from 'react';
-import { Download, Filter, FileText, CheckCircle, Loader2, Calendar, ArrowLeft } from 'lucide-react';
-import { MOCK_ASSETS, CATEGORIES, LOCATIONS, CONDITION_DESCRIPTIONS } from '../constants';
-import { ConditionCode } from '../types';
+import { Download, Filter, FileText, CheckCircle, Loader2, Calendar, ArrowLeft, ArrowRightLeft, Trash2 } from 'lucide-react';
+import { MOCK_ASSETS, CATEGORIES, LOCATIONS, CONDITION_DESCRIPTIONS, MOCK_ASSET_HISTORY } from '../constants';
+import { ConditionCode, Asset } from '../types';
 
 interface ReportsProps {
   onBack?: () => void;
 }
 
 const Reports: React.FC<ReportsProps> = ({ onBack }) => {
-  const [filterCategory, setFilterCategory] = useState<string>('All');
+  const [reportType, setReportType] = useState<string>('Asset Register Summary');
+  const [filterStatusGroup, setFilterStatusGroup] = useState<string>('All'); 
+  const [filterCategory, setFilterCategory] = useState<string>('All'); 
   const [selectedConditions, setSelectedConditions] = useState<ConditionCode[]>([]);
   const [dateRange, setDateRange] = useState({ from: '', to: '' });
   const [isGenerating, setIsGenerating] = useState(false);
@@ -29,22 +31,27 @@ const Reports: React.FC<ReportsProps> = ({ onBack }) => {
   };
 
   const selectGroup = (group: 'All' | 'Operational' | 'Maintenance' | 'Disposed') => {
-    setFilterCategory(group);
+    setFilterStatusGroup(group);
     if (group === 'All') setSelectedConditions([]);
     else if (group === 'Operational') setSelectedConditions(OPERATIONAL_CODES);
     else if (group === 'Maintenance') setSelectedConditions(MAINTENANCE_CODES);
     else if (group === 'Disposed') setSelectedConditions(DISPOSED_CODES);
   };
 
-  // Filter the assets based on selected conditions and date range
+  // Filter the assets
   const filteredAssets = MOCK_ASSETS.filter(asset => {
     // Condition Filtering
     let matchesCondition = true;
-    if (filterCategory !== 'All' || selectedConditions.length > 0) {
+    if (filterStatusGroup !== 'All' || selectedConditions.length > 0) {
       if (selectedConditions.length > 0) {
-         // Use optional chaining or type assertion if conditionCode implies it exists for the check
          matchesCondition = !!asset.conditionCode && selectedConditions.includes(asset.conditionCode);
       }
+    }
+
+    // Category Filtering
+    let matchesCategory = true;
+    if (filterCategory !== 'All') {
+      matchesCategory = asset.category === filterCategory;
     }
 
     // Date Range Filtering
@@ -56,12 +63,40 @@ const Reports: React.FC<ReportsProps> = ({ onBack }) => {
       matchesDate = matchesDate && new Date(asset.acquisitionDate) <= new Date(dateRange.to);
     }
     
-    return matchesCondition && matchesDate;
+    // For Disposal List, specifically filter for disposed assets
+    if (reportType === 'Disposal List') {
+      return asset.status === 'Disposed' || asset.conditionCode === 'F4';
+    }
+
+    return matchesCondition && matchesDate && matchesCategory;
   });
+
+  // Data Aggregation for Fixed Asset Schedule
+  const generateScheduleData = () => {
+    const map = new Map<string, { category: string, cost: number, accumulatedDepr: number, nbv: number }>();
+
+    filteredAssets.forEach(asset => {
+      const accumulatedDepreciation = asset.acquisitionCost - asset.netBookValue;
+      if (!map.has(asset.category)) {
+        map.set(asset.category, { category: asset.category, cost: 0, accumulatedDepr: 0, nbv: 0 });
+      }
+      const entry = map.get(asset.category)!;
+      entry.cost += asset.acquisitionCost;
+      entry.accumulatedDepr += accumulatedDepreciation;
+      entry.nbv += asset.netBookValue;
+    });
+
+    return Array.from(map.values());
+  };
+
+  // Filter Transfers for Transfer Report
+  const transferHistory = MOCK_ASSET_HISTORY.filter(h => 
+    h.type === 'Transfer' && 
+    (filterCategory === 'All' || MOCK_ASSETS.find(a => a.id === h.assetId)?.category === filterCategory)
+  );
 
   const handleGenerateReport = () => {
     setIsGenerating(true);
-    // Simulate backend report generation delay
     setTimeout(() => {
       setIsGenerating(false);
     }, 1500);
@@ -69,10 +104,8 @@ const Reports: React.FC<ReportsProps> = ({ onBack }) => {
 
   const handleExport = () => {
     setIsExporting(true);
-    // Simulate file generation and download delay
     setTimeout(() => {
       setIsExporting(false);
-      // Logic for actual export would trigger here
     }, 2000);
   };
 
@@ -82,6 +115,229 @@ const Reports: React.FC<ReportsProps> = ({ onBack }) => {
     if (MAINTENANCE_CODES.includes(code)) return 'bg-amber-100 text-amber-800 border-amber-200';
     if (DISPOSED_CODES.includes(code)) return 'bg-red-100 text-red-800 border-red-200';
     return 'bg-slate-100 text-slate-700';
+  };
+
+  const getDepreciationForYear = (asset: Asset) => {
+    if (!asset.usefulLife || asset.usefulLife <= 0) return 0;
+    const salvage = asset.salvageValue || 0;
+    return (asset.acquisitionCost - salvage) / asset.usefulLife;
+  };
+
+  const renderReportTable = () => {
+    switch (reportType) {
+      case 'Asset Register Summary':
+        return (
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 sticky top-0 z-10">
+              <tr>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Product ID</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Asset Name</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Category</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Acquisition Cost</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Depreciation (Year)</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Accumulated Depr.</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Net Book Value</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Condition</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredAssets.length > 0 ? (
+                filteredAssets.map((asset) => {
+                  const accumulatedDepreciation = asset.acquisitionCost - asset.netBookValue;
+                  const yearlyDepr = getDepreciationForYear(asset);
+                  return (
+                    <tr key={asset.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4 text-sm font-mono text-slate-600">{asset.productId}</td>
+                      <td className="p-4 text-sm font-medium text-slate-800">{asset.name}</td>
+                      <td className="p-4 text-sm text-slate-600">{asset.category}</td>
+                      <td className="p-4 text-sm text-slate-600 text-right">₦{asset.acquisitionCost.toLocaleString()}</td>
+                      <td className="p-4 text-sm text-slate-600 text-right">₦{yearlyDepr.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                      <td className="p-4 text-sm text-slate-600 text-right">₦{accumulatedDepreciation.toLocaleString()}</td>
+                      <td className="p-4 text-sm font-semibold text-slate-800 text-right">₦{asset.netBookValue.toLocaleString()}</td>
+                      <td className="p-4 text-sm">
+                        <span className={`inline-block px-2 py-1 rounded text-xs font-bold border ${getBadgeColor(asset.conditionCode)}`}>
+                          {asset.conditionCode || 'N/A'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr><td colSpan={8} className="p-8 text-center text-slate-400">No assets found matching the selected filters.</td></tr>
+              )}
+            </tbody>
+          </table>
+        );
+      
+      case 'Fixed Asset Schedule':
+        const scheduleData = generateScheduleData();
+        return (
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 sticky top-0 z-10">
+              <tr>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Category</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Total Acquisition Cost</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Total Accumulated Depr.</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Total Net Book Value</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+               {scheduleData.length > 0 ? (
+                 scheduleData.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50">
+                       <td className="p-4 text-sm font-bold text-slate-800">{row.category}</td>
+                       <td className="p-4 text-sm text-right">₦{row.cost.toLocaleString()}</td>
+                       <td className="p-4 text-sm text-right">₦{row.accumulatedDepr.toLocaleString()}</td>
+                       <td className="p-4 text-sm font-bold text-ptdf-700 text-right">₦{row.nbv.toLocaleString()}</td>
+                    </tr>
+                 ))
+               ) : (
+                  <tr><td colSpan={4} className="p-8 text-center text-slate-400">No data available.</td></tr>
+               )}
+            </tbody>
+          </table>
+        );
+      
+      case 'Depreciation Schedule':
+        // Calculate Totals
+        const totalCost = filteredAssets.reduce((sum, a) => sum + a.acquisitionCost, 0);
+        const totalCurrentDepr = filteredAssets.reduce((sum, a) => sum + getDepreciationForYear(a), 0);
+        const totalAccumDepr = filteredAssets.reduce((sum, a) => sum + (a.acquisitionCost - a.netBookValue), 0);
+
+        return (
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 sticky top-0 z-10">
+              <tr>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Product ID</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Asset Name</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Category</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Useful Life (Yrs)</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Acquisition Cost</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Current Depreciation</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Accumulated Depr.</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredAssets.length > 0 ? (
+                <>
+                  {filteredAssets.map((asset) => {
+                    const accumulatedDepreciation = asset.acquisitionCost - asset.netBookValue;
+                    const yearlyDepr = getDepreciationForYear(asset);
+                    return (
+                      <tr key={asset.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-4 text-sm font-mono text-slate-600">{asset.productId}</td>
+                        <td className="p-4 text-sm font-medium text-slate-800">{asset.name}</td>
+                        <td className="p-4 text-sm text-slate-600">{asset.category}</td>
+                        <td className="p-4 text-sm text-slate-600 text-right">{asset.usefulLife || '-'}</td>
+                        <td className="p-4 text-sm text-slate-600 text-right">₦{asset.acquisitionCost.toLocaleString()}</td>
+                        <td className="p-4 text-sm text-slate-600 text-right">₦{yearlyDepr.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                        <td className="p-4 text-sm font-bold text-slate-700 text-right">₦{accumulatedDepreciation.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                  {/* Total Row */}
+                  <tr className="bg-ptdf-50 font-bold border-t-2 border-ptdf-200">
+                    <td colSpan={3} className="p-4 text-sm text-ptdf-800 text-right uppercase tracking-wider">Total</td>
+                    <td className="p-4 text-sm text-right">-</td>
+                    <td className="p-4 text-sm text-right text-ptdf-800">₦{totalCost.toLocaleString()}</td>
+                    <td className="p-4 text-sm text-right text-ptdf-800">₦{totalCurrentDepr.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                    <td className="p-4 text-sm text-right text-ptdf-800">₦{totalAccumDepr.toLocaleString()}</td>
+                  </tr>
+                </>
+              ) : (
+                <tr><td colSpan={7} className="p-8 text-center text-slate-400">No assets found matching the selected filters.</td></tr>
+              )}
+            </tbody>
+          </table>
+        );
+
+      case 'Transfer Report':
+        return (
+          <table className="w-full text-left border-collapse">
+             <thead className="bg-slate-50 sticky top-0 z-10">
+               <tr>
+                 <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Date</th>
+                 <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Asset ID</th>
+                 <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">From Location</th>
+                 <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">To Location</th>
+                 <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Custodian</th>
+                 <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Action By</th>
+               </tr>
+             </thead>
+             <tbody className="divide-y divide-slate-100">
+                {transferHistory.length > 0 ? (
+                   transferHistory.map(h => {
+                     const asset = MOCK_ASSETS.find(a => a.id === h.assetId);
+                     return (
+                       <tr key={h.id} className="hover:bg-slate-50">
+                         <td className="p-4 text-sm text-slate-600">{h.date}</td>
+                         <td className="p-4 text-sm font-mono font-medium text-slate-800">{asset ? asset.productId : 'Unknown'}</td>
+                         <td className="p-4 text-sm text-slate-600">{h.fromLocation || '-'}</td>
+                         <td className="p-4 text-sm text-ptdf-700 font-medium flex items-center gap-1"><ArrowRightLeft size={12}/> {h.toLocation || '-'}</td>
+                         <td className="p-4 text-sm text-slate-600">{h.toCustodian || '-'}</td>
+                         <td className="p-4 text-sm text-slate-500">{h.user}</td>
+                       </tr>
+                     );
+                   })
+                ) : (
+                   <tr><td colSpan={6} className="p-8 text-center text-slate-400">No transfer records found.</td></tr>
+                )}
+             </tbody>
+          </table>
+        );
+
+      case 'Disposal List':
+        return (
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 sticky top-0 z-10">
+              <tr>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Product ID</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Asset Name</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Category</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Acquisition Cost</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b text-right">Net Book Value</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Disposal Date</th>
+                <th className="p-4 text-xs font-semibold text-slate-500 uppercase border-b">Mode of Disposal</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredAssets.length > 0 ? (
+                filteredAssets.map((asset) => (
+                  <tr key={asset.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 text-sm font-mono text-slate-600">{asset.productId}</td>
+                    <td className="p-4 text-sm font-medium text-slate-800">{asset.name}</td>
+                    <td className="p-4 text-sm text-slate-600">{asset.category}</td>
+                    <td className="p-4 text-sm text-slate-600 text-right">₦{asset.acquisitionCost.toLocaleString()}</td>
+                    <td className="p-4 text-sm text-slate-600 text-right">₦{asset.netBookValue.toLocaleString()}</td>
+                    <td className="p-4 text-sm text-slate-600">{asset.disposalDate || 'N/A'}</td>
+                    <td className="p-4 text-sm">
+                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold border ${
+                        asset.disposalMode === 'Sold' ? 'bg-green-100 text-green-700 border-green-200' :
+                        asset.disposalMode === 'Donated' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                        'bg-red-100 text-red-700 border-red-200'
+                      }`}>
+                         {asset.disposalMode === 'Scrapped' ? <Trash2 size={12} className="mr-1"/> : null}
+                         {asset.disposalMode || 'Disposed'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan={7} className="p-8 text-center text-slate-400">No disposed assets found matching filters.</td></tr>
+              )}
+            </tbody>
+          </table>
+        );
+
+      default:
+        // Generic Fallback
+        return (
+          <div className="p-8 text-center text-slate-500">
+             <FileText size={48} className="mx-auto mb-4 opacity-20"/>
+             <p>Select a specific report type to view data.</p>
+          </div>
+        );
+    }
   };
 
   return (
@@ -107,11 +363,29 @@ const Reports: React.FC<ReportsProps> = ({ onBack }) => {
           <div className="space-y-6">
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Report Type</label>
-              <select className="w-full p-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-ptdf-500 outline-none">
-                <option>Asset Register Summary</option>
-                <option>Valuation Report</option>
-                <option>Depreciation Schedule</option>
-                <option>Disposal List</option>
+              <select 
+                value={reportType} 
+                onChange={(e) => setReportType(e.target.value)}
+                className="w-full p-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-ptdf-500 outline-none"
+              >
+                <option value="Asset Register Summary">Asset Register Summary</option>
+                <option value="Fixed Asset Schedule">Fixed Asset Schedule</option>
+                <option value="Depreciation Schedule">Depreciation Schedule</option>
+                <option value="Transfer Report">Transfer Report</option>
+                <option value="Disposal List">Disposal List</option>
+              </select>
+            </div>
+
+            {/* Asset Category Filter */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Asset Category</label>
+              <select 
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="w-full p-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-ptdf-500 outline-none"
+              >
+                <option value="All">All Categories</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
 
@@ -120,25 +394,21 @@ const Reports: React.FC<ReportsProps> = ({ onBack }) => {
               <div className="flex gap-2">
                 <div className="flex-1">
                    <label className="block text-[10px] text-slate-400 mb-1">From</label>
-                   <div className="relative">
-                      <input 
-                        type="date" 
-                        value={dateRange.from}
-                        onChange={(e) => setDateRange({...dateRange, from: e.target.value})}
-                        className="w-full p-2 bg-white border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-ptdf-500 outline-none" 
-                      />
-                   </div>
+                   <input 
+                      type="date" 
+                      value={dateRange.from}
+                      onChange={(e) => setDateRange({...dateRange, from: e.target.value})}
+                      className="w-full p-2 bg-white border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-ptdf-500 outline-none" 
+                   />
                 </div>
                 <div className="flex-1">
                    <label className="block text-[10px] text-slate-400 mb-1">To</label>
-                   <div className="relative">
-                      <input 
-                        type="date" 
-                        value={dateRange.to}
-                        onChange={(e) => setDateRange({...dateRange, to: e.target.value})}
-                        className="w-full p-2 bg-white border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-ptdf-500 outline-none" 
-                      />
-                   </div>
+                   <input 
+                      type="date" 
+                      value={dateRange.to}
+                      onChange={(e) => setDateRange({...dateRange, to: e.target.value})}
+                      className="w-full p-2 bg-white border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-ptdf-500 outline-none" 
+                   />
                 </div>
               </div>
             </div>
@@ -148,10 +418,10 @@ const Reports: React.FC<ReportsProps> = ({ onBack }) => {
               
               {/* Quick Groups */}
               <div className="flex gap-2 mb-3">
-                 <button onClick={() => selectGroup('All')} className={`flex-1 py-1 text-xs rounded border ${filterCategory === 'All' ? 'bg-ptdf-50 border-ptdf-500 text-ptdf-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>All</button>
-                 <button onClick={() => selectGroup('Operational')} className={`flex-1 py-1 text-xs rounded border ${filterCategory === 'Operational' ? 'bg-green-50 border-green-500 text-green-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>Active</button>
-                 <button onClick={() => selectGroup('Maintenance')} className={`flex-1 py-1 text-xs rounded border ${filterCategory === 'Maintenance' ? 'bg-amber-50 border-amber-500 text-amber-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>Issue</button>
-                 <button onClick={() => selectGroup('Disposed')} className={`flex-1 py-1 text-xs rounded border ${filterCategory === 'Disposed' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>Disp</button>
+                 <button onClick={() => selectGroup('All')} className={`flex-1 py-1 text-xs rounded border ${filterStatusGroup === 'All' ? 'bg-ptdf-50 border-ptdf-500 text-ptdf-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>All</button>
+                 <button onClick={() => selectGroup('Operational')} className={`flex-1 py-1 text-xs rounded border ${filterStatusGroup === 'Operational' ? 'bg-green-50 border-green-500 text-green-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>Active</button>
+                 <button onClick={() => selectGroup('Maintenance')} className={`flex-1 py-1 text-xs rounded border ${filterStatusGroup === 'Maintenance' ? 'bg-amber-50 border-amber-500 text-amber-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>Issue</button>
+                 <button onClick={() => selectGroup('Disposed')} className={`flex-1 py-1 text-xs rounded border ${filterStatusGroup === 'Disposed' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>Disp</button>
               </div>
 
               {/* Detailed Checkboxes */}
@@ -185,14 +455,6 @@ const Reports: React.FC<ReportsProps> = ({ onBack }) => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Locations</label>
-              <select className="w-full p-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-ptdf-500 outline-none">
-                <option>All Locations</option>
-                {LOCATIONS.map(l => <option key={l}>{l}</option>)}
-              </select>
-            </div>
-
             <div className="pt-4 border-t border-slate-100">
                <button 
                  onClick={handleGenerateReport}
@@ -216,10 +478,10 @@ const Reports: React.FC<ReportsProps> = ({ onBack }) => {
       <div className="flex-1 bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col relative overflow-hidden">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">Asset Register Preview</h2>
+            <h2 className="text-xl font-bold text-slate-800">{reportType}</h2>
             <p className="text-sm text-slate-500">
-              Showing {filteredAssets.length} records • Category: <span className="font-semibold text-ptdf-600">{filterCategory}</span>
-              {dateRange.from || dateRange.to ? <span className="ml-2 font-medium text-slate-600">• Date Filter Active</span> : ''}
+              {filteredAssets.length} Records • Status: <span className="font-semibold text-ptdf-600">{filterStatusGroup}</span>
+              {filterCategory !== 'All' ? <span className="ml-2 font-medium text-slate-600">• {filterCategory}</span> : ''}
             </p>
           </div>
           <button 
@@ -240,61 +502,28 @@ const Reports: React.FC<ReportsProps> = ({ onBack }) => {
             </div>
           ) : null}
 
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50 sticky top-0 z-10">
-              <tr>
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b">Product ID</th>
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b">Asset Name</th>
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b">Acquisition Date</th>
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b text-right">Acquisition Cost</th>
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b text-right">Net Book Value</th>
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b">Condition / Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredAssets.length > 0 ? (
-                filteredAssets.map((asset) => (
-                  <tr key={asset.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 text-sm font-mono text-slate-600">{asset.productId}</td>
-                    <td className="p-4 text-sm font-medium text-slate-800">{asset.name}</td>
-                    <td className="p-4 text-sm text-slate-600">{asset.acquisitionDate}</td>
-                    <td className="p-4 text-sm text-slate-600 text-right">₦{asset.acquisitionCost.toLocaleString()}</td>
-                    <td className="p-4 text-sm font-semibold text-slate-800 text-right">₦{asset.netBookValue.toLocaleString()}</td>
-                    <td className="p-4 text-sm">
-                      <div className={`inline-flex items-center px-2 py-1 rounded border ${getBadgeColor(asset.conditionCode)}`}>
-                        <span className="font-bold text-xs mr-2">{asset.conditionCode || 'N/A'}</span>
-                        <span className="text-[10px] font-medium uppercase truncate max-w-[100px]">{CONDITION_DESCRIPTIONS[asset.conditionCode as ConditionCode] || asset.status}</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
-                    No assets found matching the selected filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          {renderReportTable()}
+
         </div>
 
         {/* Status Index / Legend */}
-        <div className="mt-auto border-t border-slate-100 pt-4 bg-slate-50/50 -mx-6 -mb-6 px-6 pb-6">
-          <h3 className="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider flex items-center">
-            <FileText size={14} className="mr-1" /> Status Index Key
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-2 text-xs">
-            {Object.entries(CONDITION_DESCRIPTIONS).map(([code, desc]) => (
-              <div key={code} className="flex items-center">
-                <span className={`inline-block w-8 text-center font-bold px-1 py-0.5 rounded border mr-2 flex-shrink-0 ${getBadgeColor(code as ConditionCode)}`}>
-                  {code}
-                </span>
-                <span className="text-slate-600 truncate" title={desc}>{desc}</span>
-              </div>
-            ))}
+        {reportType === 'Asset Register Summary' && (
+          <div className="mt-auto border-t border-slate-100 pt-4 bg-slate-50/50 -mx-6 -mb-6 px-6 pb-6">
+            <h3 className="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider flex items-center">
+              <FileText size={14} className="mr-1" /> Status Index Key
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-2 text-xs">
+              {Object.entries(CONDITION_DESCRIPTIONS).map(([code, desc]) => (
+                <div key={code} className="flex items-center">
+                  <span className={`inline-block w-8 text-center font-bold px-1 py-0.5 rounded border mr-2 flex-shrink-0 ${getBadgeColor(code as ConditionCode)}`}>
+                    {code}
+                  </span>
+                  <span className="text-slate-600 truncate" title={desc}>{desc}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

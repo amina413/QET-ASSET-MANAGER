@@ -15,59 +15,112 @@ export const CONDITION_DESCRIPTIONS: Record<ConditionCode, string> = {
 export const MOCK_ASSETS: Asset[] = [
   {
     id: '1',
-    productId: 'ITE-0042',
+    productId: 'PTDF/ABJ/ITE/0042',
     name: 'HP EliteBook G8',
-    category: 'IT and Office Equipment',
+    category: 'IT Equipment',
     acquisitionCost: 850000,
     acquisitionDate: '2023-01-15',
     netBookValue: 620000,
     location: 'Abuja HQ',
+    subLocation: 'IT Server Room',
     custodian: 'Emeka Okafor',
+    assignedUser: 'John Doe',
     status: 'Active',
     conditionCode: 'A2',
-    image: 'https://picsum.photos/200/200'
+    image: 'https://picsum.photos/200/200',
+    usefulLife: 4,
+    salvageValue: 50000
   },
   {
     id: '2',
-    productId: 'VH-1023',
+    productId: 'PTDF/LAG/VH/1023',
     name: 'Toyota Hilux 2022',
     category: 'Vehicles',
     acquisitionCost: 25000000,
     acquisitionDate: '2022-06-10',
     netBookValue: 18500000,
     location: 'Lagos Office',
+    subLocation: 'Parking Lot B',
     custodian: 'Transport Pool',
     status: 'Active',
     conditionCode: 'A3',
-    image: 'https://picsum.photos/201/201'
+    image: 'https://picsum.photos/201/201',
+    usefulLife: 8,
+    salvageValue: 2000000
   },
   {
     id: '3',
-    productId: 'FAF-3099',
+    productId: 'PTDF/ABJ/FAF/3099',
     name: 'Conference Table (Mahogany)',
     category: 'Furniture and Fittings',
     acquisitionCost: 450000,
     acquisitionDate: '2021-11-05',
     netBookValue: 210000,
-    location: 'Abuja HQ - Room 3B',
+    location: 'Abuja HQ',
+    subLocation: 'Conference Room 3B',
     custodian: 'Facilities Mgr',
     status: 'Maintenance',
     conditionCode: 'F1',
-    image: 'https://picsum.photos/202/202'
+    image: 'https://picsum.photos/202/202',
+    usefulLife: 10,
+    salvageValue: 20000
   },
   {
     id: '4',
-    productId: 'ITE-0055',
+    productId: 'PTDF/ABJ/ITE/0055',
     name: 'Dell PowerEdge Server',
-    category: 'IT and Office Equipment',
+    category: 'IT Equipment',
     acquisitionCost: 4500000,
     acquisitionDate: '2023-08-20',
     netBookValue: 4100000,
-    location: 'Abuja Server Room',
+    location: 'Abuja HQ',
+    subLocation: 'Server Room',
     custodian: 'IT Director',
     status: 'Active',
     conditionCode: 'A1',
-    image: 'https://picsum.photos/203/203'
+    image: 'https://picsum.photos/203/203',
+    usefulLife: 5,
+    salvageValue: 250000
+  },
+  // Disposed Asset 1
+  {
+    id: '5',
+    productId: 'PTDF/PHC/OE/0991',
+    name: 'Canon Photocopier (Old)',
+    category: 'Office Equipment',
+    acquisitionCost: 650000,
+    acquisitionDate: '2019-03-10',
+    netBookValue: 0,
+    location: 'Port Harcourt',
+    subLocation: 'Admin Block',
+    custodian: 'Office Manager',
+    status: 'Disposed',
+    conditionCode: 'F4',
+    image: 'https://picsum.photos/204/204',
+    usefulLife: 4,
+    salvageValue: 10000,
+    disposalMode: 'Scrapped',
+    disposalDate: '2024-01-15'
+  },
+  // Disposed Asset 2
+  {
+    id: '6',
+    productId: 'PTDF/KAD/VH/0882',
+    name: 'Honda Accord 2015',
+    category: 'Vehicles',
+    acquisitionCost: 8000000,
+    acquisitionDate: '2015-05-20',
+    netBookValue: 500000,
+    location: 'Kaduna Training Center',
+    subLocation: 'Main Garage',
+    custodian: 'Logistics Officer',
+    status: 'Disposed',
+    conditionCode: 'F4',
+    image: 'https://picsum.photos/205/205',
+    usefulLife: 8,
+    salvageValue: 500000,
+    disposalMode: 'Sold',
+    disposalDate: '2024-02-28'
   }
 ];
 
@@ -139,7 +192,8 @@ export const MOCK_USERS: User[] = [
 ];
 
 export const ASSET_DISTRIBUTION: ChartDataPoint[] = [
-  { name: 'IT and Office Equipment', value: 40 },
+  { name: 'IT Equipment', value: 25 },
+  { name: 'Office Equipment', value: 15 },
   { name: 'Vehicles', value: 20 },
   { name: 'Furniture and Fittings', value: 15 },
   { name: 'Plant and Machinery', value: 15 },
@@ -155,7 +209,8 @@ export const DEPRECIATION_DATA: DepreciationPoint[] = [
 ];
 
 export const CATEGORIES = [
-  'IT and Office Equipment', 
+  'IT Equipment',
+  'Office Equipment',
   'Vehicles', 
   'Furniture and Fittings', 
   'Plant and Machinery', 
@@ -164,3 +219,66 @@ export const CATEGORIES = [
 ];
 
 export const LOCATIONS = ['Abuja HQ', 'Lagos Office', 'Port Harcourt', 'Kaduna Training Center'];
+
+// New constant for mapping locations to their specific branches/offices
+export const LOCATION_BRANCHES: Record<string, string[]> = {
+  'Abuja HQ': [
+    'Admin & HR',
+    'F & A',
+    'Legal & Secretariat Services',
+    'Procurement',
+    'Education & Training',
+    'Innovation & Research',
+    'Planning, Research & Statistics (PRS)',
+    '(SP/M&E)',
+    '(SP&D)',
+    'Upstream Department',
+    'Midstream & Downstream'
+  ],
+  'Lagos Office': [
+    'Admin & HR',
+    'F & A',
+    'Legal & Secretariat Services',
+    'Procurement',
+    'Education & Training',
+    'Innovation & Research',
+    'Planning, Research & Statistics (PRS)',
+    '(SP/M&E)',
+    '(SP&D)',
+    'Upstream Department',
+    'Midstream & Downstream'
+  ],
+  'Port Harcourt': [
+    'Admin & HR',
+    'F & A',
+    'Legal & Secretariat Services',
+    'Procurement',
+    'Education & Training',
+    'Innovation & Research',
+    'Planning, Research & Statistics (PRS)',
+    '(SP/M&E)',
+    '(SP&D)',
+    'Upstream Department',
+    'Midstream & Downstream'
+  ],
+  'Kaduna Training Center': [
+    'Admin & HR',
+    'F & A',
+    'Legal & Secretariat Services',
+    'Procurement',
+    'Education & Training',
+    'Innovation & Research',
+    'Planning, Research & Statistics (PRS)',
+    '(SP/M&E)',
+    '(SP&D)',
+    'Upstream Department',
+    'Midstream & Downstream'
+  ]
+};
+
+export const LOCATION_CODES: Record<string, string> = {
+  'Abuja HQ': 'ABJ',
+  'Lagos Office': 'LAG',
+  'Port Harcourt': 'PHC',
+  'Kaduna Training Center': 'KAD'
+};

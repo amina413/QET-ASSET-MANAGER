@@ -25,10 +25,18 @@ export interface Asset {
   acquisitionDate: string;
   netBookValue: number;
   location: string;
+  subLocation?: string; 
   custodian: string;
+  assignedUser?: string; 
   status: 'Active' | 'Disposed' | 'Maintenance' | 'Pending Transfer';
   conditionCode?: ConditionCode;
   image?: string;
+  // New fields for reporting
+  usefulLife?: number;
+  salvageValue?: number;
+  // Disposal fields
+  disposalMode?: 'Sold' | 'Donated' | 'Scrapped' | 'Written Off';
+  disposalDate?: string;
 }
 
 export interface CostLineItem {
