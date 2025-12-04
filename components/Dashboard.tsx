@@ -22,7 +22,7 @@ const MetricCard: React.FC<{ title: string; value: string; icon: React.ReactNode
         <p className="text-sm font-medium text-slate-500">{title}</p>
         <h3 className="text-2xl font-bold text-slate-800 mt-1">{value}</h3>
       </div>
-      <div className={`p-2 rounded-lg ${color}`}>
+      <div className={`p-2 rounded-lg ${color} bg-opacity-10`}>
         {icon}
       </div>
     </div>
@@ -39,14 +39,14 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
   const [searchTerm, setSearchTerm] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-
+  
   // Notification State
   const [notifications, setNotifications] = useState([
     { id: 1, title: 'Asset Transfer Request', desc: 'IT Dept requested transfer of 5 Laptops.', time: '2 hrs ago', unread: true },
     { id: 2, title: 'Maintenance Due', desc: 'Generator Set A requires servicing.', time: '5 hrs ago', unread: true },
     { id: 3, title: 'New Asset Registered', desc: 'Toyota Hilux (PTDF-8821) added.', time: '1 day ago', unread: false },
   ]);
-
+  
   const notificationRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -88,8 +88,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
   const unreadCount = notifications.filter(n => n.unread).length;
 
   const isCustodian = currentUser.role === 'Custodian';
-  const relevantAssets = isCustodian
-    ? MOCK_ASSETS.filter(a => a.location.includes("Abuja"))
+  const relevantAssets = isCustodian 
+    ? MOCK_ASSETS.filter(a => a.location.includes("Abuja")) 
     : MOCK_ASSETS;
 
   const totalAssets = relevantAssets.length;
@@ -98,8 +98,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
   const pendingDisposal = isCustodian ? 2 : 45;
 
   const formatCurrency = (val: number) => {
-    if (val >= 1000000000) return `₦${(val / 1000000000).toFixed(1)}B`;
-    if (val >= 1000000) return `₦${(val / 1000000).toFixed(1)}M`;
+    if (val >= 1000000000) return `₦${(val/1000000000).toFixed(1)}B`;
+    if (val >= 1000000) return `₦${(val/1000000).toFixed(1)}M`;
     return `₦${val.toLocaleString()}`;
   };
 
@@ -112,24 +112,24 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
           </h1>
           <p className="text-slate-500 text-sm">
             Welcome back, <span className="font-semibold text-ptdf-600">{currentUser.name}</span>.
-            {isCustodian && <span className="ml-2 inline-flex items-center text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600"><MapPin size={10} className="mr-1" /> Abuja HQ Zone</span>}
+            {isCustodian && <span className="ml-2 inline-flex items-center text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600"><MapPin size={10} className="mr-1"/> Abuja HQ Zone</span>}
           </p>
         </div>
 
         <div className="flex items-center space-x-4 relative">
           <form onSubmit={handleSearchSubmit} className="relative hidden md:block">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
-            <input
-              type="text"
+            <input 
+              type="text" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Quick search assets..."
+              placeholder="Quick search assets..." 
               className="pl-10 pr-4 py-2 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-ptdf-500 w-64 bg-white"
             />
           </form>
 
           <div className="relative" ref={notificationRef}>
-            <button
+            <button 
               onClick={() => setShowNotifications(!showNotifications)}
               className="p-2 relative text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
             >
@@ -138,13 +138,13 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
               )}
             </button>
-
+            
             {showNotifications && (
               <div className="absolute right-0 top-12 w-80 bg-white rounded-xl shadow-xl border border-slate-100 z-50 animate-fadeIn">
                 <div className="p-4 border-b border-slate-50 flex justify-between items-center">
                   <h3 className="font-bold text-slate-800">Notifications</h3>
                   {unreadCount > 0 && (
-                    <button
+                    <button 
                       onClick={handleMarkAllRead}
                       className="text-xs text-ptdf-600 hover:underline"
                     >
@@ -165,7 +165,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
                   ))}
                 </div>
                 <div className="p-3 text-center border-t border-slate-50">
-                  <button
+                  <button 
                     onClick={handleViewAllNotifications}
                     className="text-xs font-medium text-ptdf-600 hover:text-ptdf-800"
                   >
@@ -177,41 +177,41 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
           </div>
 
           <div className="relative" ref={userMenuRef}>
-            <div
+            <div 
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center space-x-2 pl-4 border-l border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
             >
-              <div className="w-8 h-8 rounded-full bg-ptdf-100 flex items-center justify-center text-ptdf-700 font-bold text-xs border border-ptdf-200">
-                {currentUser.name.charAt(0)}
-              </div>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-slate-700 leading-tight">{currentUser.name}</p>
-                <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">{currentUser.role}</p>
-              </div>
-              <ChevronDown size={14} className="text-slate-400 hidden md:block" />
+               <div className="w-8 h-8 rounded-full bg-ptdf-100 flex items-center justify-center text-ptdf-700 font-bold text-xs border border-ptdf-200">
+                 {currentUser.name.charAt(0)}
+               </div>
+               <div className="hidden md:block text-left">
+                 <p className="text-sm font-medium text-slate-700 leading-tight">{currentUser.name}</p>
+                 <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">{currentUser.role}</p>
+               </div>
+               <ChevronDown size={14} className="text-slate-400 hidden md:block" />
             </div>
 
             {showUserMenu && (
               <div className="absolute right-0 top-12 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-50 animate-fadeIn overflow-hidden">
                 <div className="p-4 border-b border-slate-50 bg-slate-50">
-                  <p className="text-sm font-bold text-slate-800">{currentUser.name}</p>
-                  <p className="text-xs text-slate-500">{currentUser.email}</p>
+                   <p className="text-sm font-bold text-slate-800">{currentUser.name}</p>
+                   <p className="text-xs text-slate-500">{currentUser.email}</p>
                 </div>
                 <div className="p-2">
-                  <button
-                    onClick={() => { if (onNavigate) onNavigate(View.PROFILE); setShowUserMenu(false); }}
+                  <button 
+                    onClick={() => { if(onNavigate) onNavigate(View.PROFILE); setShowUserMenu(false); }}
                     className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg flex items-center"
                   >
                     <UserIcon size={16} className="mr-2" /> My Profile
                   </button>
-                  <button
-                    onClick={() => { if (onNavigate) onNavigate(View.SETTINGS); setShowUserMenu(false); }}
+                  <button 
+                    onClick={() => { if(onNavigate) onNavigate(View.SETTINGS); setShowUserMenu(false); }}
                     className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg flex items-center"
                   >
                     <Settings size={16} className="mr-2" /> Account Settings
                   </button>
                   <div className="h-px bg-slate-100 my-1"></div>
-                  <button
+                  <button 
                     onClick={onLogout}
                     className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center"
                   >
@@ -225,31 +225,31 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="Total Assets"
-          value={totalAssets.toLocaleString()}
-          icon={<Package className="text-ptdf-600" size={24} />}
+        <MetricCard 
+          title="Total Assets" 
+          value={totalAssets.toLocaleString()} 
+          icon={<Package className="text-ptdf-600" size={24} />} 
           trend={isCustodian ? "+2 this month" : "+12 this month"}
-          color="bg-ptdf-600/10"
+          color="bg-ptdf-600"
         />
-        <MetricCard
-          title="Acquisition Value"
-          value={formatCurrency(totalValue)}
-          icon={<DollarSign className="text-accent-600" size={24} />}
+        <MetricCard 
+          title="Acquisition Value" 
+          value={formatCurrency(totalValue)} 
+          icon={<DollarSign className="text-accent-600" size={24} />} 
           trend="+5.2% YoY"
-          color="bg-accent-500/10"
+          color="bg-accent-500"
         />
-        <MetricCard
-          title="Net Book Value"
-          value={formatCurrency(netBookValue)}
-          icon={<div className="font-bold text-ptdf-800">NBV</div>}
-          color="bg-ptdf-800/10"
+        <MetricCard 
+          title="Net Book Value" 
+          value={formatCurrency(netBookValue)} 
+          icon={<div className="font-bold text-ptdf-800">NBV</div>} 
+          color="bg-ptdf-800"
         />
-        <MetricCard
-          title="Pending Disposal"
-          value={pendingDisposal.toString()}
-          icon={<AlertCircle className="text-red-500" size={24} />}
-          color="bg-red-500/10"
+        <MetricCard 
+          title="Pending Disposal" 
+          value={pendingDisposal.toString()} 
+          icon={<AlertCircle className="text-red-500" size={24} />} 
+          color="bg-red-500"
         />
       </div>
 
@@ -274,7 +274,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend verticalAlign="bottom" height={36} />
+                <Legend verticalAlign="bottom" height={36}/>
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -286,8 +286,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={DEPRECIATION_DATA}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} />
                 <Tooltip />
                 <Line type="monotone" dataKey="value" stroke="#006B3E" strokeWidth={3} activeDot={{ r: 8 }} />
               </LineChart>
@@ -298,15 +298,15 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-slate-800">Pending Approvals</h3>
-          <button
+           <h3 className="text-lg font-semibold text-slate-800">Pending Approvals</h3>
+           <button 
             onClick={handlePendingAction}
             className="text-sm text-ptdf-600 hover:text-ptdf-800 font-medium"
-          >
-            View All
-          </button>
+           >
+             View All
+           </button>
         </div>
-
+        
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
@@ -317,7 +317,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onNavigateToSearch, 
                   <p className="text-xs text-slate-500">Requested by IT Department • 2 hours ago</p>
                 </div>
               </div>
-              <button
+              <button 
                 onClick={handlePendingAction}
                 className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 hover:border-ptdf-300 transition-all"
               >

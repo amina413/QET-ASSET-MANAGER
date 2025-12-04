@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { CATEGORIES, LOCATIONS, MOCK_USERS, MOCK_ASSETS } from '../constants';
 import { Asset, ConditionCode } from '../types';
-import { CheckCircle, ChevronRight, Save, UploadCloud, FileSpreadsheet, Download, AlertCircle, Check, X, FileText, Printer, Plus, ArrowLeft } from 'lucide-react';
+import { CheckCircle, ChevronRight, Save, UploadCloud, FileSpreadsheet, Download, AlertCircle, Check, X, FileText, Printer, Plus, ArrowLeft, Table, Edit2 } from 'lucide-react';
 
 const steps = ['Acquisition Details', 'Physical Details', 'Custodian & Financial'];
 
@@ -57,6 +57,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
   // Bulk Upload State
   const [dragActive, setDragActive] = useState(false);
   const [parsedData, setParsedData] = useState<BulkAssetRow[]>([]);
+  const [importedAssets, setImportedAssets] = useState<Asset[]>([]); // To show success summary
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,30 +70,33 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
     if (currentStep > 0) setCurrentStep(currentStep - 1);
   };
 
-  const generateBarcode = (category: string) => {
+  const generateBarcode = (category: string, name?: string) => {
     let prefix = 'PTDF';
+    const cat = category ? category.trim().toLowerCase() : '';
+    const assetName = name ? name.trim().toLowerCase() : '';
+
+    // Smart Category & Name Matching Logic
+    if (cat.includes('it') || cat.includes('office') || cat.includes('computer')) prefix = 'ITE';
+    else if (cat.includes('vehicle') || cat.includes('car') || cat.includes('truck')) prefix = 'VH';
+    else if (cat.includes('furniture') || cat.includes('fitting') || cat.includes('chair') || cat.includes('table')) prefix = 'FAF';
+    else if (cat.includes('plant') || cat.includes('machinery') || cat.includes('generator')) prefix = 'PMA';
+    else if (cat.includes('land') || cat.includes('building')) prefix = 'LND';
+    else if (cat.includes('software')) prefix = 'SFW';
     
-    switch (category) {
-      case 'IT and Office Equipment':
+    // Name based inference overrides or defaults if category is ambiguous
+    // Handles specific items like "Photocopier", "Water Dispenser", "Gadgets" as ITE
+    else if (
+        assetName.includes('photocopier') || 
+        assetName.includes('printer') || 
+        assetName.includes('dispenser') || 
+        assetName.includes('gadget') || 
+        assetName.includes('laptop') || 
+        assetName.includes('monitor') || 
+        assetName.includes('phone') ||
+        assetName.includes('scanner') ||
+        assetName.includes('projector')
+    ) {
         prefix = 'ITE';
-        break;
-      case 'Vehicles':
-        prefix = 'VH';
-        break;
-      case 'Furniture and Fittings':
-        prefix = 'FAF';
-        break;
-      case 'Plant and Machinery':
-        prefix = 'PMA';
-        break;
-      case 'Land & Buildings':
-        prefix = 'LND';
-        break;
-      case 'Software Licenses':
-        prefix = 'SFW';
-        break;
-      default:
-        prefix = 'PTDF';
     }
 
     const random = Math.floor(1000 + Math.random() * 9000);
@@ -115,7 +119,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
     
     // Simulate API call and ID generation
     setTimeout(() => {
-      const newId = generateBarcode(formData.category);
+      const newId = generateBarcode(formData.category, formData.name);
       const assetName = formData.name || "New Asset";
       
       // Store asset in Mock Database (Session Persistence)
@@ -149,6 +153,8 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
 
   const resetForm = () => {
     setRegisteredAsset(null);
+    setImportedAssets([]);
+    setParsedData([]);
     setFormData({
       name: '',
       category: '',
@@ -190,6 +196,39 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
     }
   };
 
+  const handlePrintAllTags = () => {
+    const printWindow = window.open('', '', 'height=600,width=800');
+    if (printWindow) {
+      printWindow.document.write('<html><head><title>Print Asset Tags</title>');
+      printWindow.document.write('<script src="https://cdn.tailwindcss.com"></script>');
+      printWindow.document.write('</head><body class="bg-white p-8">');
+      
+      printWindow.document.write('<div class="grid grid-cols-2 gap-8">'); // 2 columns layout for multiple tags
+      
+      importedAssets.forEach(asset => {
+        const tagContent = `
+        <div class="bg-slate-50 border-4 border-slate-900 border-double rounded-xl p-6 text-center break-inside-avoid shadow-sm">
+            <h3 class="font-bold text-slate-900 text-xl mb-1 tracking-tighter">PTDF ASSET TAG</h3>
+            <div class="h-16 bg-white border border-slate-300 my-2 flex items-center justify-center overflow-hidden px-2">
+                <div class="flex items-end h-12 space-x-[2px] w-full justify-center opacity-100">
+                    ${Array.from({length: 40}).map(() => `<div class="bg-black" style="width: ${Math.random() > 0.5 ? '2px' : '4px'}; height: ${40 + Math.random() * 60}%"></div>`).join('')}
+                </div>
+            </div>
+            <p class="font-mono text-2xl font-bold tracking-widest text-slate-900 mb-1">${asset.productId}</p>
+            <p class="text-xs text-slate-600 font-semibold truncate px-2">${asset.name}</p>
+        </div>
+        `;
+        printWindow.document.write(tagContent);
+      });
+
+      printWindow.document.write('</div>');
+      printWindow.document.write('<style>@media print { body { -webkit-print-color-adjust: exact; } }</style>');
+      printWindow.document.write('<script>setTimeout(() => { window.print(); window.close(); }, 1000);</script>');
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+    }
+  };
+
   // --- Bulk Upload Handlers ---
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -219,6 +258,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
   const processFile = (file: File) => {
     setIsProcessingFile(true);
     setParsedData([]);
+    setImportedAssets([]);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -237,7 +277,21 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
         const sheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(sheet);
 
-        validateBulkData(jsonData);
+        const initialRows = jsonData.map((row: any, index: number) => ({
+          rowId: index,
+          name: row['Asset Name'] || row['Name'] || '',
+          category: row['Category'] || '',
+          cost: row['Acquisition Cost'] || row['Cost'] || 0,
+          date: row['Acquisition Date'] || row['Date'] || '',
+          location: row['Location'] || '',
+          salvageValue: row['Salvage Value'] || row['Salvage'] || 0,
+          depreciationMethod: row['Depreciation Method'] || 'Straight-Line',
+          isValid: true,
+          errors: []
+        }));
+
+        const validated = revalidateRows(initialRows);
+        setParsedData(validated);
       } catch (error) {
         console.error("Error parsing file:", error);
         alert("Error parsing file. Please ensure it is a valid Excel or CSV file.");
@@ -249,50 +303,58 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
     reader.readAsBinaryString(file);
   };
 
-  const validateBulkData = (data: any[]) => {
-    const seenNames = new Set<string>();
+  // Re-validation function that checks all rows for duplicates and errors
+  const revalidateRows = (rows: BulkAssetRow[]): BulkAssetRow[] => {
+    // Count name occurrences to find duplicates
+    const nameCounts = new Map<string, number>();
+    rows.forEach(r => {
+        const n = r.name?.trim().toLowerCase();
+        if(n) nameCounts.set(n, (nameCounts.get(n) || 0) + 1);
+    });
 
-    const validatedRows: BulkAssetRow[] = data.map((row, index) => {
+    return rows.map(row => {
       const errors: string[] = [];
-      const name = row['Asset Name'] || row['Name'] || '';
-      const category = row['Category'] || '';
-      const cost = row['Acquisition Cost'] || row['Cost'] || 0;
-      const date = row['Acquisition Date'] || row['Date'] || '';
-      const location = row['Location'] || '';
-      const salvageValue = row['Salvage Value'] || row['Salvage'] || 0;
-      const depreciationMethod = row['Depreciation Method'] || 'Straight-Line';
+      const name = row.name;
+      const normalizedName = name?.trim().toLowerCase();
 
       if (!name) {
         errors.push('Missing Name');
-      } else {
-        const normalizedName = name.trim().toLowerCase();
-        if (seenNames.has(normalizedName)) {
-          errors.push('Duplicate Name in batch');
-        } else {
-          seenNames.add(normalizedName);
-        }
+      } else if (normalizedName && (nameCounts.get(normalizedName) || 0) > 1) {
+        errors.push('Duplicate Name');
       }
 
-      if (!category) errors.push('Missing Category');
-      if (!cost || isNaN(Number(cost))) errors.push('Invalid Cost');
-      if (salvageValue && isNaN(Number(salvageValue))) errors.push('Invalid Salvage Value');
-      if (!location) errors.push('Missing Location');
+      if (!row.category) errors.push('Missing Category');
+      if (!row.cost || isNaN(Number(row.cost))) errors.push('Invalid Cost');
+      if (row.salvageValue && isNaN(Number(row.salvageValue))) errors.push('Invalid Salvage Value');
+      if (!row.location) errors.push('Missing Location');
 
       return {
-        rowId: index,
-        name,
-        category,
-        cost,
-        date,
-        location,
-        salvageValue,
-        depreciationMethod,
+        ...row,
         isValid: errors.length === 0,
         errors
       };
     });
+  };
 
-    setParsedData(validatedRows);
+  const handlePreviewChange = (rowId: number, field: keyof BulkAssetRow, value: string | number) => {
+    const updatedData = parsedData.map(row => 
+        row.rowId === rowId ? { ...row, [field]: value } : row
+    );
+    const validated = revalidateRows(updatedData);
+    setParsedData(validated);
+  };
+
+  const handleSuccessEdit = (id: string, field: keyof Asset, value: string) => {
+    // Update local state to reflect in UI
+    setImportedAssets(prev => prev.map(asset => 
+        asset.id === id ? { ...asset, [field]: value } : asset
+    ));
+    
+    // Update the mock database as well
+    const assetIndex = MOCK_ASSETS.findIndex(a => a.id === id);
+    if (assetIndex > -1) {
+        (MOCK_ASSETS[assetIndex] as any)[field] = value;
+    }
   };
 
   const handleBulkImport = () => {
@@ -304,8 +366,8 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
       const createdAssets: Asset[] = [];
 
       validRows.forEach((row, idx) => {
-        // Generate Unique Product ID / Tag with Barcode
-        const newId = generateBarcode(row.category);
+        // Generate Unique Product ID / Tag with Barcode based on Category Prefix AND Name
+        const newId = generateBarcode(row.category, row.name);
         
         // Create Asset Object
         const newAsset: Asset = {
@@ -327,19 +389,33 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
       });
 
       // Update Global Asset Register (Simulated DB)
-      // This automatically updates Reports and Search results
       MOCK_ASSETS.push(...createdAssets);
 
       setIsSubmitting(false);
+      setImportedAssets(createdAssets);
       
-      // Provide detailed feedback with generated tags
-      const tagSummary = createdAssets.map(a => `- ${a.name}: ${a.productId}`).slice(0, 10).join('\n');
-      const moreCount = createdAssets.length > 10 ? `\n...and ${createdAssets.length - 10} more.` : '';
+      // Remove valid rows from preview, keep invalid ones for fixing
+      const invalidRows = parsedData.filter(d => !d.isValid);
+      setParsedData(invalidRows);
       
-      alert(`Successfully registered ${createdAssets.length} assets.\n\nGenerated Tags:\n${tagSummary}${moreCount}\n\nThese assets are now live in the Reports and Asset Lookup.`);
-      
-      setParsedData([]);
-    }, 2000);
+    }, 1500);
+  };
+
+  const downloadImportedTags = () => {
+    const XLSX = (window as any).XLSX;
+    if (!XLSX || importedAssets.length === 0) return;
+
+    const data = importedAssets.map(a => ({
+        "Asset Name": a.name,
+        "Generated Tag ID": a.productId,
+        "Category": a.category,
+        "Location": a.location
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "New Asset Tags");
+    XLSX.writeFile(wb, "PTDF_Generated_Tags.xlsx");
   };
 
   const downloadTemplate = () => {
@@ -357,9 +433,9 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
         "Depreciation Method": "Straight-Line"
       },
       { 
-        "Asset Name": "Office Chair", 
-        "Category": "Furniture and Fittings", 
-        "Acquisition Cost": 45000, 
+        "Asset Name": "Photocopier", 
+        "Category": "Office Equipment", 
+        "Acquisition Cost": 245000, 
         "Acquisition Date": "2023-02-20", 
         "Location": "Lagos Office",
         "Salvage Value": 0,
@@ -389,13 +465,13 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
         {/* Mode Toggle */}
         <div className="bg-slate-200 p-1 rounded-lg flex text-sm font-medium">
           <button 
-            onClick={() => setMode('single')}
+            onClick={() => { setMode('single'); resetForm(); }}
             className={`px-4 py-1.5 rounded-md transition-all ${mode === 'single' ? 'bg-white text-ptdf-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
           >
             Single Entry
           </button>
           <button 
-            onClick={() => setMode('bulk')}
+            onClick={() => { setMode('bulk'); resetForm(); }}
             className={`px-4 py-1.5 rounded-md transition-all ${mode === 'bulk' ? 'bg-white text-ptdf-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
           >
             Bulk Upload
@@ -689,123 +765,241 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-8 animate-fadeIn">
           {/* BULK UPLOAD MODE */}
           
-          <div className="flex flex-col items-center justify-center mb-8">
-            <div className="text-center max-w-lg">
-              <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-ptdf-600">
-                <FileSpreadsheet size={32} />
-              </div>
-              <h2 className="text-xl font-bold text-slate-800 mb-2">Upload Asset Data File</h2>
-              <p className="text-slate-500 text-sm mb-6">
-                Support for Excel (.xlsx, .xls) and CSV. Ensure your file matches the template structure.
-              </p>
-              
-              <button 
-                onClick={downloadTemplate}
-                className="inline-flex items-center px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors mb-6"
-              >
-                <Download size={16} className="mr-2" /> Download Template
-              </button>
-            </div>
+          {importedAssets.length > 0 ? (
+             <div className="animate-fadeIn">
+                <div className="flex flex-col items-center justify-center text-center mb-6">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4">
+                        <CheckCircle size={32} />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-800">Bulk Import Successful</h2>
+                    <p className="text-slate-500 text-sm max-w-md">
+                        {importedAssets.length} assets have been successfully registered. Tags have been automatically generated.
+                        <br/><span className="text-xs text-ptdf-600 font-medium">You can edit the details below if needed.</span>
+                    </p>
+                </div>
 
-            {/* Drop Zone */}
-            <div 
-              className={`w-full max-w-2xl h-48 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-colors cursor-pointer ${
-                dragActive ? 'border-ptdf-500 bg-ptdf-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
-              }`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <UploadCloud size={40} className={`mb-3 ${dragActive ? 'text-ptdf-600' : 'text-slate-400'}`} />
-              <p className="text-sm font-medium text-slate-700">Drag & Drop your file here</p>
-              <p className="text-xs text-slate-400 mt-1">or click to browse</p>
-              <input 
-                ref={fileInputRef}
-                type="file" 
-                className="hidden" 
-                accept=".xlsx,.xls,.csv" 
-                onChange={handleFileChange}
-              />
-            </div>
-          </div>
+                <div className="border border-slate-200 rounded-lg overflow-hidden mb-6">
+                    <div className="bg-slate-50 p-3 border-b border-slate-200 flex justify-between items-center">
+                        <h3 className="font-bold text-slate-700 text-sm flex items-center">
+                            <Table size={16} className="mr-2"/> Generated Tag List
+                        </h3>
+                        <div className="flex gap-2">
+                            <button onClick={handlePrintAllTags} className="text-xs text-ptdf-600 font-bold hover:underline flex items-center px-2 py-1 bg-white border border-ptdf-200 rounded">
+                                <Printer size={14} className="mr-1"/> Print All Tags
+                            </button>
+                            <button onClick={downloadImportedTags} className="text-xs text-ptdf-600 font-bold hover:underline flex items-center px-2 py-1 bg-white border border-ptdf-200 rounded">
+                                <Download size={14} className="mr-1"/> Export List
+                            </button>
+                        </div>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 text-slate-500 sticky top-0 z-10">
+                                <tr>
+                                    <th className="p-3 font-semibold border-b">Asset Name</th>
+                                    <th className="p-3 font-semibold border-b">Generated Tag / ID</th>
+                                    <th className="p-3 font-semibold border-b">Category</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {importedAssets.map((asset) => (
+                                    <tr key={asset.id} className="hover:bg-slate-50 group">
+                                        <td className="p-3">
+                                            <input 
+                                                type="text" 
+                                                value={asset.name} 
+                                                onChange={(e) => handleSuccessEdit(asset.id, 'name', e.target.value)}
+                                                className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-ptdf-500 focus:bg-white focus:outline-none py-1 text-slate-800 font-medium transition-colors"
+                                            />
+                                        </td>
+                                        <td className="p-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-8 w-24 bg-white border border-slate-200 flex items-center justify-center px-1">
+                                                    <div className="flex items-end h-5 space-x-[1px] w-full justify-center opacity-80">
+                                                        {[...Array(25)].map((_, i) => (
+                                                            <div key={i} className="bg-slate-900" style={{width: Math.random() > 0.5 ? '1px' : '2px', height: `${30 + Math.random() * 70}%`}}></div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <span className="font-mono text-ptdf-700 font-bold">{asset.productId}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-3 text-slate-500 text-xs">
+                                            <select 
+                                                value={asset.category}
+                                                onChange={(e) => handleSuccessEdit(asset.id, 'category', e.target.value)}
+                                                className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-ptdf-500 focus:bg-white focus:outline-none py-1 w-full"
+                                            >
+                                                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-          {/* Processing / Preview State */}
-          {isProcessingFile && (
-             <div className="flex items-center justify-center py-8">
-               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ptdf-600"></div>
-               <span className="ml-3 text-slate-600 font-medium">Processing file...</span>
+                <div className="flex justify-end gap-3">
+                    <button 
+                        onClick={resetForm} 
+                        className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 font-medium"
+                    >
+                        Upload Another File
+                    </button>
+                    <button 
+                        onClick={() => { if(onBack) onBack(); }}
+                        className="px-6 py-2 bg-ptdf-600 text-white rounded-lg hover:bg-ptdf-700 font-medium shadow-md"
+                    >
+                        Return to Dashboard
+                    </button>
+                </div>
              </div>
-          )}
+          ) : (
+            <>
+              <div className="flex flex-col items-center justify-center mb-8">
+                <div className="text-center max-w-lg">
+                  <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-ptdf-600">
+                    <FileSpreadsheet size={32} />
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-800 mb-2">Upload Asset Data File</h2>
+                  <p className="text-slate-500 text-sm mb-6">
+                    Support for Excel (.xlsx, .xls) and CSV. Ensure your file matches the template structure.
+                  </p>
+                  
+                  <button 
+                    onClick={downloadTemplate}
+                    className="inline-flex items-center px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors mb-6"
+                  >
+                    <Download size={16} className="mr-2" /> Download Template
+                  </button>
+                </div>
 
-          {parsedData.length > 0 && (
-            <div className="animate-slideIn">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-slate-800">Preview Data ({parsedData.length} records)</h3>
-                <div className="flex gap-2">
-                   <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-md font-medium">
-                     {parsedData.filter(d => d.isValid).length} Valid
-                   </span>
-                   <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-md font-medium">
-                     {parsedData.filter(d => !d.isValid).length} Invalid
-                   </span>
+                {/* Drop Zone */}
+                <div 
+                  className={`w-full max-w-2xl h-48 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-colors cursor-pointer ${
+                    dragActive ? 'border-ptdf-500 bg-ptdf-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
+                  }`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <UploadCloud size={40} className={`mb-3 ${dragActive ? 'text-ptdf-600' : 'text-slate-400'}`} />
+                  <p className="text-sm font-medium text-slate-700">Drag & Drop your file here</p>
+                  <p className="text-xs text-slate-400 mt-1">or click to browse</p>
+                  <input 
+                    ref={fileInputRef}
+                    type="file" 
+                    className="hidden" 
+                    accept=".xlsx,.xls,.csv" 
+                    onChange={handleFileChange}
+                  />
                 </div>
               </div>
 
-              <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-80 mb-6">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500 sticky top-0">
-                    <tr>
-                      <th className="p-3 font-semibold border-b">Status</th>
-                      <th className="p-3 font-semibold border-b">Asset Name</th>
-                      <th className="p-3 font-semibold border-b">Category</th>
-                      <th className="p-3 font-semibold border-b">Cost</th>
-                      <th className="p-3 font-semibold border-b">Depr. Method</th>
-                      <th className="p-3 font-semibold border-b">Salvage Value</th>
-                      <th className="p-3 font-semibold border-b">Issues</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {parsedData.map((row) => (
-                      <tr key={row.rowId} className={row.isValid ? 'bg-white' : 'bg-red-50'}>
-                        <td className="p-3">
-                          {row.isValid ? (
-                            <CheckCircle size={18} className="text-green-500" />
-                          ) : (
-                            <AlertCircle size={18} className="text-red-500" />
-                          )}
-                        </td>
-                        <td className="p-3 font-medium text-slate-800">{row.name || '-'}</td>
-                        <td className="p-3 text-slate-600">{row.category || '-'}</td>
-                        <td className="p-3 text-slate-600">{row.cost ? `₦${row.cost}` : '-'}</td>
-                        <td className="p-3 text-slate-600">{row.depreciationMethod}</td>
-                        <td className="p-3 text-slate-600">{row.salvageValue ? `₦${row.salvageValue}` : '-'}</td>
-                        <td className="p-3 text-red-600 text-xs">
-                          {row.errors.join(', ')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {/* Processing / Preview State */}
+              {isProcessingFile && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ptdf-600"></div>
+                  <span className="ml-3 text-slate-600 font-medium">Processing file...</span>
+                </div>
+              )}
 
-              <div className="flex justify-end gap-4">
-                <button 
-                  onClick={() => setParsedData([])}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  Clear
-                </button>
-                <button 
-                  onClick={handleBulkImport}
-                  disabled={isSubmitting || parsedData.filter(d => d.isValid).length === 0}
-                  className="px-6 py-2 bg-ptdf-600 text-white rounded-lg hover:bg-ptdf-700 transition-colors shadow-lg shadow-ptdf-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                   {isSubmitting ? 'Importing...' : 'Import Valid Assets'}
-                </button>
-              </div>
-            </div>
+              {parsedData.length > 0 && (
+                <div className="animate-slideIn">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800">Preview Data ({parsedData.length} records)</h3>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500 italic mr-2">Click on cells to edit and fix errors.</span>
+                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-md font-medium">
+                            {parsedData.filter(d => d.isValid).length} Valid
+                        </span>
+                        <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-md font-medium">
+                            {parsedData.filter(d => !d.isValid).length} Invalid
+                        </span>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-80 mb-6">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-500 sticky top-0 z-10">
+                        <tr>
+                          <th className="p-3 font-semibold border-b">Status</th>
+                          <th className="p-3 font-semibold border-b">Asset Name</th>
+                          <th className="p-3 font-semibold border-b">Category</th>
+                          <th className="p-3 font-semibold border-b">Cost</th>
+                          <th className="p-3 font-semibold border-b">Depr. Method</th>
+                          <th className="p-3 font-semibold border-b">Salvage Value</th>
+                          <th className="p-3 font-semibold border-b">Issues</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {parsedData.map((row) => (
+                          <tr key={row.rowId} className={row.isValid ? 'bg-white hover:bg-slate-50' : 'bg-red-50 hover:bg-red-100'}>
+                            <td className="p-3">
+                              {row.isValid ? (
+                                <CheckCircle size={18} className="text-green-500" />
+                              ) : (
+                                <AlertCircle size={18} className="text-red-500" />
+                              )}
+                            </td>
+                            <td className="p-3">
+                                <input 
+                                    type="text" 
+                                    value={row.name} 
+                                    onChange={(e) => handlePreviewChange(row.rowId, 'name', e.target.value)}
+                                    className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-ptdf-500 focus:bg-white focus:outline-none py-1 font-medium text-slate-800 transition-colors"
+                                />
+                            </td>
+                            <td className="p-3">
+                                <select 
+                                    value={row.category}
+                                    onChange={(e) => handlePreviewChange(row.rowId, 'category', e.target.value)}
+                                    className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-ptdf-500 focus:bg-white focus:outline-none py-1 text-slate-600"
+                                >
+                                    <option value="">Select...</option>
+                                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </td>
+                            <td className="p-3">
+                                <input 
+                                    type="number" 
+                                    value={row.cost} 
+                                    onChange={(e) => handlePreviewChange(row.rowId, 'cost', e.target.value)}
+                                    className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-ptdf-500 focus:bg-white focus:outline-none py-1 text-slate-600"
+                                />
+                            </td>
+                            <td className="p-3 text-slate-600">{row.depreciationMethod}</td>
+                            <td className="p-3 text-slate-600">{row.salvageValue ? `₦${row.salvageValue}` : '-'}</td>
+                            <td className="p-3 text-red-600 text-xs font-semibold">
+                              {row.errors.join(', ')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex justify-end gap-4">
+                    <button 
+                      onClick={() => setParsedData([])}
+                      className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                    >
+                      Clear
+                    </button>
+                    <button 
+                      onClick={handleBulkImport}
+                      disabled={isSubmitting || parsedData.filter(d => d.isValid).length === 0}
+                      className="px-6 py-2 bg-ptdf-600 text-white rounded-lg hover:bg-ptdf-700 transition-colors shadow-lg shadow-ptdf-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                    >
+                      {isSubmitting ? 'Importing...' : 'Import Valid Assets'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
