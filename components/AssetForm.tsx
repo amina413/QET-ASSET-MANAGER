@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { CATEGORIES, LOCATIONS, MOCK_USERS, MOCK_ASSETS, LOCATION_BRANCHES, LOCATION_CODES } from '../constants';
 import { Asset, ConditionCode } from '../types';
@@ -138,7 +137,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
     else if (cat.includes('land') || cat.includes('building')) prefix = 'LND';
     else if (cat.includes('software')) prefix = 'SFW';
     
-    // Name based inference overrides (useful for bulk uploads or ambiguous categories)
+    // Name based inference overrides
     else if (
         assetName.includes('photocopier') || 
         assetName.includes('printer') || 
@@ -239,6 +238,74 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
     });
     setCurrentStep(0);
     setShowQrCode(false);
+  };
+
+  const renderRealisticQRCode = () => {
+    // Generate a structured simulation of a Version 2 QR Code (25x25)
+    // with proper Finder Patterns, Quiet Zones, and Alignment Patterns.
+    const size = 25;
+    const modules: React.ReactElement[] = [];
+    
+    // Helper to check if a coordinate is reserved
+    const isReserved = (r: number, c: number) => {
+        // Top-Left Finder (7x7) + Quiet Zone (1)
+        if (r < 8 && c < 8) return true;
+        // Top-Right Finder (7x7) + Quiet Zone (1)
+        if (r < 8 && c >= size - 8) return true;
+        // Bottom-Left Finder (7x7) + Quiet Zone (1)
+        if (r >= size - 8 && c < 8) return true;
+        // Alignment Pattern (5x5, centered at size-7, size-7) => Top-Left at size-9, size-9
+        if (r >= size - 9 && r <= size - 5 && c >= size - 9 && c <= size - 5) return true;
+        return false;
+    };
+
+    // Draw Data Modules
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            if (!isReserved(r, c)) {
+                // Timing Patterns (Row 6 and Col 6)
+                if (r === 6 || c === 6) {
+                    if ((r + c) % 2 === 0) {
+                        modules.push(<rect key={`t-${r}-${c}`} x={c} y={r} width="1" height="1" fill="black" />);
+                    }
+                } else {
+                    // Random Data
+                    if (Math.random() > 0.5) {
+                        modules.push(<rect key={`d-${r}-${c}`} x={c} y={r} width="1" height="1" fill="black" />);
+                    }
+                }
+            }
+        }
+    }
+
+    // Draw Finder Patterns (Fixed Geometry)
+    const drawFinder = (x: number, y: number) => (
+        <g key={`finder-${x}-${y}`}>
+            <rect x={x} y={y} width="7" height="7" fill="black" />
+            <rect x={x+1} y={y+1} width="5" height="5" fill="white" />
+            <rect x={x+2} y={y+2} width="3" height="3" fill="black" />
+        </g>
+    );
+
+    // Draw Alignment Pattern (Bottom Right)
+    const drawAlignment = (x: number, y: number) => (
+        <g key={`align-${x}-${y}`}>
+            <rect x={x} y={y} width="5" height="5" fill="black" />
+            <rect x={x+1} y={y+1} width="3" height="3" fill="white" />
+            <rect x={x+2} y={y+2} width="1" height="1" fill="black" />
+        </g>
+    );
+
+    return (
+        <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full" shapeRendering="crispEdges">
+            <rect x="0" y="0" width={size} height={size} fill="white" />
+            {modules}
+            {drawFinder(0, 0)}
+            {drawFinder(size - 7, 0)}
+            {drawFinder(0, size - 7)}
+            {drawAlignment(size - 9, size - 9)}
+        </svg>
+    );
   };
 
   const handlePrintTag = () => {
@@ -503,13 +570,10 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
                     </div>
                     <h3 className="font-bold text-slate-900 text-xl mb-1 tracking-tight">PTDF ASSET TAG</h3>
                     
-                    <div className="h-28 bg-white border border-slate-300 my-4 flex items-center justify-center overflow-hidden px-4 rounded-sm">
+                    <div className="h-32 bg-white border border-slate-300 my-4 flex items-center justify-center overflow-hidden px-4 rounded-sm">
                       {showQrCode ? (
-                        <div className="grid grid-cols-6 grid-rows-6 gap-1 w-24 h-24 p-1">
-                             <div className="col-span-2 row-span-2 bg-black"></div>
-                             <div className="col-span-2 row-span-2 col-start-5 bg-black"></div>
-                             <div className="col-span-2 row-span-2 row-start-5 bg-black"></div>
-                             {[...Array(15)].map((_,i) => <div key={i} className="bg-black rounded-sm"></div>)}
+                        <div className="w-28 h-28 p-1">
+                          {renderRealisticQRCode()}
                         </div>
                       ) : (
                         <div className="flex items-end h-16 space-x-[3px] w-full justify-center opacity-90">
@@ -582,7 +646,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack }) => {
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div>
                        <label className="block text-sm font-medium text-slate-700 mb-1">Model / Serial Number</label>
-                       <input type="text" value={formData.model} onChange={(e) => setFormData({...formData, model: e.target.value})} className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" placeholder="S/N" />
+                       <input type="text" value={formData.model} onChange={(e) => setFormData({...formData,model: e.target.value})} className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none" placeholder="S/N" />
                      </div>
                      <div>
                        <label className="block text-sm font-medium text-slate-700 mb-1">Useful Life (Years) <span className="text-red-500">*</span></label>
