@@ -61,7 +61,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
 
   const handleAddUser = () => {
     if (!newUser.name || !newUser.email) return;
-    
+
     setIsSaving(true);
     setTimeout(() => {
       const userToAdd: User = {
@@ -72,7 +72,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
         role: newUser.role,
         lastLogin: 'Never'
       };
-      
+
       setUsers([...users, userToAdd]);
       setIsSaving(false);
       setIsAddUserOpen(false);
@@ -83,9 +83,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
   return (
     <div className="max-w-6xl mx-auto pb-20">
       {onBack && (
-        <button 
+        <button
           onClick={onBack}
-          className="flex items-center text-sm text-slate-500 hover:text-ptdf-600 mb-6 transition-colors group"
+          className="flex items-center text-sm text-slate-500 hover:text-abdc-600 mb-6 transition-colors group"
         >
           <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
           Back to Dashboard
@@ -94,13 +94,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
 
       <div className="flex justify-between items-center mb-8">
         <div>
-           <h1 className="text-2xl font-bold text-slate-800">User & Role Management</h1>
-           <p className="text-slate-500">Manage system access and permissions.</p>
+          <h1 className="text-2xl font-bold text-slate-800">User & Role Management</h1>
+          <p className="text-slate-500">Manage system access and permissions.</p>
         </div>
         {canModifyUsers && (
-          <button 
+          <button
             onClick={() => setIsAddUserOpen(true)}
-            className="flex items-center px-4 py-2 bg-ptdf-600 text-white rounded-lg hover:bg-ptdf-700 transition-colors shadow-sm"
+            className="flex items-center px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 transition-colors shadow-sm"
           >
             <Plus size={18} className="mr-2" /> Add New User
           </button>
@@ -110,7 +110,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px] relative">
         {isLoading ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10">
-            <Loader2 size={40} className="text-ptdf-600 animate-spin mb-4" />
+            <Loader2 size={40} className="text-abdc-600 animate-spin mb-4" />
             <p className="text-slate-500 font-medium">Loading users...</p>
           </div>
         ) : (
@@ -145,23 +145,23 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                       ${user.role === 'System Admin' ? 'bg-purple-100 text-purple-800' :
                         user.role === 'Asset Manager' ? 'bg-accent-100 text-accent-700' :
-                        user.role === 'Auditor' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-800'}
+                          user.role === 'Auditor' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-800'}
                     `}>
                       <Shield size={12} className="mr-1" />
                       {user.role}
                     </span>
                   </td>
                   <td className="p-5 text-sm text-slate-500">{user.lastLogin}</td>
-                  
+
                   {canModifyUsers && (
                     <td className="p-5 text-right">
-                      <button 
+                      <button
                         onClick={() => setEditingUser(user)}
-                        className="p-2 text-slate-400 hover:text-ptdf-600 hover:bg-ptdf-50 rounded-full transition-colors mr-1"
+                        className="p-2 text-slate-400 hover:text-abdc-600 hover:bg-abdc-50 rounded-full transition-colors mr-1"
                       >
                         <Edit2 size={16} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDelete(user.id)}
                         className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
                       >
@@ -187,10 +187,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
             </div>
             <div className="mb-6">
               <label className="block text-sm font-medium text-slate-500 mb-1">Role</label>
-              <select 
-                value={editingUser.role} 
-                onChange={(e) => setEditingUser({...editingUser, role: e.target.value as UserRole})}
-                className="w-full p-2 bg-white border border-slate-300 rounded focus:ring-2 focus:ring-ptdf-500 outline-none"
+              <select
+                value={editingUser.role}
+                onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as UserRole })}
+                className="w-full p-2 bg-white border border-slate-300 rounded focus:ring-2 focus:ring-abdc-500 outline-none"
               >
                 <option value="System Admin">System Admin</option>
                 <option value="Asset Manager">Asset Manager</option>
@@ -199,16 +199,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
               </select>
             </div>
             <div className="flex justify-end gap-3">
-              <button 
-                onClick={() => setEditingUser(null)} 
+              <button
+                onClick={() => setEditingUser(null)}
                 className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={() => handleSaveRole(editingUser.role)}
                 disabled={isSaving}
-                className="px-4 py-2 bg-ptdf-600 text-white rounded-lg hover:bg-ptdf-700 flex items-center"
+                className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center"
               >
                 {isSaving && <Loader2 size={16} className="animate-spin mr-2" />}
                 Save Changes
@@ -226,44 +226,44 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
               <h3 className="text-lg font-bold text-slate-800">Add New User</h3>
               <button onClick={() => setIsAddUserOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={newUser.name}
-                  onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
+                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none"
                   placeholder="e.g. John Doe"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   value={newUser.email}
-                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
-                  placeholder="e.g. j.doe@ptdf.gov.ng"
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none"
+                  placeholder="e.g. j.doe@abdc.com"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={newUser.department}
-                  onChange={(e) => setNewUser({...newUser, department: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
+                  onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
+                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none"
                   placeholder="e.g. Finance"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
-                <select 
+                <select
                   value={newUser.role}
-                  onChange={(e) => setNewUser({...newUser, role: e.target.value as UserRole})}
-                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-ptdf-500 outline-none"
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as UserRole })}
+                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none"
                 >
                   <option value="System Admin">System Admin</option>
                   <option value="Asset Manager">Asset Manager</option>
@@ -274,16 +274,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
             </div>
 
             <div className="flex justify-end gap-3 mt-8">
-              <button 
-                onClick={() => setIsAddUserOpen(false)} 
+              <button
+                onClick={() => setIsAddUserOpen(false)}
                 className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleAddUser}
                 disabled={isSaving || !newUser.name || !newUser.email}
-                className="px-6 py-2 bg-ptdf-600 text-white rounded-lg hover:bg-ptdf-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? <Loader2 size={16} className="animate-spin mr-2" /> : <Plus size={18} className="mr-2" />}
                 Create User

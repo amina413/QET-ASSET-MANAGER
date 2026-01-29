@@ -1,5 +1,5 @@
 
-import { Asset, User, ChartDataPoint, DepreciationPoint, AssetHistoryEvent, ConditionCode, WipAsset } from './types';
+import { Asset, User, ChartDataPoint, DepreciationPoint, AssetHistoryEvent, ConditionCode, WipAsset, AuditSession, AuditVerification } from './types';
 
 export const CONDITION_DESCRIPTIONS: Record<ConditionCode, string> = {
   'A1': 'New - Perfect Condition',
@@ -15,13 +15,13 @@ export const CONDITION_DESCRIPTIONS: Record<ConditionCode, string> = {
 export const MOCK_ASSETS: Asset[] = [
   {
     id: '1',
-    productId: 'PTDF/ABJ/ITE/0042',
+    productId: 'ABDC/ABJ/ITE/0042',
     name: 'HP EliteBook G8',
     category: 'IT Equipment',
     acquisitionCost: 850000,
     acquisitionDate: '2023-01-15',
     netBookValue: 620000,
-    location: 'Abuja HQ',
+    location: 'Abuja',
     subLocation: 'IT Server Room',
     custodian: 'Emeka Okafor',
     assignedUser: 'John Doe',
@@ -33,13 +33,13 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: '2',
-    productId: 'PTDF/LAG/VH/1023',
+    productId: 'ABDC/LAG/VH/1023',
     name: 'Toyota Hilux 2022',
     category: 'Vehicles',
     acquisitionCost: 25000000,
     acquisitionDate: '2022-06-10',
     netBookValue: 18500000,
-    location: 'Lagos Office',
+    location: 'Abuja',
     subLocation: 'Parking Lot B',
     custodian: 'Transport Pool',
     status: 'Active',
@@ -50,13 +50,13 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: '3',
-    productId: 'PTDF/ABJ/FAF/3099',
+    productId: 'ABDC/ABJ/FAF/3099',
     name: 'Conference Table (Mahogany)',
     category: 'Furniture and Fittings',
     acquisitionCost: 450000,
     acquisitionDate: '2021-11-05',
     netBookValue: 210000,
-    location: 'Abuja HQ',
+    location: 'Abuja',
     subLocation: 'Conference Room 3B',
     custodian: 'Facilities Mgr',
     status: 'Maintenance',
@@ -67,13 +67,13 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: '4',
-    productId: 'PTDF/ABJ/ITE/0055',
+    productId: 'ABDC/ABJ/ITE/0055',
     name: 'Dell PowerEdge Server',
     category: 'IT Equipment',
     acquisitionCost: 4500000,
     acquisitionDate: '2023-08-20',
     netBookValue: 4100000,
-    location: 'Abuja HQ',
+    location: 'Abuja',
     subLocation: 'Server Room',
     custodian: 'IT Director',
     status: 'Active',
@@ -85,13 +85,13 @@ export const MOCK_ASSETS: Asset[] = [
   // Disposed Asset 1
   {
     id: '5',
-    productId: 'PTDF/PHC/OE/0991',
+    productId: 'ABDC/PHC/OE/0991',
     name: 'Canon Photocopier (Old)',
     category: 'Office Equipment',
     acquisitionCost: 650000,
     acquisitionDate: '2019-03-10',
     netBookValue: 0,
-    location: 'Port Harcourt',
+    location: 'Kaduna',
     subLocation: 'Admin Block',
     custodian: 'Office Manager',
     status: 'Disposed',
@@ -105,13 +105,13 @@ export const MOCK_ASSETS: Asset[] = [
   // Disposed Asset 2
   {
     id: '6',
-    productId: 'PTDF/KAD/VH/0882',
+    productId: 'ABDC/KAD/VH/0882',
     name: 'Honda Accord 2015',
     category: 'Vehicles',
     acquisitionCost: 8000000,
     acquisitionDate: '2015-05-20',
     netBookValue: 500000,
-    location: 'Kaduna Training Center',
+    location: 'Kaduna',
     subLocation: 'Main Garage',
     custodian: 'Logistics Officer',
     status: 'Disposed',
@@ -127,7 +127,7 @@ export const MOCK_ASSETS: Asset[] = [
 export const MOCK_WIP_ASSETS: WipAsset[] = [
   {
     id: 'AUC-2024-001',
-    projectName: 'PTDF HQ Annex Construction',
+    projectName: 'ABDC HQ Annex Construction',
     assetType: 'Land & Buildings',
     projectManager: 'Engr. Tunde Bakare',
     budgetedCost: 450000000,
@@ -167,7 +167,7 @@ export const MOCK_ASSET_HISTORY: AssetHistoryEvent[] = [
   { id: '3', assetId: '1', date: '2023-06-15 10:00', action: 'Maintenance Scheduled', user: 'System', details: 'Routine 6-month checkup alert generated automatically.', type: 'Maintenance' },
   { id: '4', assetId: '1', date: '2023-06-18 11:30', action: 'Maintenance Completed', user: 'Ext. Vendor (TechFix)', details: 'Fan cleaning and thermal paste replacement. System performance verified.', type: 'Maintenance' },
   { id: '5', assetId: '1', date: '2023-11-05 09:45', action: 'Audit Verification', user: 'Chioma Obi', details: 'Asset physically verified during Q3 Audit. Condition: Good. Label intact.', type: 'Audit' },
-  
+
   // History for Toyota Hilux (ID 2)
   { id: '6', assetId: '2', date: '2022-06-10 10:00', action: 'Asset Registered', user: 'System Admin', details: 'Direct Purchase entry from Toyota Nigeria.', type: 'Registration' },
   { id: '7', assetId: '2', date: '2022-06-12 15:00', action: 'Custodian Assigned', user: 'Transport Manager', details: 'Assigned to Transport Pool for general logistics.', type: 'Transfer', fromLocation: 'Dealer Yard', toLocation: 'Lagos Office', toCustodian: 'Transport Pool' },
@@ -178,17 +178,17 @@ export const MOCK_ASSET_HISTORY: AssetHistoryEvent[] = [
   { id: '10', assetId: '3', date: '2021-11-05 13:00', action: 'Asset Registered', user: 'Procurement Officer', details: 'Delivered to Abuja HQ.', type: 'Registration' },
   { id: '11', assetId: '3', date: '2024-01-10 09:00', action: 'Condition Issue Reported', user: 'Facilities Mgr', details: 'Deep scratch observed on surface. Requesting refinishing.', type: 'Issue' },
   { id: '12', assetId: '3', date: '2024-01-12 10:00', action: 'Status Changed', user: 'Asset Manager', details: 'Status updated to Maintenance pending repairs.', type: 'Maintenance' },
-  
+
   // Additional mock transfer for ID 1 to show history depth
   { id: '13', assetId: '1', date: '2023-05-10 11:00', action: 'Temporary Transfer', user: 'System Admin', details: 'Loaned to Kaduna Training Center for 2 weeks.', type: 'Transfer', fromLocation: 'Abuja HQ', toLocation: 'Kaduna Training Center', toCustodian: 'Training Lead' },
   { id: '14', assetId: '1', date: '2023-05-25 09:00', action: 'Return Transfer', user: 'System Admin', details: 'Returned from Training Center.', type: 'Transfer', fromLocation: 'Kaduna Training Center', toLocation: 'Abuja HQ', toCustodian: 'Emeka Okafor' },
 ];
 
 export const MOCK_USERS: User[] = [
-  { id: '1', name: 'Amina Yusuf', email: 'a.yusuf@ptdf.gov.ng', department: 'IT', role: 'System Admin', lastLogin: '2024-05-20 08:30' },
-  { id: '2', name: 'Tunde Bakare', email: 't.bakare@ptdf.gov.ng', department: 'Finance', role: 'Asset Manager', lastLogin: '2024-05-19 14:15' },
-  { id: '3', name: 'Emeka Okafor', email: 'e.okafor@ptdf.gov.ng', department: 'Operations', role: 'Custodian', lastLogin: '2024-05-21 11:15' },
-  { id: '4', name: 'Chioma Obi', email: 'c.obi@ptdf.gov.ng', department: 'Audit', role: 'Auditor', lastLogin: '2024-05-18 09:45' },
+  { id: '1', name: 'Amina Yusuf', email: 'a.yusuf@abdc.com', department: 'IT', role: 'System Admin', lastLogin: '2024-05-20 08:30' },
+  { id: '2', name: 'Tunde Bakare', email: 't.bakare@abdc.com', department: 'Finance', role: 'Asset Manager', lastLogin: '2024-05-19 14:15' },
+  { id: '3', name: 'Emeka Okafor', email: 'e.okafor@abdc.com', department: 'Operations', role: 'Custodian', lastLogin: '2024-05-21 11:15' },
+  { id: '4', name: 'Chioma Obi', email: 'c.obi@abdc.com', department: 'Audit', role: 'Auditor', lastLogin: '2024-05-18 09:45' },
 ];
 
 export const ASSET_DISTRIBUTION: ChartDataPoint[] = [
@@ -211,74 +211,80 @@ export const DEPRECIATION_DATA: DepreciationPoint[] = [
 export const CATEGORIES = [
   'IT Equipment',
   'Office Equipment',
-  'Vehicles', 
-  'Furniture and Fittings', 
-  'Plant and Machinery', 
-  'Land & Buildings', 
+  'Vehicles',
+  'Furniture and Fittings',
+  'Plant and Machinery',
+  'Land & Buildings',
   'Software Licenses'
 ];
 
-export const LOCATIONS = ['Abuja HQ', 'Lagos Office', 'Port Harcourt', 'Kaduna Training Center'];
+export const LOCATIONS = ['Abuja', 'Kaduna'];
 
 // New constant for mapping locations to their specific branches/offices
 export const LOCATION_BRANCHES: Record<string, string[]> = {
-  'Abuja HQ': [
-    'Admin & HR',
-    'F & A',
-    'Legal & Secretariat Services',
-    'Procurement',
-    'Education & Training',
-    'Innovation & Research',
-    'Planning, Research & Statistics (PRS)',
-    '(SP/M&E)',
-    '(SP&D)',
-    'Upstream Department',
-    'Midstream & Downstream'
+  'Abuja': [
+    'Tax',
+    'Advisory',
+    'Audit and Assurance',
+    'Shared Services'
   ],
-  'Lagos Office': [
-    'Admin & HR',
-    'F & A',
-    'Legal & Secretariat Services',
-    'Procurement',
-    'Education & Training',
-    'Innovation & Research',
-    'Planning, Research & Statistics (PRS)',
-    '(SP/M&E)',
-    '(SP&D)',
-    'Upstream Department',
-    'Midstream & Downstream'
-  ],
-  'Port Harcourt': [
-    'Admin & HR',
-    'F & A',
-    'Legal & Secretariat Services',
-    'Procurement',
-    'Education & Training',
-    'Innovation & Research',
-    'Planning, Research & Statistics (PRS)',
-    '(SP/M&E)',
-    '(SP&D)',
-    'Upstream Department',
-    'Midstream & Downstream'
-  ],
-  'Kaduna Training Center': [
-    'Admin & HR',
-    'F & A',
-    'Legal & Secretariat Services',
-    'Procurement',
-    'Education & Training',
-    'Innovation & Research',
-    'Planning, Research & Statistics (PRS)',
-    '(SP/M&E)',
-    '(SP&D)',
-    'Upstream Department',
-    'Midstream & Downstream'
+  'Kaduna': [
+    'Tax',
+    'Advisory',
+    'Audit and Assurance',
+    'Shared Services'
   ]
 };
 
 export const LOCATION_CODES: Record<string, string> = {
-  'Abuja HQ': 'ABJ',
-  'Lagos Office': 'LAG',
-  'Port Harcourt': 'PHC',
-  'Kaduna Training Center': 'KAD'
+  'Abuja': 'ABJ',
+  'Kaduna': 'KAD'
 };
+
+export const CATEGORY_CODES: Record<string, string> = {
+  'IT Equipment': 'ITE',
+  'Office Equipment': 'OE',
+  'Vehicles': 'VH',
+  'Furniture and Fittings': 'FAF',
+  'Plant and Machinery': 'PM',
+  'Land & Buildings': 'LB',
+  'Software Licenses': 'SL'
+};
+
+export const SUB_CATEGORIES: Record<string, string[]> = {
+  'IT Equipment': [
+    'Laptops',
+    'Desktop Computers',
+    'Monitors',
+    'Printers & Scanners',
+    'Servers',
+    'Networking Gear',
+    'UPS & Inverters',
+    'External Storage',
+    'Tablets/IPads',
+    'Projectors'
+  ],
+  'Office Equipment': [
+    'Photocopiers',
+    'Water Dispensers',
+    'Refrigerators/Freezers',
+    'Air Conditioning Units',
+    'Paper Shredders',
+    'Binding Machines',
+    'Microwaves',
+    'Industrial Fans',
+    'Television Sets'
+  ]
+};
+
+export const DEPARTMENT_CODES: Record<string, string> = {
+  'Audit and Assurance': 'AA',
+  'Advisory': 'ADV',
+  'Tax': 'TAX',
+  'Shared Services': 'SS'
+};
+
+export const MOCK_AUDIT_SESSIONS: AuditSession[] = [];
+
+export const MOCK_AUDIT_VERIFICATIONS: AuditVerification[] = [];
+

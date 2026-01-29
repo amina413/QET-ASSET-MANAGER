@@ -1,0 +1,119 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SYSTEM_ADMIN
+  ASSET_MANAGER
+  CUSTODIAN
+  AUDITOR
+}
+
+enum AssetStatus {
+  ACTIVE
+  DISPOSED
+  MAINTENANCE
+  PENDING_TRANSFER
+}
+
+enum DepreciationMethod {
+  STRAIGHT_LINE
+  REDUCING_BALANCE
+  SUM_OF_YEARS
+}
+
+model User {
+  id         String   @id @default(cuid())
+  name       String
+  email      String   @unique
+  department String
+  role       Role     @default(CUSTODIAN)
+  lastLogin  DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  assets     Asset[]  @relation("AssetCustodian")
+  history    AssetHistory[]
+}
+
+model Asset {
+  id               String      @id @default(cuid())
+  productId        String      @unique // e.g. AB-IT-001
+  name             String
+  category         String
+  subCategory      String?
+  
+  // Financials - using Decimal for precision
+  acquisitionCost  Decimal     @db.Decimal(20, 2)
+  acquisitionDate  DateTime
+  salvageValue     Decimal     @db.Decimal(20, 2) @default(0)
+  usefulLife       Int         // in years
+  
+  method           DepreciationMethod @default(STRAIGHT_LINE)
+  
+  location         String
+  subLocation      String?
+  
+  status           AssetStatus @default(ACTIVE)
+  conditionCode    String?     // A1, A2, etc.
+  
+  image            String?
+  registrationDate DateTime    @default(now())
+  
+  // Relations
+  custodian        User        @relation("AssetCustodian", fields: [custodianId], references: [id])
+  custodianId      String
+  
+  history          AssetHistory[]
+  schedules        DepreciationSchedule[]
+  improvements     AssetImprovement[]
+
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+model DepreciationSchedule {
+  id                   String   @id @default(cuid())
+  assetId              String
+  year                 Int
+  fiscalYear           Int
+  depreciationExpense  Decimal  @db.Decimal(20, 2)
+  accumulatedDepr      Decimal  @db.Decimal(20, 2)
+  netBookValue         Decimal  @db.Decimal(20, 2)
+  
+  asset                Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  createdAt            DateTime @default(now())
+}
+
+model AssetHistory {
+  id        String   @id @default(cuid())
+  assetId   String
+  date      DateTime @default(now())
+  action    String
+  details   String   @db.Text
+  type      String   // Registration, Transfer, etc.
+  
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model AssetImprovement {
+  id                 String   @id @default(cuid())
+  assetId            String
+  date               DateTime @default(now())
+  type               String   // Addition, Reduction, Revaluation
+  amount             Decimal  @db.Decimal(20, 2)
+  description        String
+  newAcquisitionCost Decimal  @db.Decimal(20, 2)
+  
+  asset              Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}

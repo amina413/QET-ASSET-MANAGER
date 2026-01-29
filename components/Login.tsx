@@ -8,82 +8,101 @@ interface LoginProps {
 }
 
 const MOCK_LOGIN_USERS: Record<UserRole, User> = {
-  'System Admin': { id: '1', name: 'Amina Yusuf', email: 'admin@ptdf.gov.ng', department: 'IT', role: 'System Admin', lastLogin: new Date().toISOString() },
-  'Asset Manager': { id: '2', name: 'Tunde Bakare', email: 'manager@ptdf.gov.ng', department: 'Finance', role: 'Asset Manager', lastLogin: new Date().toISOString() },
-  'Custodian': { id: '3', name: 'Emeka Okafor', email: 'emeka@ptdf.gov.ng', department: 'Operations', role: 'Custodian', lastLogin: new Date().toISOString() },
-  'Auditor': { id: '4', name: 'Chioma Obi', email: 'audit@ptdf.gov.ng', department: 'Internal Audit', role: 'Auditor', lastLogin: new Date().toISOString() },
+  'System Admin': { id: '1', name: 'Amina Yusuf', email: 'admin@abdc.com', department: 'IT', role: 'System Admin', lastLogin: new Date().toISOString() },
+  'Asset Manager': { id: '2', name: 'Tunde Bakare', email: 'manager@abdc.com', department: 'Finance', role: 'Asset Manager', lastLogin: new Date().toISOString() },
+  'Custodian': { id: '3', name: 'Emeka Okafor', email: 'emeka@abdc.com', department: 'Operations', role: 'Custodian', lastLogin: new Date().toISOString() },
+  'Auditor': { id: '4', name: 'Chioma Obi', email: 'audit@abdc.com', department: 'Internal Audit', role: 'Auditor', lastLogin: new Date().toISOString() },
 };
+
+import { loginUser } from '../app/actions/users';
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>('Asset Manager');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate network request
-    setTimeout(() => {
-      onLogin(MOCK_LOGIN_USERS[selectedRole]);
-      setIsLoading(false);
-    }, 800);
+    setError(null);
+
+    const email = MOCK_LOGIN_USERS[selectedRole].email;
+    const result = await loginUser(email);
+
+    if (result.success && result.user) {
+      // Map Prisma user to frontend User type
+      onLogin({
+        id: result.user.id,
+        name: result.user.name,
+        email: result.user.email,
+        department: result.user.department,
+        role: result.user.role
+          .split('_')
+          .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ') as any,
+        lastLogin: result.user.lastLogin.toISOString()
+      });
+    } else {
+      setError(result.error || "Authentication failed. Please ensure the database is seeded.");
+    }
+    setIsLoading(false);
   };
 
   return (
     <div className="min-h-screen flex bg-slate-50">
       {/* Left Side - Brand Visuals */}
       {/* Changed hidden lg:flex to hidden md:flex to show on tablets/smaller laptops */}
-      <div className="hidden md:flex md:w-1/2 bg-ptdf-900 relative overflow-hidden flex-col justify-between p-12 text-white">
-        
+      <div className="hidden md:flex md:w-1/2 bg-abdc-900 relative overflow-hidden flex-col justify-between p-12 text-white">
+
         {/* Background Asset Image with Overlay */}
         <div className="absolute inset-0 z-0">
-          <img 
-            src="./asset-1.jpg" 
-            alt="PTDF Building" 
-            className="w-full h-full object-cover" 
+          <img
+            src="./asset-1.jpg"
+            alt="ABDC Building"
+            className="w-full h-full object-cover"
           />
           {/* Gradient Overlay to ensure text readability matching brand colors */}
-          <div className="absolute inset-0 bg-gradient-to-t from-ptdf-900/95 via-ptdf-800/80 to-ptdf-900/40 mix-blend-multiply"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-abdc-900/95 via-abdc-800/80 to-abdc-900/40 mix-blend-multiply"></div>
         </div>
-        
+
         {/* Decorative Elements */}
         <div className="absolute -top-24 -left-24 w-96 h-96 bg-accent-500 rounded-full mix-blend-overlay filter blur-3xl opacity-20 animate-blob z-0"></div>
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-ptdf-400 rounded-full mix-blend-overlay filter blur-3xl opacity-20 animate-blob animation-delay-2000 z-0"></div>
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-abdc-400 rounded-full mix-blend-overlay filter blur-3xl opacity-20 animate-blob animation-delay-2000 z-0"></div>
 
         <div className="relative z-10">
           <div className="flex items-center space-x-4 mb-8">
-            <img 
-              src="./PTDF-logo.png" 
-              alt="PTDF Logo" 
-              className="w-20 h-20 object-contain drop-shadow-2xl bg-white/10 rounded-full p-1 backdrop-blur-sm"
+            <img
+              src="./abdc-logo-circular.jpg"
+              alt="ABDC Logo"
+              className="w-24 h-24 object-contain drop-shadow-2xl bg-white/10 rounded-full p-2 backdrop-blur-sm"
             />
-            <span className="text-3xl font-bold tracking-tight text-white drop-shadow-md">PTDF Asset</span>
+            <span className="text-3xl font-bold tracking-tight text-white drop-shadow-md">ABDC Asset</span>
           </div>
           <h1 className="text-5xl font-bold leading-tight mb-6 drop-shadow-lg">
-            Secure Asset Management & <span className="text-accent-400">Tracking System</span>
+            Asset Management & <span className="text-accent-400">Tracking System</span>
           </h1>
-          <p className="text-lg text-ptdf-50 max-w-md drop-shadow-md font-medium">
-            Streamline your fixed asset lifecycle, ensure compliance, and optimize resource allocation with the official PTDF platform.
+          <p className="text-lg text-abdc-50 max-w-md drop-shadow-md font-medium">
+            Streamline your fixed asset lifecycle, ensure compliance, and optimize resource allocation with the official ABDC platform.
           </p>
         </div>
 
-        <div className="relative z-10 text-sm text-ptdf-100/80">
-          &copy; 2024 Petroleum Technology Development Fund. All rights reserved.
+        <div className="relative z-10 text-sm text-abdc-100/80">
+          &copy; 2026 Abdulkadeer and Co. (ABDC). All rights reserved.
         </div>
       </div>
 
       {/* Right Side - Login Form */}
       <div className="w-full md:w-1/2 flex items-center justify-center p-8 relative z-20">
         <div className="max-w-md w-full bg-white p-10 rounded-2xl shadow-xl border border-slate-100">
-          
+
           {/* Mobile Branding (Visible only when left panel is hidden) */}
           <div className="md:hidden text-center mb-8 border-b border-slate-100 pb-6">
-            <img 
-              src="./PTDF-logo.png" 
-              alt="PTDF Logo" 
-              className="w-16 h-16 mx-auto mb-4 object-contain"
+            <img
+              src="./abdc-logo-circular.jpg"
+              alt="ABDC Logo"
+              className="w-24 h-24 mx-auto mb-4 object-contain rounded-full"
             />
-            <h1 className="text-2xl font-bold text-slate-800">PTDF Asset</h1>
+            <h1 className="text-2xl font-bold text-slate-800">ABDC Asset</h1>
           </div>
 
           <div className="text-center mb-10">
@@ -91,15 +110,21 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <p className="text-slate-500">Please sign in to access your dashboard.</p>
           </div>
 
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium animate-fadeIn">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Select User Role (Demo)</label>
               <div className="relative">
                 <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-                <select 
+                <select
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value as UserRole)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-ptdf-500 outline-none appearance-none cursor-pointer"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-abdc-500 outline-none appearance-none cursor-pointer"
                 >
                   <option value="System Admin">System Admin</option>
                   <option value="Asset Manager">Asset Manager</option>
@@ -126,29 +151,29 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             <div className="space-y-4">
               <div className="relative">
-                 <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-                 <input 
-                   type="text" 
-                   value={MOCK_LOGIN_USERS[selectedRole].email}
-                   readOnly
-                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed"
-                 />
+                <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  value={MOCK_LOGIN_USERS[selectedRole].email}
+                  readOnly
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed"
+                />
               </div>
               <div className="relative">
-                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-                 <input 
-                   type="password" 
-                   value="password123"
-                   readOnly
-                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed"
-                 />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="password"
+                  value="password123"
+                  readOnly
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed"
+                />
               </div>
             </div>
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={isLoading}
-              className="w-full bg-ptdf-600 text-white py-3 rounded-xl font-bold hover:bg-ptdf-700 transition-all shadow-lg shadow-ptdf-200 flex items-center justify-center"
+              className="w-full bg-abdc-600 text-white py-3 rounded-xl font-bold hover:bg-abdc-700 transition-all shadow-lg shadow-abdc-200 flex items-center justify-center"
             >
               {isLoading ? (
                 <span className="flex items-center">
@@ -163,9 +188,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               )}
             </button>
           </form>
-          
+
           <div className="mt-8 text-center">
-             <a href="#" className="text-sm text-ptdf-600 hover:text-ptdf-800 font-medium">Forgot Password?</a>
+            <a href="#" className="text-sm text-abdc-600 hover:text-abdc-800 font-medium">Forgot Password?</a>
           </div>
         </div>
       </div>

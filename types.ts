@@ -8,6 +8,7 @@ export enum View {
   USER_MANAGEMENT = 'USER_MANAGEMENT',
   ASSET_MANAGEMENT = 'ASSET_MANAGEMENT',
   WIP_MANAGEMENT = 'WIP_MANAGEMENT',
+  AUDIT = 'AUDIT',
   PROFILE = 'PROFILE',
   SETTINGS = 'SETTINGS',
 }
@@ -25,18 +26,32 @@ export interface Asset {
   acquisitionDate: string;
   netBookValue: number;
   location: string;
-  subLocation?: string; 
+  subLocation?: string;
   custodian: string;
-  assignedUser?: string; 
+  assignedUser?: string;
   status: 'Active' | 'Disposed' | 'Maintenance' | 'Pending Transfer';
   conditionCode?: ConditionCode;
   image?: string;
-  // New fields for reporting
+  previousId?: string;
+  registrationDate?: string;
+  subCategory?: string; // For IT and Office Equipment "Asset Type"
   usefulLife?: number;
   salvageValue?: number;
   // Disposal fields
   disposalMode?: 'Sold' | 'Donated' | 'Scrapped' | 'Written Off';
   disposalDate?: string;
+  // Improvements logic
+  lastImprovementDate?: string;
+  improvements?: AssetImprovement[];
+}
+
+export interface AssetImprovement {
+  id: string;
+  date: string;
+  type: 'Addition' | 'Reduction' | 'Revaluation';
+  amount: number;
+  description: string;
+  newAcquisitionCost: number; // Snapshot of cost after this change
 }
 
 export interface CostLineItem {
@@ -55,12 +70,14 @@ export interface WipAsset {
   assetType: string; // Final category
   projectManager: string;
   budgetedCost: number;
+  location?: string;
   inceptionDate: string;
   estimatedCompletionDate: string;
   status: 'Planning' | 'Design' | 'In Progress' | 'Testing' | 'Capitalization Ready' | 'Capitalized';
   costLedger: CostLineItem[];
   finalDepreciationMethod: string;
   finalUsefulLife: number;
+  relatedAssetId?: string;
 }
 
 export interface AssetHistoryEvent {
@@ -99,9 +116,38 @@ export interface User {
 export interface ChartDataPoint {
   name: string;
   value: number;
+  [key: string]: any;
 }
 
 export interface DepreciationPoint {
   period: string;
   value: number;
+}
+
+export interface AuditSession {
+  id: string;
+  auditor: string;
+  auditorId: string;
+  startDate: string;
+  endDate?: string;
+  status: 'In Progress' | 'Completed' | 'Cancelled';
+  location?: string;
+  totalAssets: number;
+  verifiedAssets: number;
+  notFoundAssets: number;
+  notes?: string;
+}
+
+export interface AuditVerification {
+  id: string;
+  auditSessionId: string;
+  assetId: string;
+  assetProductId: string;
+  assetName: string;
+  status: 'Verified' | 'Not Found' | 'Damaged' | 'Pending';
+  verifiedBy: string;
+  verificationDate: string;
+  notes?: string;
+  locationMatch: boolean;
+  conditionMatch: boolean;
 }

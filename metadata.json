@@ -1,6 +1,6 @@
 {
-  "name": "PTDF Asset Management System",
-  "description": "A comprehensive fixed asset management dashboard for PTDF, featuring asset tracking, reporting, depreciation calculation, and AI-powered insights.",
+  "name": "Abdulkadeer and Co. Asset Management System",
+  "description": "A comprehensive fixed asset management dashboard for Abdulkadeer and Co. (ABDC), featuring asset tracking, reporting, depreciation calculation, and AI-powered insights.",
   "requestFramePermissions": [
     "camera"
   ]
