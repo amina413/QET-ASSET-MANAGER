@@ -1,18 +1,22 @@
 
 import React from 'react';
-import { User, AssetHistoryEvent } from '../types';
+import { User, Asset, AssetHistoryEvent } from '../types';
 import { MOCK_ASSET_HISTORY } from '../constants';
 import { User as UserIcon, Mail, Building, Shield, Clock, Calendar, ArrowLeft } from 'lucide-react';
 
 interface ProfileProps {
    currentUser: User;
    onBack: () => void;
+   assets?: Asset[];
 }
 
-const Profile: React.FC<ProfileProps> = ({ currentUser, onBack }) => {
-   // Mock activity feed based on history events where user matches
-   const myActivity = MOCK_ASSET_HISTORY
-      .filter(event => event.user.includes(currentUser.name) || event.user.includes(currentUser.role))
+const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, assets = [] }) => {
+   // Activity from DB history (user matches) or fallback to mock
+   const dbActivity = assets.flatMap(a => (a.history || []).filter(h => h.user === currentUser.name));
+   const mockActivity = MOCK_ASSET_HISTORY.filter(event =>
+      event.user.includes(currentUser.name) || event.user.includes(currentUser.role)
+   );
+   const myActivity = (dbActivity.length > 0 ? dbActivity : mockActivity)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
    return (

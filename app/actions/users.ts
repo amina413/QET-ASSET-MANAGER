@@ -33,39 +33,45 @@ export async function createUser(data: any) {
     }
 }
 
-export async function loginUser(email: string) {
+export async function loginUser(email: string, password?: string) {
     try {
+        // Hardcode a check for now if database is not ready or seeded correctly yet during dev
+        // BUT ideally we use the DB.
+
         let user = await prisma.user.findUnique({
             where: { email }
         });
 
-        // Auto-seed demo users if they don't exist
-        if (!user && (email === 'admin@abdc.com' || email === 'manager@abdc.com' || email === 'emeka@abdc.com' || email === 'audit@abdc.com')) {
-            const demoData: Record<string, any> = {
-                'admin@abdc.com': { name: 'Amina Yusuf', department: 'IT', role: 'SYSTEM_ADMIN' },
-                'manager@abdc.com': { name: 'Tunde Bakare', department: 'Finance', role: 'ASSET_MANAGER' },
-                'emeka@abdc.com': { name: 'Emeka Okafor', department: 'Operations', role: 'CUSTODIAN' },
-                'audit@abdc.com': { name: 'Chioma Obi', department: 'Internal Audit', role: 'AUDITOR' },
-            };
-            const data = demoData[email];
-            user = await prisma.user.create({
-                data: {
-                    email,
-                    name: data.name,
-                    department: data.department,
-                    role: data.role
-                }
-            });
+        // If user not found, return error
+        if (!user) {
+            return { success: false, error: "User not found" };
         }
 
-        if (user) {
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { lastLogin: new Date() }
-            });
-            return { success: true, user };
+        // Verify password
+        // START TEMP BYPASS FOR DEMO if password field is missing in runtime (shouldn't be if migration worked)
+        if (password) {
+            // Dynamically import bcrypt to avoid edge runtime issues if any (though this is a server action)
+            const bcrypt = await import('bcryptjs');
+            const isValid = await bcrypt.compare(password, user.password);
+
+            if (!isValid) {
+                return { success: false, error: "Invalid password" };
+            }
+        } else {
+            // For safety, require password unless it's a legacy session check? 
+            // But for this task, let's require it.
+            return { success: false, error: "Password required" };
         }
-        return { success: false, error: "User not found" };
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLogin: new Date() }
+        });
+
+        // Return valid user without password hash
+        const { password: _, ...userWithoutPassword } = user;
+        return { success: true, user: userWithoutPassword };
+
     } catch (error) {
         console.error("Login error:", error);
         return { success: false, error: "Authentication failed" };

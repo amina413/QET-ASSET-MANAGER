@@ -1,7 +1,9 @@
+"use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Construction, Plus, Search, ChevronRight, Calculator, FileText, CheckCircle2, AlertTriangle, ArrowRight, Loader2, DollarSign, Calendar, User, Save, Trash2, X, ArrowLeft, ArrowRightLeft } from 'lucide-react';
-import { MOCK_WIP_ASSETS, MOCK_ASSETS, MOCK_USERS, CATEGORIES, LOCATIONS, LOCATION_BRANCHES, MOCK_ASSET_HISTORY, LOCATION_CODES, CATEGORY_CODES } from '../constants';
+import { MOCK_WIP_ASSETS, MOCK_ASSETS, MOCK_USERS, CATEGORIES, LOCATION_BRANCHES, MOCK_ASSET_HISTORY, LOCATION_CODES, CATEGORY_CODES } from '../constants';
+import { getLocations } from '../app/actions/settings';
 import { WipAsset, CostLineItem, Asset } from '../types';
 
 interface WipManagementProps {
@@ -41,6 +43,14 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
     const [transferSubLocation, setTransferSubLocation] = useState('');
     const [transferCustodian, setTransferCustodian] = useState('');
     const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
+
+    // Locations from database (System Admin) – only these are shown
+    const [locationsList, setLocationsList] = useState<{ id: string; name: string; code: string }[]>([]);
+    useEffect(() => {
+        getLocations().then((res) => {
+            if (res.success && res.locations) setLocationsList(res.locations);
+        });
+    }, []);
 
     // Calculations
     const calculateTotalCost = (project: WipAsset) => {
@@ -135,11 +145,12 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
             // Add to main mock db (simulated)
             MOCK_ASSETS.push(newAsset);
 
-            // Update WIP Status with Link to Asset
+            // Update WIP status so it shows "Complete Transfer" and link to asset
             const finalizedProject: WipAsset = {
                 ...selectedProject,
                 status: 'Capitalized' as any,
-                relatedAssetId: newAsset.id
+                relatedAssetId: newAsset.id,
+                relatedAssetProductId: newAsset.productId
             };
             updateProjectState(finalizedProject);
 
@@ -194,10 +205,13 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
         }, 1500);
     };
 
-    const filteredProjects = wipProjects.filter(p =>
-        p.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.id.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Only show active WIP – hide projects already transferred to asset register
+    const filteredProjects = wipProjects.filter(p => {
+        if (p.status === 'Capitalized') return false;
+        const matchesSearch = p.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.id.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesSearch;
+    });
 
     // --- Render Views ---
 
@@ -230,9 +244,10 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Project Location</label>
-                            <select className="w-full p-2 bg-white border border-slate-300 rounded-lg" onChange={e => setNewProject({ ...newProject, location: e.target.value })}>
+                            <select className="w-full p-2 bg-white border border-slate-300 rounded-lg" value={newProject.location ?? ''} onChange={e => setNewProject({ ...newProject, location: e.target.value })}>
                                 <option value="">Select Location</option>
-                                {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                                {locationsList.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                                {locationsList.length === 0 && <option value="" disabled>No locations configured. Add them in System Admin Settings.</option>}
                             </select>
                         </div>
                         <div>
@@ -281,15 +296,36 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                             <ArrowRight size={20} className="rotate-180" />
                         </button>
                         <div>
-                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2 flex-wrap">
                                 {selectedProject.projectName}
-                                <span className={`text-xs px-2 py-1 rounded-full border ${selectedProject.status === 'Capitalized' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
-                                    {selectedProject.status}
+                                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${selectedProject.status === 'Capitalized' ? 'bg-green-50 text-green-700 border-green-300' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                                    {selectedProject.status === 'Capitalized' ? <><CheckCircle2 size={14} /> Complete Transfer</> : selectedProject.status}
                                 </span>
                             </h1>
                             <p className="text-sm text-slate-500">ID: {selectedProject.id} • Managed by {selectedProject.projectManager}</p>
                         </div>
                     </div>
+
+                    {/* Complete Transfer banner – shown when WIP has been moved to asset register */}
+                    {selectedProject.status === 'Capitalized' && (
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                    <CheckCircle2 size={22} className="text-green-600" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-green-800">Transferred to Asset Register</p>
+                                    <p className="text-sm text-green-700">This work in progress has been capitalized and moved to the asset register.</p>
+                                </div>
+                            </div>
+                            {selectedProject.relatedAssetProductId && (
+                                <div className="ml-auto bg-white border border-green-200 rounded-lg px-4 py-2 font-mono text-sm font-semibold text-slate-800">
+                                    Asset tag: {selectedProject.relatedAssetProductId}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {selectedProject.status === 'Capitalized' && (
                         <button
                             onClick={() => {
@@ -529,8 +565,8 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                                     <div className={`p-2 rounded-lg ${project.assetType.includes('Software') ? 'bg-purple-50 text-purple-600' : 'bg-orange-50 text-orange-600'}`}>
                                         {project.assetType.includes('Software') ? <FileText size={24} /> : <Construction size={24} />}
                                     </div>
-                                    <span className={`text-xs px-2 py-1 rounded-full border ${project.status === 'Capitalized' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                                        {project.status}
+                                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${project.status === 'Capitalized' ? 'bg-green-50 text-green-700 border-green-300' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                        {project.status === 'Capitalized' ? <><CheckCircle2 size={12} /> Complete Transfer</> : project.status}
                                     </span>
                                 </div>
                                 <h3 className="font-bold text-slate-800 text-lg mb-1 group-hover:text-abdc-600 transition-colors">{project.projectName}</h3>
@@ -612,7 +648,8 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
                                     >
                                         <option value="">Select Location...</option>
-                                        {LOCATIONS.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                                        {locationsList.map(loc => <option key={loc.id} value={loc.name}>{loc.name}</option>)}
+                                        {locationsList.length === 0 && <option value="" disabled>No locations configured.</option>}
                                     </select>
                                 </div>
                                 <div>

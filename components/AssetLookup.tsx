@@ -2,12 +2,235 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { Scan, Search, MapPin, User, Calendar, AlertTriangle, ArrowRightLeft, FileText, Camera, X, Loader2, Image as ImageIcon, ChevronRight, ScanLine, Calculator, RefreshCw, Table, Printer, History, Briefcase, Activity, Filter, CheckCircle2, BoxSelect, TrendingUp, Truck, ArrowLeft, LocateFixed, FileSpreadsheet, Download } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import jsQR from 'jsqr';
+import { QRCodeSVG } from 'qrcode.react';
+import QRCode from 'qrcode';
+import JsBarcode from 'jsbarcode';
+import { Scan, Search, MapPin, User, Calendar, AlertTriangle, ArrowRightLeft, FileText, Camera, X, Loader2, Image as ImageIcon, ChevronRight, ScanLine, Calculator, RefreshCw, Table, Printer, History, Briefcase, Activity, Filter, CheckCircle2, BoxSelect, TrendingUp, TrendingDown, Truck, ArrowLeft, LocateFixed, FileSpreadsheet, Download, QrCode } from 'lucide-react';
 import { MOCK_ASSET_HISTORY, CONDITION_DESCRIPTIONS, LOCATIONS, MOCK_USERS, LOCATION_BRANCHES, MOCK_AUDIT_SESSIONS, MOCK_AUDIT_VERIFICATIONS } from '../constants';
 import { Asset, ConditionCode, AuditSession, AuditVerification, User as UserType, AssetImprovement } from '../types';
+import { calculateDepreciationSchedule, calculateMonthlyDepreciationSchedule } from '../utils/depreciation';
 import { GoogleGenAI } from "@google/genai";
+import { updateAssetImage, transferAsset, updateAssetCondition, addAssetImprovement, addAssetHistory } from '../app/actions/assets';
+import { initiateTransfer } from '../app/actions/transfers';
+import { canInitiateTransfer, canApproveTransfer, canStartAudit } from '../lib/permissions';
+
+const DepreciationView = ({ activeAsset }: { activeAsset: Asset }) => {
+  const [viewMode, setViewMode] = useState<'Annual' | 'Monthly'>('Annual');
+  const [calcLife, setCalcLife] = useState(activeAsset.usefulLife || 5);
+  const [calcSalvage, setCalcSalvage] = useState(activeAsset.salvageValue || 0);
+
+  const schedule = calculateDepreciationSchedule({
+    acquisition_cost: activeAsset.acquisitionCost,
+    registration_date: activeAsset.registrationDate || activeAsset.acquisitionDate,
+    useful_life: activeAsset.usefulLife || 5,
+    salvage_value: activeAsset.salvageValue || 0,
+    method: (activeAsset.method as any) || 'STRAIGHT_LINE'
+  });
+
+  const monthlySchedule = calculateMonthlyDepreciationSchedule({
+    acquisition_cost: activeAsset.acquisitionCost,
+    registration_date: activeAsset.registrationDate || activeAsset.acquisitionDate,
+    useful_life: activeAsset.usefulLife || 5,
+    salvage_value: activeAsset.salvageValue || 0,
+    method: (activeAsset.method as any) || 'STRAIGHT_LINE'
+  });
+
+  const currentYear = new Date().getFullYear();
+  const currentEntry = schedule.find(s => s.fiscal_year === currentYear);
+
+  // Robust Fallbacks
+  const currentNBV = currentEntry
+    ? (activeAsset.acquisitionCost - currentEntry.accumulated_depreciation)
+    : (activeAsset.acquisitionCost);
+
+  const lastEntry = schedule[schedule.length - 1];
+  const effectiveNBV = (currentYear > (lastEntry?.fiscal_year || 0)) ? (activeAsset.salvageValue || 0) : currentNBV;
+
+  const accumDep = activeAsset.acquisitionCost - effectiveNBV;
+  const currentExpense = currentEntry ? currentEntry.depreciation_expense : 0;
+
+  const percentDepreciated = (accumDep / activeAsset.acquisitionCost) * 100;
+
+  return (
+    <>
+      {/* 1. Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-abdc-300 transition-colors">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><TrendingDown size={48} className="text-blue-600" /></div>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Net Book Value</p>
+          <h3 className="text-2xl font-bold text-slate-800">₦{effectiveNBV.toLocaleString(undefined, { maximumFractionDigits: 0 })}</h3>
+          <div className="mt-2 text-xs text-blue-600 font-medium bg-blue-50 inline-block px-2 py-0.5 rounded">
+            {(100 - percentDepreciated).toFixed(1)}% Remaining
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-orange-300 transition-colors">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><TrendingUp size={48} className="text-orange-600" /></div>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Accumulated Depr.</p>
+          <h3 className="text-2xl font-bold text-slate-800">₦{accumDep.toLocaleString(undefined, { maximumFractionDigits: 0 })}</h3>
+          <div className="w-full bg-slate-100 h-1.5 mt-3 rounded-full overflow-hidden">
+            <div className="bg-orange-500 h-full rounded-full" style={{ width: `${Math.min(percentDepreciated, 100)}%` }}></div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-purple-300 transition-colors">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Calendar size={48} className="text-purple-600" /></div>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">This Year's Expense</p>
+          <h3 className="text-2xl font-bold text-slate-800">₦{currentExpense.toLocaleString(undefined, { maximumFractionDigits: 0 })}</h3>
+          <p className="text-xs text-slate-400 mt-2">Fiscal Year {currentYear}</p>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-green-300 transition-colors">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><RefreshCw size={48} className="text-green-600" /></div>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Methodology</p>
+          <h3 className="text-lg font-bold text-slate-800 break-words line-clamp-1" title={activeAsset.method}>{activeAsset.method?.replace('_', ' ') || 'Straight Line'}</h3>
+          <p className="text-xs text-slate-400 mt-2">Life: {activeAsset.usefulLife} Years</p>
+        </div>
+      </div>
+
+      {/* 2. Visual Chart & Ledger Split */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Chart Area */}
+        <div className="lg:col-span-3 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h4 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
+            <Activity size={18} className="text-abdc-600" /> Depreciation Trajectory (Annual)
+          </h4>
+          <div className="h-64 flex items-end justify-between gap-2 px-2 pb-2 border-b border-slate-200">
+            {schedule.map((entry, idx) => {
+              const heightPercent = ((activeAsset.acquisitionCost - entry.accumulated_depreciation) / activeAsset.acquisitionCost) * 100;
+              const isPast = entry.fiscal_year < currentYear;
+              const isCurrent = entry.fiscal_year === currentYear;
+
+              return (
+                <div key={entry.year} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-800 text-white text-xs p-2 rounded z-20 whitespace-nowrap shadow-xl">
+                    <p className="font-bold">{entry.fiscal_year}</p>
+                    <p>Value: ₦{(activeAsset.acquisitionCost - entry.accumulated_depreciation).toLocaleString()}</p>
+                  </div>
+
+                  <div
+                    className={`w-full max-w-[40px] rounded-t-sm transition-all duration-500 relative cursor-pointer ${isCurrent ? 'bg-abdc-600 shadow-lg shadow-abdc-200' : isPast ? 'bg-slate-300 hover:bg-slate-400' : 'bg-abdc-200 hover:bg-abdc-300'}`}
+                    style={{ height: `${Math.max(heightPercent, 2)}%` }}
+                  >
+                    {isCurrent && <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white rounded-full"></div>}
+                  </div>
+                  <span className={`text-[10px] mt-2 font-medium ${isCurrent ? 'text-abdc-700 font-bold bg-abdc-50 px-1 rounded' : 'text-slate-400'}`}>{entry.fiscal_year}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Detailed Ledger */}
+        <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+            <h4 className="font-bold text-slate-700 flex items-center gap-2">
+              <Table size={18} className="text-slate-500" /> Depreciation Schedule
+            </h4>
+            <div className="flex bg-white rounded-lg border border-slate-200 p-1">
+              <button onClick={() => setViewMode('Annual')} className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'Annual' ? 'bg-abdc-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>Annual</button>
+              <button onClick={() => setViewMode('Monthly')} className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'Monthly' ? 'bg-abdc-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>Monthly</button>
+            </div>
+          </div>
+          <div className="overflow-x-auto max-h-[500px]">
+            <table className="w-full text-left text-sm relative">
+              <thead className="text-slate-500 bg-slate-50 font-semibold border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+                <tr>
+                  <th className="py-3 px-6">{viewMode === 'Annual' ? 'Fiscal Year' : 'Period'}</th>
+                  <th className="py-3 px-6 text-right">Opening Book Value</th>
+                  <th className="py-3 px-6 text-right">Depreciation Exp.</th>
+                  <th className="py-3 px-6 text-right">Accumulated Depr.</th>
+                  <th className="py-3 px-6 text-right">Closing Book Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {viewMode === 'Annual' ? (
+                  schedule.map((entry) => {
+                    const isCurrent = entry.fiscal_year === currentYear;
+                    const opening = activeAsset.acquisitionCost - entry.accumulated_depreciation + entry.depreciation_expense;
+                    const closing = activeAsset.acquisitionCost - entry.accumulated_depreciation;
+
+                    return (
+                      <tr key={entry.fiscal_year} className={`hover:bg-slate-50 transition-colors ${isCurrent ? 'bg-blue-50/40' : ''}`}>
+                        <td className="py-3 px-6 font-medium text-slate-700">
+                          {entry.fiscal_year}
+                          {isCurrent && <span className="ml-2 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider">Current</span>}
+                        </td>
+                        <td className="py-3 px-6 text-right text-slate-600">₦{opening.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="py-3 px-6 text-right text-red-600 font-medium bg-red-50/30">
+                          (₦{entry.depreciation_expense.toLocaleString(undefined, { maximumFractionDigits: 0 })})
+                        </td>
+                        <td className="py-3 px-6 text-right text-slate-500">₦{entry.accumulated_depreciation.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="py-3 px-6 text-right font-bold text-slate-800">₦{closing.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  monthlySchedule.map((entry, idx) => {
+                    const isCurrent = entry.year === currentYear && entry.month === (new Date().getMonth() + 1);
+                    const opening = activeAsset.acquisitionCost - entry.accumulated_depreciation + entry.depreciation_expense;
+
+                    return (
+                      <tr key={idx} className={`hover:bg-slate-50 transition-colors ${isCurrent ? 'bg-blue-50/40' : ''}`}>
+                        <td className="py-2 px-6 font-medium text-slate-700 text-xs">
+                          {entry.month_label} {entry.year}
+                        </td>
+                        <td className="py-2 px-6 text-right text-slate-600 text-xs">₦{opening.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="py-2 px-6 text-right text-red-600 font-medium bg-red-50/30 text-xs">
+                          (₦{entry.depreciation_expense.toLocaleString(undefined, { maximumFractionDigits: 0 })})
+                        </td>
+                        <td className="py-2 px-6 text-right text-slate-500 text-xs">₦{entry.accumulated_depreciation.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="py-2 px-6 text-right font-bold text-slate-800 text-xs">₦{entry.net_book_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Simulator Section */}
+      <div className="bg-slate-50 p-6 rounded-xl border border-dashed border-slate-300 mt-4 transition-all hover:border-abdc-300 hover:shadow-sm h-fit">
+        <div className="flex items-start gap-4">
+          <div className="p-3 bg-white rounded-lg shadow-sm text-slate-400">
+            <Calculator size={24} />
+          </div>
+          <div className="flex-1">
+            <h4 className="font-bold text-slate-800 mb-1">Depreciation Simulator</h4>
+            <p className="text-sm text-slate-500 mb-4">Simulate how changing the useful life or salvage value would impact the schedule.</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Useful Life (Years)</label>
+                <input type="number" value={calcLife} onChange={e => setCalcLife(Number(e.target.value))} className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Salvage Value (₦)</label>
+                <input type="number" value={calcSalvage} onChange={e => setCalcSalvage(Number(e.target.value))} className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" />
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={() => alert("Simulation updated. (In a real app, this would re-render the chart above with temp values)")}
+                  className="w-full py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-all shadow-md hover:shadow-lg active:scale-95 transform"
+                >
+                  Run Simulation
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
 
 interface AssetListViewProps {
+
   onClose: () => void;
   onExportCSV: () => void;
   onExportExcel: () => void;
@@ -122,6 +345,7 @@ interface AssetLookupProps {
   currentUser?: UserType;
   onBack?: () => void;
   assets?: Asset[];
+  users?: { id: string; name: string; email?: string; role?: string }[];
 }
 
 const AssetLookup: React.FC<AssetLookupProps> = ({
@@ -130,8 +354,10 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   managementMode = false,
   currentUser,
   onBack,
-  assets = []
+  assets = [],
+  users = []
 }) => {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [trackingId, setTrackingId] = useState(''); // New Tracking Field State
   const [trackedAsset, setTrackedAsset] = useState<Asset | null>(null);
@@ -150,6 +376,108 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [analysisMode, setAnalysisMode] = useState<'barcode' | 'general'>('general');
   const [isNativeScanning, setIsNativeScanning] = useState(false);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const [isBarcodeGunReady, setIsBarcodeGunReady] = useState(false);
+
+  // Image Upload State
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadAssetId, setImageUploadAssetId] = useState<string | null>(null);
+  const imageUploadInputRef = useRef<HTMLInputElement>(null);
+  const assetImageUploadInputRef = useRef<HTMLInputElement>(null);
+
+  // Print Settings State
+  const [isPrintSettingsOpen, setIsPrintSettingsOpen] = useState(false);
+  const [printSettings, setPrintSettings] = useState({
+    units: 'inch' as 'inch' | 'mm' | 'cm',
+    width: 2.7,
+    height: 1.1,
+    orientation: 'normal' as 'normal' | 'landscape',
+    colorMode: 'color' as 'color' | 'grayscale',
+  });
+  const [printers, setPrinters] = useState<string[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [jspmConnected, setJspmConnected] = useState(false);
+  const [isPrintingDirect, setIsPrintingDirect] = useState(false);
+  const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
+  const [previewQrUrl, setPreviewQrUrl] = useState<string>('');
+  const [previewBarcodeUrl, setPreviewBarcodeUrl] = useState<string>('');
+
+  // Handle image upload for assets without pictures
+  const handleImageUploadClick = (e: React.MouseEvent, assetId: string) => {
+    e.stopPropagation();
+    setImageUploadAssetId(assetId);
+    assetImageUploadInputRef.current?.click();
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !imageUploadAssetId || !currentUser) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (e.g. JPG, PNG).');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image must be under 10MB.');
+      e.target.value = '';
+      return;
+    }
+
+    setIsUploadingImage(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const imageDataUrl = event.target?.result as string;
+      try {
+        const result = await updateAssetImage(imageUploadAssetId, imageDataUrl, currentUser.id);
+        if (result.success) {
+          // Update the asset in the assets array (mutable update for immediate UI feedback)
+          const assetIndex = assets.findIndex(a => a.id === imageUploadAssetId);
+          if (assetIndex > -1) {
+            assets[assetIndex] = { ...assets[assetIndex], image: imageDataUrl };
+          }
+
+          // Update search results if the asset is there
+          setSearchResults(prev => prev.map(asset =>
+            asset.id === imageUploadAssetId
+              ? { ...asset, image: imageDataUrl }
+              : asset
+          ));
+
+          // Update active asset if it's the one being updated
+          if (activeAsset?.id === imageUploadAssetId) {
+            setActiveAsset({ ...activeAsset, image: imageDataUrl });
+          }
+
+          // Update tracked asset if it's the one being updated
+          if (trackedAsset?.id === imageUploadAssetId) {
+            setTrackedAsset({ ...trackedAsset, image: imageDataUrl });
+          }
+
+          setNotificationMessage('Image uploaded successfully!');
+          setNotificationType('success');
+          setShowNotification(true);
+
+          // Refresh the page to get updated assets from server
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        } else {
+          alert(result.error || 'Failed to upload image');
+        }
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        alert('Failed to upload image. Please try again.');
+      } finally {
+        setIsUploadingImage(false);
+        setImageUploadAssetId(null);
+        e.target.value = '';
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Depreciation Calculator State
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
@@ -168,9 +496,14 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [transferAssetTarget, setTransferAssetTarget] = useState<Asset | null>(null);
   const [transferLocation, setTransferLocation] = useState('');
-  const [transferSubLocation, setTransferSubLocation] = useState(''); // New State
+  const [transferSubLocation, setTransferSubLocation] = useState('');
   const [transferCustodian, setTransferCustodian] = useState('');
+  const [transferCustodianId, setTransferCustodianId] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
+
+  const custodianOptions = users.length > 0 ? users : MOCK_USERS;
+  const canInitiate = currentUser && canInitiateTransfer(currentUser.role);
+  const canApprove = currentUser && canApproveTransfer(currentUser.role);
 
   // Update Condition State
   const [isConditionOpen, setIsConditionOpen] = useState(false);
@@ -184,6 +517,9 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   const [adjustmentDesc, setAdjustmentDesc] = useState('');
   const [adjustmentDate, setAdjustmentDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSubmittingAdjustment, setIsSubmittingAdjustment] = useState(false);
+
+  // Image lightbox (click to open asset image full-screen)
+  const [imageLightboxUrl, setImageLightboxUrl] = useState<string | null>(null);
 
   // Audit State
   const [isAuditMode, setIsAuditMode] = useState(false);
@@ -202,10 +538,12 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
 
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scanIntervalRef = useRef<any>(null);
+  const lastNotFoundCodeRef = useRef<string | null>(null);
+  const trackingInputRef = useRef<HTMLInputElement>(null);
+  const barcodeScanTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
     if (initialAssetId) {
@@ -259,38 +597,35 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     return Math.max(calcSalvage, currentValue);
   };
 
-  const submitReport = () => {
-    if (!activeAsset) return;
+  const submitReport = async () => {
+    if (!activeAsset || !currentUser) return;
     setIsSubmittingReport(true);
-    setTimeout(() => {
-      // 1. Log to history
-      MOCK_ASSET_HISTORY.unshift({
-        id: Date.now().toString(),
-        assetId: activeAsset.id,
-        date: new Date().toISOString().slice(0, 16).replace('T', ' '),
-        action: `Issue Reported: ${reportType}`,
-        user: 'Current User',
-        details: reportDesc,
-        type: 'Issue'
-      });
-
-      // 2. Update Status if severe
-      let updatedStatus = activeAsset.status;
-      if (['Damage', 'Malfunction'].includes(reportType)) {
-        updatedStatus = 'Maintenance';
+    try {
+      const updateStatus = ['Damage', 'Malfunction'].includes(reportType) ? 'Maintenance' : undefined;
+      const result = await addAssetHistory(
+        activeAsset.id,
+        {
+          action: `Issue Reported: ${reportType}`,
+          details: reportDesc,
+          type: 'Issue',
+          updateStatus
+        },
+        currentUser.id
+      );
+      if (result.success) {
+        setIsReportOpen(false);
+        setReportDesc('');
+        router.refresh();
+        alert(`Issue reported successfully.${updateStatus ? ` Asset status updated to ${updateStatus}.` : ''}`);
+      } else {
+        alert(result.error || 'Failed to save report.');
       }
-      const updatedAsset = { ...activeAsset, status: updatedStatus };
-      setActiveAsset(updatedAsset);
-
-      // Update Mock DB
-      const idx = assets.findIndex(a => a.id === activeAsset.id);
-      if (idx > -1) assets[idx] = updatedAsset;
-
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save report.');
+    } finally {
       setIsSubmittingReport(false);
-      setIsReportOpen(false);
-      setReportDesc('');
-      alert(`Issue reported successfully. Asset status updated to ${updatedStatus}.`);
-    }, 1500);
+    }
   };
 
   const openTransferModal = (asset: Asset) => {
@@ -298,83 +633,95 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     setIsTransferOpen(true);
   };
 
-  const submitTransfer = () => {
+  const submitTransfer = async () => {
     const target = transferAssetTarget || activeAsset;
-    if (!target) return;
+    if (!target || !currentUser) return;
 
     setIsTransferring(true);
-    setTimeout(() => {
-      // 1. Update Asset Data
-      const updatedAsset = {
-        ...target,
-        location: transferLocation,
-        subLocation: transferSubLocation,
-        custodian: transferCustodian,
-        status: 'Active' as const // Reset status on transfer usually
-      };
-
-      // 2. Update Mock DB
-      const idx = assets.findIndex(a => a.id === target.id);
-      if (idx > -1) assets[idx] = updatedAsset;
-
-      // 3. Update Local State if active
-      if (activeAsset && activeAsset.id === target.id) {
-        setActiveAsset(updatedAsset);
+    try {
+      if (canApprove) {
+        // Asset Manager: direct transfer
+        if (!transferCustodianId) {
+          alert('Please select a custodian.');
+          setIsTransferring(false);
+          return;
+        }
+        const result = await transferAsset(
+          target.id,
+          {
+            location: transferLocation,
+            subLocation: transferSubLocation,
+            custodianId: transferCustodianId
+          },
+          currentUser.id,
+          currentUser.role
+        );
+        if (result.success) {
+          setIsTransferOpen(false);
+          setTransferLocation('');
+          setTransferSubLocation('');
+          setTransferCustodian('');
+          setTransferCustodianId('');
+          setTransferAssetTarget(null);
+          alert(`Asset ${target.productId} successfully transferred to ${transferLocation}.`);
+          window.location.reload();
+        } else {
+          alert(result.error || 'Transfer failed.');
+        }
+      } else if (canInitiate) {
+        // Custodian: initiate transfer request
+        const result = await initiateTransfer(
+          target.id,
+          {
+            toLocation: transferLocation,
+            subLocation: transferSubLocation,
+            toCustodian: transferCustodian,
+            toCustodianId: transferCustodianId || undefined
+          },
+          currentUser.id,
+          currentUser.role
+        );
+        if (result.success) {
+          setIsTransferOpen(false);
+          setTransferLocation('');
+          setTransferSubLocation('');
+          setTransferCustodian('');
+          setTransferCustodianId('');
+          setTransferAssetTarget(null);
+          alert(`Transfer request submitted for ${target.productId}. Awaiting Asset Manager approval.`);
+          window.location.reload();
+        } else {
+          alert(result.error || 'Failed to initiate transfer.');
+        }
+      } else {
+        alert('Insufficient permissions.');
       }
-
-      // 4. Add History Record
-      MOCK_ASSET_HISTORY.unshift({
-        id: Date.now().toString(),
-        assetId: target.id,
-        date: new Date().toISOString().slice(0, 16).replace('T', ' '),
-        action: 'Asset Transfer',
-        user: 'Asset Manager',
-        details: `Transferred to ${transferLocation} (${transferSubLocation})`,
-        type: 'Transfer',
-        fromLocation: target.location,
-        toLocation: transferLocation,
-        toCustodian: transferCustodian
-      });
-
+    } catch (err) {
+      console.error(err);
+      alert('Transfer failed. Please try again.');
+    } finally {
       setIsTransferring(false);
-      setIsTransferOpen(false);
-      alert(`Asset ${target.productId} successfully transferred to ${transferLocation}.`);
-      setTransferLocation('');
-      setTransferSubLocation('');
-      setTransferCustodian('');
-      setTransferAssetTarget(null);
-    }, 1500);
+    }
   };
 
-  const submitConditionUpdate = () => {
-    if (!activeAsset) return;
+  const submitConditionUpdate = async () => {
+    if (!activeAsset || !currentUser) return;
     setIsUpdatingCondition(true);
-    setTimeout(() => {
-      // 1. Update Asset
-      const updatedAsset = { ...activeAsset, conditionCode: newConditionCode };
-
-      // 2. Update Mock DB
-      const idx = assets.findIndex(a => a.id === activeAsset.id);
-      if (idx > -1) assets[idx] = updatedAsset;
-
-      // 3. Update Local State
-      setActiveAsset(updatedAsset);
-
-      // 4. Add History Record
-      MOCK_ASSET_HISTORY.unshift({
-        id: Date.now().toString(),
-        assetId: activeAsset.id,
-        date: new Date().toISOString().slice(0, 16).replace('T', ' '),
-        action: 'Condition Update',
-        user: 'Asset Manager',
-        details: `Condition changed to ${newConditionCode} (${CONDITION_DESCRIPTIONS[newConditionCode]})`,
-        type: 'Maintenance'
-      });
-
+    try {
+      const result = await updateAssetCondition(activeAsset.id, newConditionCode, currentUser.id);
+      if (result.success) {
+        setIsConditionOpen(false);
+        router.refresh();
+        alert(`Condition updated to ${newConditionCode}.`);
+      } else {
+        alert(result.error || 'Failed to update condition.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update condition.');
+    } finally {
       setIsUpdatingCondition(false);
-      setIsConditionOpen(false);
-      alert(`Condition updated to ${newConditionCode}.`);
-    }, 1000);
+    }
   };
 
   const handleStartAudit = () => {
@@ -384,7 +731,14 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
       setShowNotification(true);
       return;
     }
+    if (!canStartAudit(currentUser.role)) {
+      setNotificationMessage('Insufficient permissions. Only Auditors can start audit sessions.');
+      setNotificationType('error');
+      setShowNotification(true);
+      return;
+    }
 
+    const safeAssets = Array.isArray(assets) ? assets : [];
     const sessionId = `AUD-${new Date().getFullYear()}-${String(MOCK_AUDIT_SESSIONS.length + 1).padStart(3, '0')}`;
     const newSession: AuditSession = {
       id: sessionId,
@@ -393,7 +747,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
       startDate: new Date().toISOString(),
       status: 'In Progress',
       location: locationFilter !== 'All' ? locationFilter : undefined,
-      totalAssets: assets.filter(a => locationFilter === 'All' || a.location === locationFilter).length,
+      totalAssets: safeAssets.filter(a => locationFilter === 'All' || a.location === locationFilter).length,
       verifiedAssets: 0,
       notFoundAssets: 0,
     };
@@ -407,7 +761,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     setShowNotification(true);
   };
 
-  const handleVerifyAsset = (asset: Asset, status: 'Verified' | 'Not Found' | 'Damaged', notes?: string) => {
+  const handleVerifyAsset = async (asset: Asset, status: 'Verified' | 'Not Found' | 'Damaged', notes?: string) => {
     if (!currentAuditSession || !currentUser) return;
 
     const verificationId = `VER-${Date.now()}`;
@@ -430,16 +784,13 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     newMap.set(asset.id, verification);
     setAuditVerifications(newMap);
 
-    // Add to asset history
-    MOCK_ASSET_HISTORY.unshift({
-      id: Date.now().toString(),
-      assetId: asset.id,
-      date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    // Persist to DB
+    await addAssetHistory(asset.id, {
       action: `Audit Verification: ${status}`,
-      user: currentUser.name,
       details: `Asset verified during audit ${currentAuditSession.id}${notes ? `. Notes: ${notes}` : ''}`,
       type: 'Audit'
-    });
+    }, currentUser.id);
+    router.refresh();
 
     // Update session counts
     const updatedSession = {
@@ -489,14 +840,294 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     }, 1000);
   };
 
-  const handlePrintTag = () => {
+  const toInch = useCallback((v: number, unit: string) =>
+    unit === 'inch' ? v : unit === 'mm' ? v / 25.4 : v / 2.54, []);
+
+  const loadPrinters = useCallback(async () => {
+    setIsLoadingPrinters(true);
+    try {
+      const { JSPrintManager, WSStatus } = await import('jsprintmanager');
+      JSPrintManager.auto_reconnect = true;
+      await JSPrintManager.start();
+      if (JSPrintManager.websocket_status === WSStatus.Open) {
+        const list = await JSPrintManager.getPrinters(true) as string[];
+        const arr = Array.isArray(list) ? list : [];
+        setPrinters(arr);
+        setSelectedPrinter(arr.length > 0 ? arr[0] : '');
+        setJspmConnected(true);
+      } else {
+        setJspmConnected(false);
+      }
+    } catch {
+      setJspmConnected(false);
+    } finally {
+      setIsLoadingPrinters(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isPrintSettingsOpen && activeAsset) loadPrinters();
+  }, [isPrintSettingsOpen, activeAsset, loadPrinters]);
+
+  const getQRWithLogoDataUrl = useCallback(async (text: string, size: number): Promise<string> => {
+    const canvas = document.createElement('canvas');
+    await QRCode.toCanvas(canvas, text, {
+      width: size,
+      margin: 2,
+      errorCorrectionLevel: 'H',
+      color: { dark: '#000000', light: '#ffffff' },
+    });
+    const w = canvas.width;
+    const h = canvas.height;
+    const logoSize = Math.min(w, h) * 0.22;
+    const logoImg = new Image();
+    logoImg.crossOrigin = 'anonymous';
+    await new Promise<void>((resolve) => {
+      logoImg.onload = () => resolve();
+      logoImg.onerror = () => resolve();
+      logoImg.src = '/abdc-logo-circular.jpg';
+    });
+    if (logoImg.width && logoImg.height) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const x = (w - logoSize) / 2;
+        const y = (h - logoSize) / 2;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(w / 2, h / 2, logoSize / 2 + 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.drawImage(logoImg, x, y, logoSize, logoSize);
+      }
+    }
+    return canvas.toDataURL('image/png');
+  }, []);
+
+  useEffect(() => {
+    if (!isPrintSettingsOpen || !activeAsset) {
+      setPreviewQrUrl('');
+      return;
+    }
+    let cancelled = false;
+    getQRWithLogoDataUrl(activeAsset.productId || '', 120)
+      .then((url) => { if (!cancelled) setPreviewQrUrl(url); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isPrintSettingsOpen, activeAsset?.productId, getQRWithLogoDataUrl]);
+
+  useEffect(() => {
+    if (!activeAsset?.productId) {
+      setPreviewBarcodeUrl('');
+      return;
+    }
+    try {
+      const canvas = document.createElement('canvas');
+      JsBarcode(canvas, activeAsset.productId, { format: 'CODE128', width: 1.5, height: 28, displayValue: false, margin: 2 });
+      setPreviewBarcodeUrl(canvas.toDataURL('image/png'));
+    } catch {
+      setPreviewBarcodeUrl('');
+    }
+  }, [activeAsset?.productId]);
+
+  const getBarcodeDataUrl = (text: string, barWidth: number, barHeight: number) => {
+    const canvas = document.createElement('canvas');
+    JsBarcode(canvas, text, {
+      format: 'CODE128',
+      width: barWidth,
+      height: barHeight,
+      displayValue: false,
+      margin: 2,
+    });
+    return canvas.toDataURL('image/png');
+  };
+
+  const handlePrintDirect = async () => {
     if (!activeAsset) return;
-    const printWindow = window.open('', '', 'height=600,width=800');
-    if (printWindow) {
-      printWindow.document.write('<html><head><title>Print Asset Tag</title><script src="https://cdn.tailwindcss.com"></script></head><body class="flex items-center justify-center h-screen">');
-      printWindow.document.write(`<div class="border-4 border-black p-8 text-center"><h1 class="text-2xl font-bold">ABDC ASSET TAG</h1><p class="text-xl font-mono my-4">${activeAsset.productId}</p><p>${activeAsset.name}</p></div>`);
-      printWindow.document.write('<script>setTimeout(() => { window.print(); window.close(); }, 500);</script></body></html>');
-      printWindow.document.close();
+    if (!jspmConnected) {
+      alert('JSPM Client is not connected. Install and run JSPM from https://neodynamic.com/downloads/jspm for direct printing.');
+      return;
+    }
+    setIsPrintingDirect(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { JSPrintManager, ClientPrintJob, DefaultPrinter, InstalledPrinter, PrintFile, FileSourceType } = await import('jsprintmanager');
+
+      const { WSStatus } = await import('jsprintmanager');
+      if (JSPrintManager.websocket_status !== WSStatus.Open) {
+        alert('JSPM Client is not connected. Please install and run JSPM from https://neodynamic.com/downloads/jspm');
+        return;
+      }
+
+      const s = printSettings;
+      const unit = s.units === 'inch' ? 'in' : s.units;
+      const wRaw = s.orientation === 'landscape' ? s.height : s.width;
+      const hRaw = s.orientation === 'landscape' ? s.width : s.height;
+      const wIn = toInch(wRaw, s.units);
+      const hIn = toInch(hRaw, s.units);
+      const PRINT_DPI = 300;
+      const pxW = Math.round(wIn * PRINT_DPI);
+      const pxH = Math.round(hIn * PRINT_DPI);
+
+      const qrDataUrl = await getQRWithLogoDataUrl(activeAsset.productId || '', 360);
+      const barcodeDataUrl = getBarcodeDataUrl(activeAsset.productId || '', 1.5, Math.round(pxH * 0.12));
+
+      const esc = (x: string) => (x || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+      const fsH2 = Math.max(8, Math.round(pxH * 0.1));
+      const fsV = Math.max(10, Math.round(pxH * 0.14));
+      const qrPx = Math.min(pxW, pxH) * 0.5;
+      const barcodeH = Math.round(pxH * 0.12);
+
+      const outerDiv = document.createElement('div');
+      outerDiv.style.cssText = `width:${pxW}px;height:${pxH}px;overflow:hidden;position:fixed;left:0;top:0;background:#fff;z-index:99999;`;
+      const labelDiv = document.createElement('div');
+      labelDiv.style.cssText = `width:100%;height:100%;padding:3%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:${Math.round(pxH * 0.02)}px;font-family:"Segoe UI",Arial,sans-serif;box-sizing:border-box;`;
+      const safeName = esc(activeAsset.name || '');
+      labelDiv.innerHTML = `
+        <div style="font-size:${fsH2}px;font-weight:700;letter-spacing:0.5px;">Property of Abdulkadeer &amp; Co.</div>
+        <div style="width:${qrPx}px;height:${qrPx}px;display:flex;justify-content:center;align-items:center;padding:4px;background:#fff;border:1px solid #ddd;">
+          <img src="${qrDataUrl}" alt="QR Code" style="width:100%;height:100%;object-fit:contain;" />
+        </div>
+        <div style="font-size:${Math.round(fsV * 0.55)}px;font-weight:600;color:#000;line-height:1.2;max-width:100%;min-height:${Math.round(pxH * 0.06)}px;">${safeName || '&nbsp;'}</div>
+        <div style="font-size:${fsV}px;font-weight:800;font-family:Consolas,monospace;color:#000;">${esc(activeAsset.productId || '')}</div>
+        <div style="height:${barcodeH}px;display:flex;justify-content:center;align-items:center;"><img src="${barcodeDataUrl}" alt="Barcode" style="max-width:100%;height:100%;object-fit:contain;" /></div>
+      `;
+      outerDiv.appendChild(labelDiv);
+      document.body.appendChild(outerDiv);
+      await new Promise(r => setTimeout(r, 400));
+
+      const canvas = await html2canvas(outerDiv, { width: pxW, height: pxH, scale: 1, useCORS: true, logging: false, allowTaint: true });
+      document.body.removeChild(outerDiv);
+
+      let imgData: string;
+      if (s.colorMode === 'grayscale') {
+        const grayCanvas = document.createElement('canvas');
+        grayCanvas.width = canvas.width;
+        grayCanvas.height = canvas.height;
+        const ctx = grayCanvas.getContext('2d');
+        if (ctx) {
+          ctx.filter = 'grayscale(100%)';
+          ctx.drawImage(canvas, 0, 0);
+          imgData = grayCanvas.toDataURL('image/png');
+        } else {
+          imgData = canvas.toDataURL('image/png');
+        }
+      } else {
+        imgData = canvas.toDataURL('image/png');
+      }
+      const base64 = imgData.replace(/^data:image\/png;base64,/, '');
+
+      const po = s.orientation === 'landscape' ? 'L' : 'P';
+      const fileName = `asset-tag-PX=0-PY=0-PW=${wIn.toFixed(3)}-PH=${hIn.toFixed(3)}-PO=${po}.png`;
+
+      const cpj = new ClientPrintJob();
+      cpj.clientPrinter = selectedPrinter ? new InstalledPrinter(selectedPrinter) : new DefaultPrinter();
+      cpj.files.push(new PrintFile(base64, FileSourceType.Base64, fileName, 1));
+      await cpj.sendToClient();
+
+      setIsPrintSettingsOpen(false);
+      setNotificationMessage('Label sent to printer.');
+      setNotificationType('success');
+      setShowNotification(true);
+    } catch (err) {
+      console.error('Direct print error:', err);
+      alert(err instanceof Error ? err.message : 'Direct print failed. Install JSPM Client from https://neodynamic.com/downloads/jspm');
+    } finally {
+      setIsPrintingDirect(false);
+    }
+  };
+
+  const handlePrintTag = async (settings?: { units: string; width: number; height: number; orientation: string; colorMode?: string }) => {
+    if (!activeAsset) return;
+    const s = settings || printSettings;
+    const wRaw = s.orientation === 'landscape' ? s.height : s.width;
+    const hRaw = s.orientation === 'landscape' ? s.width : s.height;
+    const wIn = toInch(wRaw, s.units);
+    const hIn = toInch(hRaw, s.units);
+    const PRINT_DPI = 300;
+    const pxW = Math.round(wIn * PRINT_DPI);
+    const pxH = Math.round(hIn * PRINT_DPI);
+
+    const qrDataUrl = await getQRWithLogoDataUrl(activeAsset.productId || '', 360);
+    const barcodeDataUrl = getBarcodeDataUrl(activeAsset.productId || '', 1.5, Math.round(pxH * 0.12));
+    const esc = (x: string) => (x || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const fsH2 = Math.max(8, Math.round(pxH * 0.1));
+    const fsV = Math.max(10, Math.round(pxH * 0.14));
+    const qrPx = Math.min(pxW, pxH) * 0.5;
+    const barcodeH = Math.round(pxH * 0.12);
+
+    const outerDiv = document.createElement('div');
+    outerDiv.style.cssText = `width:${pxW}px;height:${pxH}px;overflow:hidden;position:fixed;left:0;top:0;background:#fff;z-index:99999;`;
+    const labelDiv = document.createElement('div');
+    labelDiv.style.cssText = `width:100%;height:100%;padding:3%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:${Math.round(pxH * 0.02)}px;font-family:"Segoe UI",Arial,sans-serif;box-sizing:border-box;color:#000;`;
+    const safeName = esc(activeAsset.name || '');
+    labelDiv.innerHTML = `
+      <div style="font-size:${fsH2}px;font-weight:700;letter-spacing:0.5px;color:#000;">Property of Abdulkadeer &amp; Co.</div>
+      <div style="width:${qrPx}px;height:${qrPx}px;display:flex;justify-content:center;align-items:center;padding:4px;background:#fff;border:1px solid #333;">
+        <img src="${qrDataUrl}" alt="QR Code" style="width:100%;height:100%;object-fit:contain;" />
+      </div>
+      <div style="font-size:${Math.round(fsV * 0.55)}px;font-weight:600;color:#000;line-height:1.2;max-width:100%;min-height:${Math.round(pxH * 0.06)}px;">${safeName || '&nbsp;'}</div>
+      <div style="font-size:${fsV}px;font-weight:800;font-family:Consolas,monospace;color:#000;">${esc(activeAsset.productId || '')}</div>
+      <div style="height:${barcodeH}px;display:flex;justify-content:center;align-items:center;"><img src="${barcodeDataUrl}" alt="Barcode" style="max-width:100%;height:100%;object-fit:contain;" /></div>
+    `;
+    outerDiv.appendChild(labelDiv);
+    document.body.appendChild(outerDiv);
+    await new Promise(r => setTimeout(r, 500));
+
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(outerDiv, { width: pxW, height: pxH, scale: 1, useCORS: true, logging: false, allowTaint: true });
+      document.body.removeChild(outerDiv);
+      const imgDataUrl = canvas.toDataURL('image/png');
+
+      const printHtml = `<!DOCTYPE html><html><head><title>Asset Tag</title><style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        html,body{width:100%;height:100%;min-height:100%;display:flex;align-items:center;justify-content:center;background:#fff}
+        img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}
+        @media print{
+          @page{size:${wIn.toFixed(2)}in ${hIn.toFixed(2)}in;margin:0}
+          html,body{width:100%!important;height:100%!important;min-height:100%!important;margin:0!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important;background:#fff!important}
+          img{max-width:100%!important;max-height:100%!important;margin:auto!important}
+        }
+      </style></head><body><img src="${imgDataUrl}" alt="Asset Tag" /></body></html>`;
+
+      const printWin = window.open('', '_blank', 'width=400,height=300');
+      if (printWin) {
+        printWin.document.write(printHtml);
+        printWin.document.close();
+        const img = printWin.document.querySelector('img') as HTMLImageElement | null;
+        const doPrint = () => {
+          setTimeout(() => {
+            printWin.focus();
+            printWin.print();
+            printWin.close();
+          }, 300);
+        };
+        if (img) {
+          if (img.complete) doPrint();
+          else img.onload = doPrint;
+        } else {
+          setTimeout(doPrint, 500);
+        }
+      } else {
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;left:0;top:0;width:400px;height:300px;border:none;z-index:99999;';
+        document.body.appendChild(iframe);
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+          doc.open();
+          doc.write(printHtml);
+          doc.close();
+          setTimeout(() => {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+            setTimeout(() => iframe.parentNode && document.body.removeChild(iframe), 2500);
+          }, 600);
+        }
+      }
+    } catch (err) {
+      document.body.removeChild(outerDiv);
+      console.error('Print error:', err);
+      alert('Print failed. Please try again.');
     }
   };
 
@@ -526,19 +1157,73 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     }
   }, [conditionFilter, locationFilter]);
 
+  const normalizeForMatch = (s: string) => (s || '').replace(/[\s\-_]/g, '').toLowerCase();
 
-  const handleTrackAsset = () => {
-    if (!trackingId) return;
-    const asset = assets.find(a => a.productId.toLowerCase().includes(trackingId.toLowerCase()) || a.id === trackingId);
-    setTrackedAsset(asset || null);
-    if (!asset) alert("Asset ID not found for tracking.");
+  const scrollToAssetDetail = () => {
+    setTimeout(() => {
+      document.querySelector('[data-asset-detail]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
   };
 
-  const selectAsset = (asset: Asset) => {
+  const lookupAssetById = (id: string) => {
+    const trimmed = id.replace(/[\r\n\t]/g, '').trim();
+    if (!trimmed) return;
+    const norm = normalizeForMatch(trimmed);
+    const asset = assets.find(a => {
+      const pid = (a.productId || '').toLowerCase();
+      const pidNorm = normalizeForMatch(a.productId || '');
+      return (
+        pid === trimmed.toLowerCase() ||
+        pidNorm === norm ||
+        pid.includes(trimmed.toLowerCase()) ||
+        pidNorm.includes(norm) ||
+        a.id === trimmed
+      );
+    });
+    setTrackedAsset(asset || null);
+    if (asset) {
+      selectAsset(asset, true);
+      setTrackingId('');
+      setNotificationMessage(`Found: ${asset.productId}`);
+      setNotificationType('success');
+      setShowNotification(true);
+      scrollToAssetDetail();
+    } else {
+      setNotificationMessage("Asset ID not found.");
+      setNotificationType('error');
+      setShowNotification(true);
+    }
+  };
+
+  const handleTrackAsset = () => lookupAssetById(trackingId);
+
+  const startBarcodeGunScan = () => {
+    setIsBarcodeGunReady(true);
+    setTimeout(() => {
+      trackingInputRef.current?.focus();
+      setNotificationMessage('Ready to scan. Point your barcode gun at the field and scan.');
+      setNotificationType('info');
+      setShowNotification(true);
+    }, 50);
+    setTimeout(() => setIsBarcodeGunReady(false), 5000);
+  };
+
+  const handleTrackingInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setTrackingId(val);
+    if (barcodeScanTimeoutRef.current) clearTimeout(barcodeScanTimeoutRef.current);
+    if (val.length >= 4) {
+      barcodeScanTimeoutRef.current = setTimeout(() => {
+        if (val.trim()) lookupAssetById(val);
+      }, 200);
+    }
+  };
+
+  const selectAsset = (asset: Asset, keepTracked?: boolean) => {
     setActiveAsset(asset);
     setSearchResults([]);
     setSearchTerm('');
-    setTrackedAsset(null);
+    if (!keepTracked) setTrackedAsset(null);
 
     // Handle pending actions
     if (pendingAction === 'transfer') {
@@ -551,31 +1236,189 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     }
   };
 
-  const startCamera = async () => {
-    setIsCameraOpen(true);
-    // Real Camera Implementation
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  const decodeFromVideoFrame = useCallback(async (): Promise<string | null> => {
+    const video = videoRef.current;
+    if (!video || video.readyState !== video.HAVE_ENOUGH_DATA || video.videoWidth === 0) return null;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.drawImage(video, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    // Try QR code first (jsQR - sync)
+    const qrResult = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+    if (qrResult?.data) return qrResult.data.trim();
+
+    // Try BarcodeDetector API for barcodes (Chrome, Edge, Safari 16.4+)
+    const BarcodeDetector = (window as any).BarcodeDetector;
+    if (typeof BarcodeDetector === 'function') {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
-        // Mock scanning interval - in real app, use barcode detector here
-        scanIntervalRef.current = setInterval(() => {
-          // Simulate random scan success for demo purposes if needed, or rely on manual 'Simulate Scan'
-          // For now, we keep it as a view-only scanner that user "Captures"
-        }, 1000);
-      } catch (err) {
-        console.error("Camera Error:", err);
-        setNotificationMessage("Could not access camera. Please check permissions.");
-        setNotificationType('error');
-        setShowNotification(true);
-        setIsCameraOpen(false);
+        const detector = new BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8'] });
+        const bitmap = await createImageBitmap(imageData);
+        const barcodes = await detector.detect(bitmap);
+        bitmap.close();
+        if (barcodes.length > 0 && barcodes[0].rawValue) return barcodes[0].rawValue.trim();
+      } catch {
+        // ignore
       }
-    } else {
-      setNotificationMessage("Camera not supported on this device/browser.");
+    }
+    return null;
+  }, []);
+
+  const decodeFromImageData = useCallback(async (imageData: ImageData): Promise<string | null> => {
+    const qrResult = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+    if (qrResult?.data) return qrResult.data.trim();
+
+    const BarcodeDetector = (window as any).BarcodeDetector;
+    if (typeof BarcodeDetector === 'function') {
+      try {
+        const detector = new BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8'] });
+        const bitmap = await createImageBitmap(imageData);
+        const barcodes = await detector.detect(bitmap);
+        bitmap.close();
+        if (barcodes.length > 0 && barcodes[0].rawValue) return barcodes[0].rawValue.trim();
+      } catch {
+        // ignore
+      }
+    }
+    return null;
+  }, []);
+
+  const findAssetByCode = useCallback((code: string): Asset | null => {
+    const trimmed = (code || '').replace(/[\r\n\t]/g, '').trim();
+    if (!trimmed) return null;
+    const norm = normalizeForMatch(trimmed);
+    const tryMatch = (scanned: string, scannedNorm: string) =>
+      assets.find((a) => {
+        const pid = (a.productId || '').toLowerCase();
+        const pidNorm = normalizeForMatch(a.productId || '');
+        return pid === scanned.toLowerCase() || pidNorm === scannedNorm || pid.includes(scanned.toLowerCase()) || pidNorm.includes(scannedNorm) || a.id === scanned;
+      }) || null;
+    let asset = tryMatch(trimmed, norm);
+    if (!asset && /^\d$/.test(trimmed.slice(-1))) {
+      asset = tryMatch(trimmed.slice(0, -1), normalizeForMatch(trimmed.slice(0, -1)));
+    }
+    return asset;
+  }, [assets]);
+
+  const startCamera = async (deviceIdOverride?: string) => {
+    setIsCameraOpen(true);
+
+    type GetUserMediaFn = (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+    const getMedia = (): GetUserMediaFn | null => {
+      if (navigator.mediaDevices?.getUserMedia) {
+        return navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      }
+      const nav = navigator as any;
+      const legacy = nav.getUserMedia || nav.webkitGetUserMedia || nav.mozGetUserMedia;
+      if (legacy) {
+        return (constraints: MediaStreamConstraints) =>
+          new Promise<MediaStream>((resolve, reject) =>
+            legacy.call(navigator, constraints, resolve, reject)
+          );
+      }
+      return null;
+    };
+
+    const getUserMediaFn = getMedia();
+    if (!getUserMediaFn) {
+      const isInsecure = typeof window !== 'undefined' && !window.isSecureContext;
+      setNotificationMessage(
+        isInsecure
+          ? "Camera requires HTTPS. Use https://... instead of http://, or run: npm run dev:https"
+          : "Camera not supported. Try a modern browser (Chrome, Safari, Firefox) or use Upload Photo."
+      );
+      setNotificationType('error');
+      setShowNotification(true);
+      setIsCameraOpen(false);
+      return;
+    }
+
+    try {
+      let deviceId = deviceIdOverride || selectedDeviceId;
+      // Enumerate video devices (cameras + scanners that appear as videoinput)
+      if (navigator.mediaDevices?.enumerateDevices) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+        setVideoDevices(videoInputs);
+        if (videoInputs.length > 0) {
+          if (!deviceId || !videoInputs.some((d) => d.deviceId === deviceId)) {
+            deviceId = videoInputs[0].deviceId;
+            setSelectedDeviceId(deviceId);
+          }
+        }
+      }
+      const videoConstraints = deviceId
+        ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        : { facingMode: 'environment' as const, width: { ideal: 1280 }, height: { ideal: 720 } };
+
+      let stream: MediaStream;
+      try {
+        stream = await getUserMediaFn({ video: videoConstraints });
+      } catch {
+        try {
+          stream = await getUserMediaFn({ video: deviceId ? { deviceId: { exact: deviceId } } : true });
+        } catch {
+          stream = await getUserMediaFn({ video: true });
+        }
+      }
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      // Re-enumerate after permission granted to get device labels (scanner names)
+      if (navigator.mediaDevices?.enumerateDevices) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+        setVideoDevices(videoInputs);
+      }
+      lastNotFoundCodeRef.current = null;
+      const runScanLoop = async () => {
+        if (!streamRef.current) return;
+        const code = await decodeFromVideoFrame();
+        if (code) {
+          const asset = findAssetByCode(code);
+          if (asset) {
+            if (scanIntervalRef.current) clearTimeout(scanIntervalRef.current);
+            stopCamera();
+            setTrackedAsset(asset);
+            selectAsset(asset, true);
+            setNotificationMessage(`Scanned: ${asset.productId}`);
+            setNotificationType('success');
+            setShowNotification(true);
+            scrollToAssetDetail();
+            return;
+          }
+          if (lastNotFoundCodeRef.current !== code) {
+            lastNotFoundCodeRef.current = code;
+            setNotificationMessage(`Code "${code}" not found in asset register.`);
+            setNotificationType('info');
+            setShowNotification(true);
+          }
+        }
+        if (streamRef.current) {
+          scanIntervalRef.current = setTimeout(runScanLoop, 300);
+        }
+      };
+      runScanLoop();
+    } catch (err: any) {
+      console.error("Camera Error:", err);
+      const isInsecure = typeof window !== 'undefined' && !window.isSecureContext;
+      const name = err?.name || err?.code || '';
+      let msg = "Could not access camera. ";
+      if (isInsecure || name === 'NotAllowedError' || name === 'NotSupportedError') {
+        msg = "Camera requires HTTPS. Use https://... or run: npm run dev:https";
+      } else if (name === 'PermissionDeniedError' || name === 'NotAllowedError') {
+        msg = "Camera permission denied. Allow camera access in your browser settings.";
+      } else if (name === 'NotFoundError') {
+        msg = "No camera found on this device.";
+      }
+      setNotificationMessage(msg);
       setNotificationType('error');
       setShowNotification(true);
       setIsCameraOpen(false);
@@ -588,96 +1431,157 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+    if (scanIntervalRef.current) {
+      clearTimeout(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const switchScanDevice = async (newDeviceId: string) => {
+    setSelectedDeviceId(newDeviceId);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (scanIntervalRef.current) {
+      clearTimeout(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    await startCamera(newDeviceId);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setPreviewImage(event.target?.result as string);
-        // In a real app, send to API for analysis
-        setIsAnalyzing(true);
-        setTimeout(() => {
+    if (!file) return;
+    setIsAnalyzing(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target?.result as string;
+      setPreviewImage(dataUrl);
+      try {
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = reject;
+          img.src = dataUrl;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          setNotificationMessage("Could not process image.");
+          setNotificationType('error');
+          setShowNotification(true);
           setIsAnalyzing(false);
-          alert("Image Analyzed: Matching Asset Found.");
-          selectAsset(assets[0]);
-        }, 1500);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const captureAndAnalyze = () => {
-    // Capture frame from video
-    if (videoRef.current && canvasRef.current) {
-      const context = canvasRef.current.getContext('2d');
-      if (context) {
-        context.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-        const image = canvasRef.current.toDataURL('image/png');
-        setPreviewImage(image);
-        stopCamera();
-        alert("Code Scanned: ABDC/ABJ/ITE/0042");
-        selectAsset(assets[0]); // Demo: Select first asset
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = await decodeFromImageData(imageData);
+        if (code) {
+          const asset = findAssetByCode(code);
+          if (asset) {
+            setTrackedAsset(asset);
+            selectAsset(asset, true);
+            setNotificationMessage(`Scanned: ${asset.productId}`);
+            setNotificationType('success');
+            setShowNotification(true);
+            scrollToAssetDetail();
+          } else {
+            setNotificationMessage(`Code "${code}" not found in asset register.`);
+            setNotificationType('info');
+            setShowNotification(true);
+          }
+        } else {
+          setNotificationMessage("No barcode or QR code found in image.");
+          setNotificationType('info');
+          setShowNotification(true);
+        }
+      } catch {
+        setNotificationMessage("Could not decode image.");
+        setNotificationType('error');
+        setShowNotification(true);
+      } finally {
+        setIsAnalyzing(false);
       }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const captureAndAnalyze = async () => {
+    const video = videoRef.current;
+    if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) {
+      setNotificationMessage("Camera not ready. Please wait a moment.");
+      setNotificationType('info');
+      setShowNotification(true);
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    setPreviewImage(canvas.toDataURL('image/png'));
+    stopCamera();
+
+    const code = await decodeFromImageData(imageData);
+    if (code) {
+      const asset = findAssetByCode(code);
+      if (asset) {
+        setTrackedAsset(asset);
+        selectAsset(asset, true);
+        setNotificationMessage(`Scanned: ${asset.productId}`);
+        setNotificationType('success');
+        setShowNotification(true);
+        scrollToAssetDetail();
+      } else {
+        setNotificationMessage(`Code "${code}" not found in asset register.`);
+        setNotificationType('info');
+        setShowNotification(true);
+      }
+    } else {
+      setNotificationMessage("No barcode or QR code detected. Try again or enter manually.");
+      setNotificationType('info');
+      setShowNotification(true);
     }
   };
 
-  const submitValueAdjustment = () => {
-    if (!activeAsset || !adjustmentAmount) return;
+  const submitValueAdjustment = async () => {
+    if (!activeAsset || !adjustmentAmount || !currentUser) return;
     setIsSubmittingAdjustment(true);
-
-    setTimeout(() => {
+    try {
       const amount = Number(adjustmentAmount);
-      const newCost = adjustmentType === 'Addition'
-        ? activeAsset.acquisitionCost + amount
-        : activeAsset.acquisitionCost - amount;
-
-      const improvement: AssetImprovement = {
-        id: Date.now().toString(),
-        date: adjustmentDate,
-        type: adjustmentType,
-        amount: amount,
-        description: adjustmentDesc,
-        newAcquisitionCost: newCost
-      };
-
-      // 1. Update Asset
-      const updatedAsset: Asset = {
-        ...activeAsset,
-        acquisitionCost: newCost,
-        netBookValue: activeAsset.netBookValue + (adjustmentType === 'Addition' ? amount : -amount), // Simplified NBV adjustment
-        lastImprovementDate: adjustmentDate,
-        improvements: [...(activeAsset.improvements || []), improvement]
-      };
-
-      // 2. Update Mock DB
-      const idx = assets.findIndex(a => a.id === activeAsset.id);
-      if (idx > -1) assets[idx] = updatedAsset;
-
-      // 3. Update Local State
-      setActiveAsset(updatedAsset);
-
-      // 4. Add History
-      MOCK_ASSET_HISTORY.unshift({
-        id: Date.now().toString(),
-        assetId: activeAsset.id,
-        date: new Date().toISOString().slice(0, 16).replace('T', ' '),
-        action: `Value Adjustment: ${adjustmentType}`,
-        user: 'Asset Manager',
-        details: `${adjustmentType} of ₦${amount.toLocaleString()} - ${adjustmentDesc}`,
-        type: 'Maintenance'
-      });
-
+      const result = await addAssetImprovement(
+        activeAsset.id,
+        {
+          type: adjustmentType,
+          amount,
+          description: adjustmentDesc || `${adjustmentType} of ₦${amount.toLocaleString()}`,
+          date: adjustmentDate
+        },
+        currentUser.id
+      );
+      if (result.success) {
+        setIsAdjustmentOpen(false);
+        setAdjustmentAmount('');
+        setAdjustmentDesc('');
+        router.refresh();
+        setNotificationMessage(`Asset value updated successfully.`);
+        setNotificationType('success');
+        setShowNotification(true);
+      } else {
+        alert(result.error || 'Failed to update value.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update value.');
+    } finally {
       setIsSubmittingAdjustment(false);
-      setIsAdjustmentOpen(false);
-      setAdjustmentAmount('');
-      setAdjustmentDesc('');
-      setNotificationMessage(`Asset value updated successfully. New Cost: ₦${newCost.toLocaleString()}`);
-      setNotificationType('success');
-      setShowNotification(true);
-    }, 1500);
+    }
   };
 
   const exportToCSV = useCallback(() => {
@@ -756,7 +1660,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   );
 
   const assetHistory = activeAsset
-    ? MOCK_ASSET_HISTORY.filter(h => h.assetId === activeAsset.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    ? (activeAsset.history || MOCK_ASSET_HISTORY.filter(h => h.assetId === activeAsset.id)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     : [];
 
   return (
@@ -819,14 +1723,15 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
 
               {/* Track Asset Field - Only in Lookup Mode */}
               {!managementMode && (
-                <div className="relative w-full md:w-64">
+                <div className={`relative w-full md:w-64 transition-all ${isBarcodeGunReady ? 'ring-2 ring-accent-500 ring-offset-2 rounded-xl' : ''}`}>
                   <LocateFixed className="absolute left-3 top-1/2 transform -translate-y-1/2 text-accent-600" size={18} />
                   <input
+                    ref={trackingInputRef}
                     type="text"
                     value={trackingId}
-                    onChange={(e) => setTrackingId(e.target.value)}
+                    onChange={handleTrackingInputChange}
                     onKeyDown={(e) => e.key === 'Enter' && handleTrackAsset()}
-                    placeholder="Quick Track ID..."
+                    placeholder="Scan barcode or type Asset ID..."
                     className="w-full pl-10 pr-12 py-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-accent-500 outline-none text-slate-700"
                   />
                   <button
@@ -868,17 +1773,26 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
             </div>
 
             {!managementMode && (
-              <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-3 gap-4 pt-2">
                 <button
-                  onClick={startCamera}
+                  onClick={startBarcodeGunScan}
+                  className="flex flex-col items-center justify-center p-4 bg-white border border-accent-200 rounded-xl text-accent-700 hover:bg-accent-50 transition-colors shadow-sm"
+                >
+                  <Scan size={24} className="mb-2" />
+                  <span className="text-sm font-semibold">Scan with Barcode Gun</span>
+                  <span className="text-[10px] text-slate-500 mt-1">USB / Bluetooth scanner</span>
+                </button>
+                <button
+                  onClick={() => startCamera()}
                   className="flex flex-col items-center justify-center p-4 bg-white border border-abdc-200 rounded-xl text-abdc-700 hover:bg-abdc-50 transition-colors shadow-sm"
                 >
                   <Camera size={24} className="mb-2" />
                   <span className="text-sm font-semibold">Scan Barcode / QR</span>
+                  <span className="text-[10px] text-slate-500 mt-1">Camera / document scanner</span>
                 </button>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center p-4 bg-white border border-accent-200 rounded-xl text-accent-700 hover:bg-accent-50 transition-colors shadow-sm"
+                  className="flex flex-col items-center justify-center p-4 bg-white border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
                 >
                   <ImageIcon size={24} className="mb-2" />
                   <span className="text-sm font-semibold">Upload Photo</span>
@@ -955,13 +1869,15 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                     <h4 className="font-bold text-slate-800">Update Condition</h4>
                     <p className="text-xs text-slate-500 mt-1">Log damage or repairs.</p>
                   </button>
-                  <button onClick={handleStartAudit} className="p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-left group">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mb-3 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                      <CheckCircle2 size={20} />
-                    </div>
-                    <h4 className="font-bold text-slate-800">Start Audit</h4>
-                    <p className="text-xs text-slate-500 mt-1">Verify physical inventory.</p>
-                  </button>
+                  {currentUser && canStartAudit(currentUser.role) && (
+                    <button onClick={handleStartAudit} className="p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-left group">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mb-3 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                        <CheckCircle2 size={20} />
+                      </div>
+                      <h4 className="font-bold text-slate-800">Start Audit</h4>
+                      <p className="text-xs text-slate-500 mt-1">Verify physical inventory.</p>
+                    </button>
+                  )}
                   <button onClick={() => setIsViewAllOpen(true)} className="p-4 bg-white border border-slate-200 rounded-xl hover:border-abdc-500 hover:shadow-md transition-all text-left group">
                     <div className="w-10 h-10 bg-abdc-100 rounded-full flex items-center justify-center text-abdc-600 mb-3 group-hover:bg-abdc-600 group-hover:text-white transition-colors">
                       <Table size={20} />
@@ -1094,7 +2010,25 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                           }`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4 flex-1">
-                              <img src={asset.image} alt={asset.name} className="w-12 h-12 rounded-lg object-cover bg-slate-200" />
+                              {asset.image ? (
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setImageLightboxUrl(asset.image!); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 focus:ring-2 focus:ring-abdc-500" title="Click to open image">
+                                  <img src={asset.image} alt={asset.name} className="w-12 h-12 object-cover hover:opacity-90 transition-opacity" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleImageUploadClick(e, asset.id)}
+                                  className="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-400 transition-colors cursor-pointer border-2 border-dashed border-slate-300 hover:border-abdc-500 group"
+                                  title="Click to upload image"
+                                  disabled={isUploadingImage && imageUploadAssetId === asset.id}
+                                >
+                                  {isUploadingImage && imageUploadAssetId === asset.id ? (
+                                    <Loader2 size={16} className="animate-spin text-abdc-600" />
+                                  ) : (
+                                    <ImageIcon size={16} className="text-slate-500 group-hover:text-abdc-600" />
+                                  )}
+                                </button>
+                              )}
                               <div>
                                 <h4 className="font-bold text-slate-800">{asset.name}</h4>
                                 <div className="flex items-center gap-2 mt-1">
@@ -1166,7 +2100,25 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
               {searchResults.map((asset) => (
                 <div key={asset.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between hover:border-abdc-300 cursor-pointer transition-all">
                   <div className="flex items-center space-x-4 flex-1" onClick={() => selectAsset(asset)}>
-                    <img src={asset.image} alt={asset.name} className="w-12 h-12 rounded-lg object-cover bg-slate-200" />
+                    {asset.image ? (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setImageLightboxUrl(asset.image!); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 focus:ring-2 focus:ring-abdc-500" title="Click to open image">
+                        <img src={asset.image} alt={asset.name} className="w-12 h-12 object-cover hover:opacity-90 transition-opacity" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => handleImageUploadClick(e, asset.id)}
+                        className="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-400 transition-colors cursor-pointer border-2 border-dashed border-slate-300 hover:border-abdc-500 group"
+                        title="Click to upload image"
+                        disabled={isUploadingImage && imageUploadAssetId === asset.id}
+                      >
+                        {isUploadingImage && imageUploadAssetId === asset.id ? (
+                          <Loader2 size={16} className="animate-spin text-abdc-600" />
+                        ) : (
+                          <ImageIcon size={16} className="text-slate-500 group-hover:text-abdc-600" />
+                        )}
+                      </button>
+                    )}
                     <div>
                       <h4 className="font-bold text-slate-800">{asset.name}</h4>
                       <div className="flex items-center gap-2 mt-1">
@@ -1193,7 +2145,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
 
           {/* Active Asset Details View */}
           {activeAsset && (
-            <div className="space-y-4 animate-slideIn">
+            <div className="space-y-4 animate-slideIn" data-asset-detail>
               <div className="flex justify-between items-center mb-2">
                 <button onClick={() => setActiveAsset(null)} className="text-sm text-abdc-600 hover:underline">Back to List</button>
               </div>
@@ -1218,13 +2170,71 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                       <p><span className="font-semibold">Custodian:</span> {activeAsset.custodian}</p>
                     </div>
                   </div>
-                  <img src={activeAsset.image} alt="Asset" className="w-24 h-24 rounded-lg object-cover bg-slate-200 border border-slate-200" />
+                  {activeAsset.image ? (
+                    <button type="button" onClick={() => setImageLightboxUrl(activeAsset.image!)} className="block rounded-lg overflow-hidden border border-slate-200 bg-slate-200 focus:ring-2 focus:ring-abdc-500 focus:ring-offset-2" title="Click to open image">
+                      <img src={activeAsset.image} alt={activeAsset.name} className="w-24 h-24 object-cover hover:opacity-90 transition-opacity" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleImageUploadClick({ stopPropagation: () => { } } as any, activeAsset.id)}
+                      className="w-24 h-24 rounded-lg bg-slate-200 border-2 border-dashed border-slate-300 hover:border-abdc-500 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-300 transition-colors cursor-pointer group"
+                      title="Click to upload image"
+                      disabled={isUploadingImage && imageUploadAssetId === activeAsset.id}
+                    >
+                      {isUploadingImage && imageUploadAssetId === activeAsset.id ? (
+                        <Loader2 size={20} className="animate-spin text-abdc-600" />
+                      ) : (
+                        <>
+                          <ImageIcon size={24} className="text-slate-500 group-hover:text-abdc-600 mb-1" />
+                          <span className="text-[10px] group-hover:text-abdc-600">Upload</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Professional Asset Tag - QR left, ID + Barcode + Name right */}
+              <div id="asset-tag-print-area" className="w-[260px] min-h-[110px] bg-white border-2 border-slate-900 rounded-lg shadow-xl mx-auto overflow-hidden flex flex-col relative group hover:scale-[1.02] transition-transform duration-300" title="Label: 2.6in × 1.1in (ABDC stock)">
+                {/* Print button */}
+                <div className="absolute top-2 right-2 z-20">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsPrintSettingsOpen(true); }}
+                    className="p-1.5 rounded-full bg-slate-900 text-white shadow-md hover:bg-slate-700 transition-colors"
+                    title="Print Tag"
+                  >
+                    <Printer size={14} />
+                  </button>
+                </div>
+
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 p-3">
+                  <p className="text-xs font-bold">Property of Abdulkadeer &amp; Co.</p>
+                  <div id="asset-tag-qr" className="w-20 h-20 flex-shrink-0 flex items-center justify-center bg-white p-1 border border-slate-200">
+                    <QRCodeSVG
+                      value={activeAsset.productId}
+                      size={72}
+                      level="H"
+                      imageSettings={{
+                        src: '/abdc-logo-circular.jpg',
+                        height: 20,
+                        width: 20,
+                        excavate: true,
+                      }}
+                    />
+                  </div>
+                  <p className="text-[9px] font-semibold text-slate-800 line-clamp-2 max-w-full">{activeAsset.name}</p>
+                  <p className="text-sm font-mono font-bold break-all">{activeAsset.productId}</p>
+                  {previewBarcodeUrl && (
+                    <div className="h-8 flex items-center justify-center">
+                      <img src={previewBarcodeUrl} alt="Barcode" className="max-w-full h-full object-contain" />
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Actions Grid */}
               <div className="grid grid-cols-2 gap-3 pt-2">
-                <button onClick={handlePrintTag} className="p-4 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 flex flex-col items-center justify-center gap-2 shadow-sm"><Printer size={20} className="text-slate-400" /> <span>Print Tag</span></button>
                 {managementMode ? (
                   <>
                     <button onClick={() => openTransferModal(activeAsset)} className="p-4 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 flex flex-col items-center justify-center gap-2 shadow-sm"><ArrowRightLeft size={20} className="text-slate-400" /> <span>Transfer</span></button>
@@ -1382,27 +2392,9 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
 
                 {
                   activeTab === 'depreciation' && (
-                    <div className="space-y-4">
-                      <p className="text-sm text-slate-600">Current Value calculated via Straight Line method.</p>
-                      <div className="flex justify-between items-center bg-slate-50 p-4 rounded-lg border border-slate-200">
-                        <span className="font-bold text-slate-700">Estimated Current Value</span>
-                        <span className="text-xl font-bold text-abdc-700">₦{Math.round(calculateDepreciation()).toLocaleString()}</span>
-                      </div>
-
-                      {/* Calculator Inputs */}
-                      <div className="mt-4 p-4 border border-slate-100 rounded-lg">
-                        <h4 className="font-bold text-sm mb-3 flex items-center gap-2"><Calculator size={16} /> Depreciation Calculator</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-xs text-slate-500">Useful Life (Years)</label>
-                            <input type="number" value={calcLife} onChange={e => setCalcLife(Number(e.target.value))} className="w-full p-2 bg-white border border-slate-200 rounded text-sm" />
-                          </div>
-                          <div>
-                            <label className="text-xs text-slate-500">Salvage Value</label>
-                            <input type="number" value={calcSalvage} onChange={e => setCalcSalvage(Number(e.target.value))} className="w-full p-2 bg-white border border-slate-200 rounded text-sm" />
-                          </div>
-                        </div>
-                      </div>
+                    <div className="space-y-8 animate-fadeIn">
+                      {/* Calculation Logic Wrapper */}
+                      <DepreciationView activeAsset={activeAsset} />
                     </div>
                   )
                 }
@@ -1411,6 +2403,168 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
           )}
 
           {/* Modals */}
+          {isPrintSettingsOpen && (
+            <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+              <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <Printer size={20} className="text-slate-600" /> Print Settings
+                  </h3>
+                  <button onClick={() => setIsPrintSettingsOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Select Printer</label>
+                    {jspmConnected && printers.length > 0 ? (
+                      <select
+                        value={selectedPrinter}
+                        onChange={(e) => setSelectedPrinter(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                      >
+                        {printers.map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-xs text-slate-500">Install JSPM Client to select printers in the app. <a href="https://neodynamic.com/downloads/jspm" target="_blank" rel="noopener noreferrer" className="text-abdc-600 hover:underline">Download</a></p>
+                        <button
+                          type="button"
+                          onClick={loadPrinters}
+                          disabled={isLoadingPrinters}
+                          className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 disabled:opacity-50 flex items-center gap-2"
+                        >
+                          {isLoadingPrinters ? <Loader2 size={12} className="animate-spin" /> : null}
+                          Load printers
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Label preview</label>
+                    <div
+                      className="bg-white border border-slate-200 rounded overflow-hidden shadow-sm mx-auto"
+                      style={(() => {
+                        const aspect = printSettings.orientation === 'landscape'
+                          ? printSettings.height / printSettings.width
+                          : printSettings.width / printSettings.height;
+                        const maxW = 220;
+                        const maxH = 140;
+                        const w = aspect >= maxW / maxH ? maxW : maxH * aspect;
+                        const h = aspect >= maxW / maxH ? maxW / aspect : maxH;
+                        return { width: Math.round(w), height: Math.round(h) };
+                      })()}
+                    >
+                      <div className="flex flex-col h-full items-center justify-center text-center gap-1 p-2 overflow-y-auto min-h-0">
+                        <div style={{ fontSize: 8 }} className="font-bold shrink-0">Property of Abdulkadeer &amp; Co.</div>
+                        <div className="w-12 h-12 shrink-0 flex items-center justify-center bg-white border border-slate-200 p-0.5">
+                          {previewQrUrl ? <img src={previewQrUrl} alt="QR Code" className="w-full h-full object-contain" /> : <div className="w-full h-full bg-slate-100 animate-pulse rounded" />}
+                        </div>
+                        <div style={{ fontSize: 6 }} className="font-semibold text-slate-800 shrink-0 min-h-[1rem] line-clamp-2 break-words w-full px-1">{activeAsset?.name || '-'}</div>
+                        <div style={{ fontSize: 9 }} className="font-mono font-bold truncate max-w-full shrink-0">{activeAsset?.productId || '-'}</div>
+                        {previewBarcodeUrl && (
+                          <div className="h-6 flex items-center justify-center shrink-0">
+                            <img src={previewBarcodeUrl} alt="Barcode" className="max-w-full h-full object-contain" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Units</label>
+                    <select
+                      value={printSettings.units}
+                      onChange={(e) => {
+                        const newUnit = e.target.value as 'inch' | 'mm' | 'cm';
+                        const u = printSettings.units;
+                        const toInch = (v: number, from: string) => from === 'inch' ? v : from === 'mm' ? v / 25.4 : v / 2.54;
+                        const fromInch = (v: number, to: string) => to === 'inch' ? v : to === 'mm' ? v * 25.4 : v * 2.54;
+                        const wIn = toInch(printSettings.width, u);
+                        const hIn = toInch(printSettings.height, u);
+                        setPrintSettings(p => ({
+                          ...p,
+                          units: newUnit,
+                          width: Math.round(fromInch(wIn, newUnit) * 100) / 100,
+                          height: Math.round(fromInch(hIn, newUnit) * 100) / 100,
+                        }));
+                      }}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                    >
+                      <option value="inch">inch</option>
+                      <option value="mm">mm</option>
+                      <option value="cm">cm</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Width</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.5"
+                        max="50"
+                        value={printSettings.width}
+                        onChange={(e) => setPrintSettings(p => ({ ...p, width: parseFloat(e.target.value) || 2.7 }))}
+                        className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500"
+                      />
+                      <span className="text-sm text-slate-500 shrink-0">{printSettings.units}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Height</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.5"
+                        max="50"
+                        value={printSettings.height}
+                        onChange={(e) => setPrintSettings(p => ({ ...p, height: parseFloat(e.target.value) || 1.1 }))}
+                        className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500"
+                      />
+                      <span className="text-sm text-slate-500 shrink-0">{printSettings.units}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Orientation</label>
+                    <select
+                      value={printSettings.orientation}
+                      onChange={(e) => setPrintSettings(p => ({ ...p, orientation: e.target.value as 'normal' | 'landscape' }))}
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="landscape">Landscape</option>
+                    </select>
+                  </div>
+                </div>
+                {!jspmConnected && (
+                  <p className="text-xs text-slate-500 mt-4">Tip: In the print dialog, set paper size to match your label ({printSettings.width}×{printSettings.height} {printSettings.units}) for correct output.</p>
+                )}
+                <div className="flex flex-wrap justify-end gap-3 mt-6">
+                  <button onClick={() => setIsPrintSettingsOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                  {jspmConnected && printers.length > 0 ? (
+                    <button
+                      onClick={handlePrintDirect}
+                      disabled={isPrintingDirect}
+                      className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isPrintingDirect ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+                      Print to {selectedPrinter || 'Printer'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setIsPrintSettingsOpen(false); handlePrintTag(printSettings); }}
+                      className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2"
+                    >
+                      <Printer size={16} /> Print (system dialog)
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           {
             isTransferOpen && (
               <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
@@ -1439,15 +2593,20 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Target Custodian</label>
-                      <select value={transferCustodian} onChange={e => setTransferCustodian(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
+                      <select value={transferCustodianId} onChange={e => {
+                        const id = e.target.value;
+                        const u = custodianOptions.find(x => x.id === id);
+                        setTransferCustodianId(id);
+                        setTransferCustodian(u?.name || '');
+                      }} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
                         <option value="">Select Custodian...</option>
-                        {MOCK_USERS.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                        {custodianOptions.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                       </select>
                     </div>
                   </div>
                   <div className="flex justify-end gap-3 mt-6">
                     <button onClick={() => setIsTransferOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-                    <button onClick={submitTransfer} disabled={isTransferring || !transferLocation || !transferCustodian} className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center">
+                    <button onClick={submitTransfer} disabled={isTransferring || !transferLocation || !transferCustodianId || (!canInitiate && !canApprove)} className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center disabled:opacity-50" title={!canInitiate && !canApprove ? 'Insufficient permissions' : ''}>
                       {isTransferring && <Loader2 size={14} className="animate-spin mr-2" />}
                       Confirm Transfer
                     </button>
@@ -1463,6 +2622,40 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                   <X size={32} />
                 </button>
               </div>
+              {videoDevices.length > 0 && (
+                <div className="absolute top-4 left-4 right-16 z-10 flex gap-2 items-end">
+                  <div className="flex-1">
+                    <label className="block text-white text-xs font-medium mb-1">Scanning device</label>
+                    <select
+                      value={selectedDeviceId}
+                      onChange={(e) => switchScanDevice(e.target.value)}
+                      className="w-full max-w-xs px-3 py-2 bg-slate-800/90 text-white rounded-lg border border-slate-600 text-sm focus:ring-2 focus:ring-abdc-500 outline-none"
+                    >
+                      {videoDevices.map((d) => (
+                        <option key={d.deviceId} value={d.deviceId}>
+                          {d.label || `Video device ${videoDevices.indexOf(d) + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (navigator.mediaDevices?.enumerateDevices) {
+                        const devices = await navigator.mediaDevices.enumerateDevices();
+                        const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+                        setVideoDevices(videoInputs);
+                        if (videoInputs.length > 0 && !videoInputs.some((d) => d.deviceId === selectedDeviceId)) {
+                          setSelectedDeviceId(videoInputs[0].deviceId);
+                          await startCamera(videoInputs[0].deviceId);
+                        }
+                      }
+                    }}
+                    className="px-3 py-2 bg-slate-700/90 text-white rounded-lg text-xs hover:bg-slate-600 border border-slate-600"
+                  >
+                    Refresh
+                  </button>
+                </div>
+              )}
               <div className="relative w-full max-w-lg aspect-square bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-abdc-500/50">
                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover"></video>
                 <div className="absolute inset-0 border-2 border-abdc-500/50 m-12 rounded-lg animate-pulse"></div>
@@ -1470,17 +2663,22 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                   <button onClick={() => captureAndAnalyze()} className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
                     <div className="w-12 h-12 rounded-full border-4 border-abdc-600"></div>
                   </button>
-                  {/* Simulate Scan Button for Dev/Testing/demo without camera */}
-                  <button
-                    onClick={() => {
-                      stopCamera();
-                      alert("Simulated Scan: ABDC/ABJ/ITE/0042");
-                      selectAsset(assets[0]);
-                    }}
-                    className="absolute right-6 bottom-4 px-4 py-2 bg-slate-800/80 text-white text-xs rounded-lg backdrop-blur-sm"
-                  >
-                    Simulate
-                  </button>
+                  {/* Simulate Scan - for testing without a physical barcode/QR */}
+                  {assets.length > 0 && (
+                    <button
+                      onClick={() => {
+                        stopCamera();
+                        const demoAsset = assets[0];
+                        selectAsset(demoAsset);
+                        setNotificationMessage(`Simulated scan: ${demoAsset.productId}`);
+                        setNotificationType('success');
+                        setShowNotification(true);
+                      }}
+                      className="absolute right-6 bottom-4 px-4 py-2 bg-slate-800/80 text-white text-xs rounded-lg backdrop-blur-sm"
+                    >
+                      Simulate
+                    </button>
+                  )}
                 </div>
               </div>
               <p className="text-white mt-4 font-medium">Align QR Code / Barcode within frame</p>
@@ -1645,6 +2843,40 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                 </div>
               </div>
             )}
+
+          {/* Image lightbox: click asset image to open full-screen */}
+          {imageLightboxUrl && (
+            <div
+              className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4 animate-fadeIn"
+              onClick={() => setImageLightboxUrl(null)}
+              role="dialog"
+              aria-label="Asset image (click to close)"
+            >
+              <button
+                type="button"
+                onClick={() => setImageLightboxUrl(null)}
+                className="absolute top-4 right-4 p-2 text-white hover:bg-white/20 rounded-full transition-colors z-10"
+                aria-label="Close"
+              >
+                <X size={28} />
+              </button>
+              <img
+                src={imageLightboxUrl}
+                alt="Asset"
+                className="max-w-full max-h-[90vh] w-auto h-auto object-contain rounded-lg shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          )}
+
+          {/* Hidden file input for image upload */}
+          <input
+            ref={assetImageUploadInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageFileChange}
+            className="hidden"
+          />
         </>
       )}
     </div>

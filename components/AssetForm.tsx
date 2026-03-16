@@ -1,12 +1,28 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { CATEGORIES, LOCATIONS, MOCK_USERS, LOCATION_BRANCHES, LOCATION_CODES, DEPARTMENT_CODES, SUB_CATEGORIES } from '../constants';
 import { Asset, ConditionCode, User } from '../types';
-import { createAsset } from '../app/actions/assets';
-import { CheckCircle, ChevronRight, Save, UploadCloud, FileSpreadsheet, Download, AlertCircle, Table, Printer, Plus, ArrowLeft, QrCode } from 'lucide-react';
+import { createAsset, getNextSerialForPrefix, createAssetsBulk } from '../app/actions/assets';
+import { getDepartments, getLocations, getCategories, getAssetTypes, getAssetClasses } from '../app/actions/settings';
+import { canRegisterAsset } from '../lib/permissions';
+import { CheckCircle, ChevronRight, Save, UploadCloud, FileSpreadsheet, Download, AlertCircle, Table, Printer, Plus, ArrowLeft, QrCode, ImagePlus, X } from 'lucide-react';
 
 const steps = ['Acquisition Details', 'Physical Details', 'Custodian & Financial'];
+
+const ASSET_CLASS_OPTIONS = ['General Purpose', 'Cluster'] as const;
+const CUSTODIAN_BY_ASSET_CLASS: Record<string, string[]> = {
+  'General Purpose': ['HR/Admin', 'Manager Training Hub', 'Individual'],
+  Cluster: [
+    "Chairman's secretary 3.01",
+    'MP Advisory 2.04',
+    'Dir Shared Services 2.02',
+    'MP Audit and Assurance 2.03',
+    'Partner Project/Tax 2.01',
+    'ED secretary 3.02',
+    'ED secretary 3.03',
+  ],
+};
 
 interface BulkAssetRow {
   rowId: number;
@@ -23,6 +39,7 @@ interface BulkAssetRow {
   location: string;
   subLocation?: string;
   condition: string;
+  assetClass?: string;
   custodian: string;
   assignedUser?: string;
   salvageValue: number;
@@ -66,13 +83,14 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
     location: '',
     subLocation: '',
     condition: 'New',
+    assetClass: 'General Purpose' as 'General Purpose' | 'Cluster',
     custodian: '',
-    assignmentType: 'General Purpose',
     assignedUser: '',
     depreciationMethod: 'Straight-Line',
     salvageValue: '',
     registrationDate: new Date().toISOString().split('T')[0],
-    subCategory: ''
+    subCategory: '',
+    image: '' // data URL for uploaded picture
   });
 
   // Bulk Upload State
@@ -81,6 +99,48 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
   const [importedAssets, setImportedAssets] = useState<Asset[]>([]);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // From DB (System Admin can add/remove in Settings)
+  const [locationsList, setLocationsList] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [departmentsList, setDepartmentsList] = useState<{ id: string; name: string; code: string; location: string }[]>([]);
+  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string; code?: string | null }[]>([]);
+  const [assetTypesList, setAssetTypesList] = useState<{ id: string; name: string; categoryId: string; category?: { name: string } }[]>([]);
+  const [assetClassesList, setAssetClassesList] = useState<{ id: string; name: string; custodianOptions: { id: string; name: string }[] }[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const locMatch = (a: string, b: string) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
+
+  const MAX_IMAGE_SIZE_MB = 3;
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (e.g. JPG, PNG).');
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+      alert(`Image must be under ${MAX_IMAGE_SIZE_MB} MB.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setFormData((prev) => ({ ...prev, image: reader.result as string }));
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+  const clearImage = () => setFormData((prev) => ({ ...prev, image: '' }));
+
+  useEffect(() => {
+    (async () => {
+      const [locRes, deptRes, catRes, typesRes, classRes] = await Promise.all([
+        getLocations(), getDepartments(), getCategories(), getAssetTypes(), getAssetClasses()
+      ]);
+      if (locRes.success && locRes.locations) setLocationsList(locRes.locations);
+      if (deptRes.success && deptRes.departments) setDepartmentsList(deptRes.departments);
+      if (catRes.success && catRes.categories) setCategoriesList(catRes.categories);
+      if (typesRes.success && typesRes.assetTypes) setAssetTypesList(typesRes.assetTypes);
+      if (classRes.success && classRes.assetClasses) setAssetClassesList(classRes.assetClasses);
+    })();
+  }, []);
 
   // --- Validation Logic ---
   const validateStep = (step: number): boolean => {
@@ -96,7 +156,9 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       if (!formData.invoice.trim()) newErrors.invoice = "Invoice Number is required";
       if (!formData.registrationDate) newErrors.registrationDate = "Registration Date is required";
 
-      if ((formData.category === 'IT Equipment' || formData.category === 'Office Equipment') && !formData.subCategory) {
+      const atFromDb = formData.category ? assetTypesList.filter(at => at.category?.name === formData.category) : [];
+      const atFromConst = formData.category ? (SUB_CATEGORIES[formData.category] || []) : [];
+      if (formData.category && (atFromDb.length > 0 || atFromConst.length > 0) && !formData.subCategory) {
         newErrors.subCategory = "Asset Type is required";
       }
     }
@@ -105,17 +167,19 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       if (!formData.life || Number(formData.life) <= 0) newErrors.life = "Useful Life is required";
       if (!formData.location) newErrors.location = "Location is required";
 
-      const branches = formData.location ? LOCATION_BRANCHES[formData.location] : [];
-      if (branches && branches.length > 0 && !formData.subLocation) {
+      const branches = formData.location ? (LOCATION_BRANCHES[formData.location] || []) : [];
+      const deptsForLocation = formData.location ? departmentsList.filter(d => locMatch(d.location, formData.location)) : [];
+      const needsSubLocation = branches.length > 0 || deptsForLocation.length > 0;
+      if (needsSubLocation && !formData.subLocation) {
         newErrors.subLocation = "Department/Unit is required";
       }
     }
 
     if (step === 2) {
-      if (!formData.custodian) newErrors.custodian = "Custodian assignment is required";
+      if (!formData.custodian) newErrors.custodian = "Assigned Custodian is required";
       if (!formData.salvageValue && formData.salvageValue !== '0') newErrors.salvageValue = "Salvage Value (or 0) is required";
-      if (formData.assignmentType === 'Individual' && !formData.assignedUser.trim()) {
-        newErrors.assignedUser = "User's Name is required for Individual assignment";
+      if (formData.custodian === 'Individual' && !formData.assignedUser.trim()) {
+        newErrors.assignedUser = "User's Name is required when Assigned Custodian is Individual";
       }
     }
 
@@ -142,21 +206,35 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
 
   const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const loc = e.target.value;
-    const custodian = loc === 'Abuja' ? 'HR' : (loc === 'Kaduna' ? 'Kaduna Partner' : '');
     setFormData({
       ...formData,
       location: loc,
       subLocation: '', // Reset sub-location when location changes
-      custodian: custodian
     });
   };
 
-  const generateBarcode = (category: string, name?: string, location?: string, department?: string) => {
+  const handleAssetClassChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const assetClass = e.target.value as 'General Purpose' | 'Cluster';
+    setFormData({
+      ...formData,
+      assetClass,
+      custodian: '', // Reset custodian when asset class changes
+      assignedUser: '',
+    });
+  };
+
+  const getLocationCode = (locationName: string) =>
+    locationsList.find(l => l.name === locationName)?.code ?? (locationName && LOCATION_CODES[locationName]) ?? 'GEN';
+  const getDepartmentCode = (departmentName: string) =>
+    departmentsList.find(d => d.name === departmentName)?.code ?? (departmentName && DEPARTMENT_CODES[departmentName]) ?? 'GEN';
+
+  /** Returns the prefix part of asset ID (ABDC/LOC/DEPT/CAT/) - serial is added separately */
+  const generateBarcodePrefix = (category: string, name?: string, location?: string, department?: string) => {
     let prefix = 'ITE';
     const cat = category ? category.trim().toLowerCase() : '';
     const assetName = name ? name.trim().toLowerCase() : '';
-    const locCode = location && LOCATION_CODES[location] ? LOCATION_CODES[location] : 'GEN';
-    const deptCode = department && DEPARTMENT_CODES[department] ? DEPARTMENT_CODES[department] : 'GEN';
+    const locCode = location ? getLocationCode(location) : 'GEN';
+    const deptCode = department ? getDepartmentCode(department) : 'GEN';
 
     // Smart Category & Name Matching Logic
     if (cat === 'it equipment' || cat.includes('computer')) prefix = 'ITE';
@@ -188,9 +266,8 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       prefix = 'ITE';
     }
 
-    const random = Math.floor(1000 + Math.random() * 9000);
-    // Format: ABDC/LOC/DEPT/CAT/ID
-    return `ABDC/${locCode}/${deptCode}/${prefix}/${random}`;
+    // Format: ABDC/LOC/DEPT/CAT/ (serial 0001, 0002, ... added by getNextSerialForPrefix)
+    return `ABDC/${locCode}/${deptCode}/${prefix}/`;
   };
 
   const mapConditionToCode = (condition: string): ConditionCode => {
@@ -210,7 +287,9 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
 
     setIsSubmitting(true);
 
-    const newId = generateBarcode(formData.category, formData.name, formData.location, formData.subLocation);
+    const prefix = generateBarcodePrefix(formData.category, formData.name, formData.location, formData.subLocation);
+    const serial = await getNextSerialForPrefix(prefix);
+    const newId = prefix + serial;
     const assetName = formData.name || "New Asset";
 
     const serverData = {
@@ -228,11 +307,13 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       subLocation: formData.subLocation,
       condition: mapConditionToCode(formData.condition),
       registrationDate: formData.registrationDate,
-      assignmentType: formData.assignmentType,
-      assignedUser: formData.assignedUser
+      assignmentType: formData.assetClass,
+      assignedUser: formData.assignedUser,
+      custodian: formData.custodian,
+      image: formData.image || undefined,
     };
 
-    const result = await createAsset(serverData, currentUser.id);
+    const result = await createAsset(serverData, currentUser.id, currentUser.role);
 
     if (result.success) {
       setRegisteredAsset({
@@ -265,13 +346,14 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       location: '',
       subLocation: '',
       condition: 'New',
+      assetClass: 'General Purpose',
       custodian: '',
-      assignmentType: 'General Purpose',
       assignedUser: '',
       depreciationMethod: 'Straight-Line',
       salvageValue: '',
       registrationDate: new Date().toISOString().split('T')[0],
-      subCategory: ''
+      subCategory: '',
+      image: ''
     });
     setCurrentStep(0);
     setShowQrCode(false);
@@ -363,7 +445,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
 
       importedAssets.forEach(asset => {
         const tagContent = `
-        <div class="bg-slate-50 border-4 border-slate-900 border-double rounded-xl p-6 text-center break-inside-avoid shadow-sm relative overflow-hidden">
+        <div class="bg-slate-50 border-2 border-slate-900 rounded-xl p-6 text-center break-inside-avoid shadow-sm relative overflow-hidden">
             <div class="flex justify-center mb-2">
                 <img src="./abdc-logo-circular.jpg" className="h-10 object-contain" alt="ABDC"/>
             </div>
@@ -424,14 +506,63 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
         const sheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(sheet);
 
+        // Helper function to parse Excel dates
+        const parseExcelDate = (value: any): string => {
+          if (!value) return '';
+          
+          // If it's already a valid date string in YYYY-MM-DD format
+          if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            return value;
+          }
+          
+          // If it's an Excel serial number (numeric)
+          if (typeof value === 'number') {
+            // Excel epoch starts from January 1, 1900, but Excel incorrectly treats 1900 as a leap year
+            // So we need to adjust: Excel serial 1 = Jan 1, 1900
+            const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899 (Excel's epoch)
+            const date = new Date(excelEpoch.getTime() + (value - 1) * 24 * 60 * 60 * 1000);
+            if (!isNaN(date.getTime())) {
+              return date.toISOString().split('T')[0];
+            }
+          }
+          
+          // Try parsing as a date string
+          if (typeof value === 'string') {
+            // Try various date formats
+            const dateFormats = [
+              /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD
+              /^\d{2}\/\d{2}\/\d{4}$/, // MM/DD/YYYY
+              /^\d{2}-\d{2}-\d{4}$/, // MM-DD-YYYY
+              /^\d{4}\/\d{2}\/\d{2}$/, // YYYY/MM/DD
+            ];
+            
+            for (const format of dateFormats) {
+              if (format.test(value)) {
+                const parsed = new Date(value);
+                if (!isNaN(parsed.getTime())) {
+                  return parsed.toISOString().split('T')[0];
+                }
+              }
+            }
+            
+            // Try direct Date parsing
+            const parsed = new Date(value);
+            if (!isNaN(parsed.getTime())) {
+              return parsed.toISOString().split('T')[0];
+            }
+          }
+          
+          return '';
+        };
+
         const initialRows = jsonData.map((row: any, index: number) => ({
           rowId: index,
           name: row['Asset Name*'] || row['Asset Name'] || row['Name'] || '',
           category: row['Category*'] || row['Category'] || '',
           subCategory: row['Asset Type (for IT/Office)*'] || row['Asset Type'] || row['Sub-Category'] || '',
           cost: row['Acquisition Cost*'] || row['Acquisition Cost'] || row['Cost'] || 0,
-          date: row['Acquisition Date*'] || row['Acquisition Date'] || row['Date'] || '',
-          registrationDate: row['Registration Date*'] || row['Registration Date'] || '',
+          date: parseExcelDate(row['Acquisition Date*'] || row['Acquisition Date'] || row['Date'] || ''),
+          registrationDate: parseExcelDate(row['Registration Date*'] || row['Registration Date'] || ''),
           vendor: row['Vendor Name*'] || row['Vendor Name'] || row['Vendor'] || '',
           invoice: row['Invoice Number*'] || row['Invoice Number'] || row['Invoice'] || '',
           model: row['Model/Serial Number'] || row['Model'] || row['Serial Number'] || '',
@@ -439,8 +570,9 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
           location: row['Location*'] || row['Location'] || '',
           subLocation: row['Department/Unit*'] || row['Department/Unit'] || row['Department'] || row['Unit'] || '',
           condition: row['Condition'] || 'New',
+          assetClass: row['Asset Class*'] || row['Asset Class'] || 'General Purpose',
           custodian: row['Assigned Custodian*'] || row['Assigned Custodian'] || row['Custodian'] || '',
-          assignedUser: row['Assigned User'] || row['User'] || '',
+          assignedUser: row['Assigned User'] || row['User'] || row["User's Name"] || '',
           salvageValue: row['Salvage Value*'] || row['Salvage Value'] || row['Salvage'] || 0,
           depreciationMethod: row['Depreciation Method'] || 'Straight-Line',
           previousId: row['Previous ID'] || row['Existing ID'] || row['Old ID'] || '',
@@ -461,18 +593,13 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
   };
 
   const revalidateRows = (rows: BulkAssetRow[]): BulkAssetRow[] => {
-    const nameCounts = new Map<string, number>();
-    rows.forEach(r => {
-      const n = r.name?.trim().toLowerCase();
-      if (n) nameCounts.set(n, (nameCounts.get(n) || 0) + 1);
-    });
+    // Removed duplicate name check to allow duplicate assets in bulk upload
 
     return rows.map(row => {
       const errors: string[] = [];
       const name = row.name;
-      const normalizedName = name?.trim().toLowerCase();
       if (!name) errors.push('Missing Name');
-      else if (normalizedName && (nameCounts.get(normalizedName) || 0) > 1) errors.push('Duplicate Name');
+      // Duplicate name check removed - allowing duplicates
       if (!row.category) errors.push('Missing Category');
       if (!row.cost || isNaN(Number(row.cost))) errors.push('Invalid Cost');
       if (!row.date) errors.push('Missing Date');
@@ -501,44 +628,65 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
     if (assetIndex > -1) ([][assetIndex] as any)[field] = value;
   };
 
-  const handleBulkImport = () => {
+  const handleBulkImport = async () => {
     const validRows = parsedData.filter(d => d.isValid);
     if (validRows.length === 0) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      const createdAssets: Asset[] = [];
-      validRows.forEach((row, idx) => {
-        const newId = generateBarcode(row.category, row.name, row.location, row.subLocation);
-        const newAsset: Asset = {
-          id: (Date.now() + idx).toString(),
-          productId: newId,
-          name: row.name,
-          category: row.category,
-          acquisitionCost: Number(row.cost),
-          acquisitionDate: row.date || new Date().toISOString().split('T')[0],
-          netBookValue: Number(row.cost),
-          location: row.location,
-          subLocation: row.subLocation,
-          custodian: row.custodian || 'Unassigned',
-          assignedUser: row.assignedUser,
-          status: 'Active',
-          conditionCode: mapConditionToCode(row.condition || 'New'),
-          image: `https://picsum.photos/200/200?random=${idx}`,
-          usefulLife: Number(row.life),
-          salvageValue: Number(row.salvageValue),
-          previousId: row.previousId,
-          registrationDate: row.registrationDate || new Date().toISOString().split('T')[0],
-          subCategory: row.subCategory
-        };
-        createdAssets.push(newAsset);
-      });
-      [].push(...createdAssets);
-      setIsSubmitting(false);
+
+    const rows = validRows.map(row => ({
+      prefix: generateBarcodePrefix(row.category, row.name, row.location, row.subLocation),
+      name: row.name,
+      category: row.category,
+      subCategory: row.subCategory,
+      cost: Number(row.cost),
+      date: row.date || new Date().toISOString().split('T')[0],
+      registrationDate: row.registrationDate || new Date().toISOString().split('T')[0],
+      salvageValue: Number(row.salvageValue),
+      life: Number(row.life),
+      depreciationMethod: row.depreciationMethod,
+      location: row.location,
+      subLocation: row.subLocation,
+      condition: row.condition || 'New',
+      assetClass: row.assetClass,
+      custodian: row.custodian,
+      assignedUser: row.assignedUser,
+    }));
+
+    const result = await createAssetsBulk(rows, currentUser.id, currentUser.role);
+
+    setIsSubmitting(false);
+
+    if (result.success && result.createdIds && result.createdIds.length > 0) {
+      const productIds = result.createdProductIds || [];
+      const createdAssets: Asset[] = validRows.map((row, i) => ({
+        id: result.createdIds![i] || (Date.now() + i).toString(),
+        productId: productIds[i] || '',
+        name: row.name,
+        category: row.category,
+        acquisitionCost: Number(row.cost),
+        acquisitionDate: row.date || new Date().toISOString().split('T')[0],
+        netBookValue: Number(row.cost),
+        location: row.location,
+        subLocation: row.subLocation,
+        custodian: row.custodian || 'Unassigned',
+        assignedUser: row.assignedUser,
+        status: 'Active',
+        conditionCode: mapConditionToCode(row.condition || 'New'),
+        image: `https://picsum.photos/200/200?random=${Math.random()}`,
+        usefulLife: Number(row.life),
+        salvageValue: Number(row.salvageValue),
+        previousId: row.previousId,
+        registrationDate: row.registrationDate || new Date().toISOString().split('T')[0],
+        subCategory: row.subCategory
+      }));
+
       setImportedAssets(createdAssets);
       const invalidRows = parsedData.filter(d => !d.isValid);
       setParsedData(invalidRows);
-    }, 1500);
+    } else {
+      alert(result.error || "Failed to save imported assets. Please try again.");
+    }
   };
 
   const downloadImportedTags = () => {
@@ -551,21 +699,43 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
     XLSX.writeFile(wb, "ABDC_Generated_Tags.xlsx");
   };
 
+  // Column headers must match parser and single-entry form
+  const TEMPLATE_COLUMNS = {
+    "Asset Name*": "",
+    "Category*": "",
+    "Asset Type (for IT/Office)*": "",
+    "Acquisition Cost*": "",
+    "Acquisition Date*": "",
+    "Registration Date*": "",
+    "Vendor Name*": "",
+    "Invoice Number*": "",
+    "Model/Serial Number": "",
+    "Useful Life (Years)*": "",
+    "Location*": "",
+    "Department/Unit*": "",
+    "Condition": "",
+    "Asset Class*": "",
+    "Assigned Custodian*": "",
+    "Assigned User": "",
+    "Salvage Value*": "",
+    "Depreciation Method": "",
+    "Previous ID": ""
+  };
+
   const downloadTemplate = () => {
     const XLSX = (window as any).XLSX;
     if (!XLSX) return;
 
-    // Instruction Rows
     const instructions = [
-      { "Asset Name*": "INSTRUCTIONS:", "Category*": "DON'T DELETE THIS ROW", "Acquisition Cost*": "", "Acquisition Date*": "", "Registration Date*": "", "Vendor Name*": "", "Invoice Number*": "", "Useful Life (Years)*": "", "Location*": "", "Department/Unit*": "" },
-      { "Asset Name*": "1. Fields with * are compulsory.", "Category*": "", "Acquisition Cost*": "", "Acquisition Date*": "", "Registration Date*": "", "Vendor Name*": "", "Invoice Number*": "", "Useful Life (Years)*": "", "Location*": "", "Department/Unit*": "" },
-      { "Asset Name*": "2. Avoid duplicate Asset Names.", "Category*": "", "Acquisition Cost*": "", "Acquisition Date*": "", "Registration Date*": "", "Vendor Name*": "", "Invoice Number*": "", "Useful Life (Years)*": "", "Location*": "", "Department/Unit*": "" },
-      { "Asset Name*": "3. Date format: YYYY-MM-DD", "Category*": "", "Acquisition Cost*": "", "Acquisition Date*": "", "Registration Date*": "", "Vendor Name*": "", "Invoice Number*": "", "Useful Life (Years)*": "", "Location*": "", "Department/Unit*": "" },
-      { "Asset Name*": "4. Valid Locations: Abuja, Kaduna", "Category*": "", "Acquisition Cost*": "", "Acquisition Date*": "", "Registration Date*": "", "Vendor Name*": "", "Invoice Number*": "", "Useful Life (Years)*": "", "Location*": "", "Department/Unit*": "" },
-      {}, // Empty spacer
+      { ...TEMPLATE_COLUMNS, "Asset Name*": "INSTRUCTIONS:", "Category*": "Do not delete this row." },
+      { ...TEMPLATE_COLUMNS, "Asset Name*": "1. Fields with * are required." },
+      { ...TEMPLATE_COLUMNS, "Asset Name*": "2. Date format: YYYY-MM-DD. Category & Location must match System Admin settings." },
+      { ...TEMPLATE_COLUMNS, "Asset Name*": "3. Asset Class*: General Purpose or Cluster. Assigned Custodian* depends on Asset Class." },
+      { ...TEMPLATE_COLUMNS, "Asset Name*": "4. Department/Unit* must be a department for the chosen Location*." },
+      {}
     ];
 
-    const dataRows = [{
+    const sampleRow = {
       "Asset Name*": "HP EliteBook",
       "Category*": "IT Equipment",
       "Asset Type (for IT/Office)*": "Laptops",
@@ -577,28 +747,42 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       "Model/Serial Number": "SN123456789",
       "Useful Life (Years)*": 5,
       "Location*": "Abuja",
-      "Department/Unit*": "Tax",
+      "Department/Unit*": "Advisory",
       "Condition": "New",
-      "Assigned Custodian*": "HR",
-      "Assigned User": "Individual", // or General Purpose
+      "Asset Class*": "General Purpose",
+      "Assigned Custodian*": "HR/Admin",
+      "Assigned User": "",
       "Salvage Value*": 50000,
       "Depreciation Method": "Straight-Line",
       "Previous ID": ""
-    }];
+    };
 
-    const combinedData = [...instructions, ...dataRows];
+    const combinedData = [...instructions, sampleRow];
     const ws = XLSX.utils.json_to_sheet(combinedData);
-
-    // Set widths
-    const widths = [
-      { wch: 30 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 10 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 }
-    ];
-    ws['!cols'] = widths;
-
+    const colCount = Object.keys(TEMPLATE_COLUMNS).length;
+    ws['!cols'] = Array.from({ length: colCount }, () => ({ wch: 18 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Assets");
     XLSX.writeFile(wb, "ABDC_Asset_Upload_Template.xlsx");
   };
+
+  if (!canRegisterAsset(currentUser.role)) {
+    return (
+      <div className="max-w-4xl mx-auto pb-20">
+        {onBack && (
+          <button onClick={onBack} className="flex items-center text-sm text-slate-500 hover:text-abdc-600 mb-6 transition-colors group">
+            <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
+            Back to Dashboard
+          </button>
+        )}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
+          <AlertCircle size={48} className="mx-auto text-amber-600 mb-4" />
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Insufficient permissions</h2>
+          <p className="text-slate-600">Only Asset Managers and System Admins can register new assets.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
@@ -645,7 +829,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                 <p className="text-slate-500 mb-8 text-center max-w-md">The asset has been added to the register and assigned a unique ID.</p>
 
                 {/* Tag Preview Card */}
-                <div id="asset-tag-card" className="bg-slate-50 border-4 border-slate-800 border-double rounded-xl p-6 w-full max-w-sm mb-8 relative">
+                <div id="asset-tag-card" className="bg-slate-50 border-2 border-slate-800 rounded-xl p-6 w-full max-w-sm mb-8 relative">
                   <div className="absolute top-0 right-0 p-2 text-slate-400 print-hidden flex gap-2">
                     <button onClick={() => setShowQrCode(!showQrCode)} title="Toggle QR/Barcode">
                       {showQrCode ? <FileSpreadsheet size={20} className="hover:text-slate-600" /> : <QrCode size={20} className="hover:text-slate-600" />}
@@ -702,27 +886,35 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                         <label className="block text-sm font-medium text-slate-700 mb-1">Category <span className="text-red-500">*</span></label>
                         <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.category ? 'border-red-500' : 'border-slate-300'}`}>
                           <option value="">Select Category</option>
-                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                          {(categoriesList.length > 0 ? categoriesList : CATEGORIES.map(n => ({ id: n, name: n }))).map(c => (
+                            <option key={c.id} value={c.name}>{c.name}</option>
+                          ))}
                         </select>
                         {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
                       </div>
 
-                      {(formData.category === 'IT Equipment' || formData.category === 'Office Equipment') && (
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Asset Type <span className="text-red-500">*</span></label>
-                          <select
-                            value={formData.subCategory}
-                            onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
-                            className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.subCategory ? 'border-red-500' : 'border-slate-300'}`}
-                          >
-                            <option value="">Select Asset Type</option>
-                            {SUB_CATEGORIES[formData.category].map(sc => (
-                              <option key={sc} value={sc}>{sc}</option>
-                            ))}
-                          </select>
-                          {errors.subCategory && <p className="text-red-500 text-xs mt-1">{errors.subCategory}</p>}
-                        </div>
-                      )}
+                      {formData.category && (() => {
+                        const fromDb = assetTypesList.filter(at => at.category?.name === formData.category);
+                        const fromConst = SUB_CATEGORIES[formData.category] || [];
+                        const options = fromDb.length > 0 ? fromDb.map(at => at.name) : fromConst;
+                        if (options.length === 0) return null;
+                        return (
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Asset Type <span className="text-red-500">*</span></label>
+                            <select
+                              value={formData.subCategory}
+                              onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
+                              className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.subCategory ? 'border-red-500' : 'border-slate-300'}`}
+                            >
+                              <option value="">Select Asset Type</option>
+                              {options.map(sc => (
+                                <option key={sc} value={sc}>{sc}</option>
+                              ))}
+                            </select>
+                            {errors.subCategory && <p className="text-red-500 text-xs mt-1">{errors.subCategory}</p>}
+                          </div>
+                        );
+                      })()}
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Acquisition Cost (₦) <span className="text-red-500">*</span></label>
                         <input type="number" value={formData.cost} onChange={(e) => setFormData({ ...formData, cost: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.cost ? 'border-red-500' : 'border-slate-300'}`} placeholder="0.00" />
@@ -769,21 +961,29 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                         <label className="block text-sm font-medium text-slate-700 mb-1">Location <span className="text-red-500">*</span></label>
                         <select value={formData.location} onChange={handleLocationChange} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.location ? 'border-red-500' : 'border-slate-300'}`}>
                           <option value="">Select Location</option>
-                          {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                          {locationsList.map(l => (
+                            <option key={l.id} value={l.name}>{l.name}</option>
+                          ))}
                         </select>
                         {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
                       </div>
 
-                      {formData.location && LOCATION_BRANCHES[formData.location] && (
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Department / Unit <span className="text-red-500">*</span></label>
-                          <select value={formData.subLocation} onChange={(e) => setFormData({ ...formData, subLocation: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.subLocation ? 'border-red-500' : 'border-slate-300'}`}>
-                            <option value="">Select Department</option>
-                            {LOCATION_BRANCHES[formData.location].map(b => <option key={b} value={b}>{b}</option>)}
-                          </select>
-                          {errors.subLocation && <p className="text-red-500 text-xs mt-1">{errors.subLocation}</p>}
-                        </div>
-                      )}
+                      {formData.location && (() => {
+                        const deptsForLocation = departmentsList.filter(d => locMatch(d.location, formData.location));
+                        const branchOptions = LOCATION_BRANCHES[formData.location] || [];
+                        const options = deptsForLocation.length > 0 ? deptsForLocation.map(d => d.name) : branchOptions;
+                        if (options.length === 0) return null;
+                        return (
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Department / Unit <span className="text-red-500">*</span></label>
+                            <select value={formData.subLocation} onChange={(e) => setFormData({ ...formData, subLocation: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.subLocation ? 'border-red-500' : 'border-slate-300'}`}>
+                              <option value="">Select Department</option>
+                              {options.map(b => <option key={b} value={b}>{b}</option>)}
+                            </select>
+                            {errors.subLocation && <p className="text-red-500 text-xs mt-1">{errors.subLocation}</p>}
+                          </div>
+                        );
+                      })()}
 
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-slate-700 mb-1">Condition</label>
@@ -794,6 +994,22 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                           <option value="Poor">Poor</option>
                         </select>
                       </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Asset picture</label>
+                        <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                        {formData.image ? (
+                          <div className="relative inline-block">
+                            <img src={formData.image} alt="Asset" className="max-h-48 rounded-lg border border-slate-200 object-cover shadow-sm" />
+                            <button type="button" onClick={clearImage} className="absolute top-2 right-2 p-1.5 bg-slate-800/80 text-white rounded-full hover:bg-red-600 transition-colors" title="Remove picture"><X size={14} /></button>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={() => imageInputRef.current?.click()} className="flex items-center gap-2 px-4 py-3 w-full border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-abdc-500 hover:text-abdc-600 hover:bg-abdc-50/50 transition-colors">
+                            <ImagePlus size={20} />
+                            <span>Upload picture (optional, max {MAX_IMAGE_SIZE_MB} MB)</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -803,27 +1019,38 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                     <h2 className="text-lg font-semibold text-slate-800 border-b pb-2">Assignment & Depreciation</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Custodian</label>
-                        <div className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-medium cursor-not-allowed">
-                          {formData.custodian || "Select a location (Abuja/Kaduna) in the previous 'Physical Specifications' section..."}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Assigned User <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Asset Class <span className="text-red-500">*</span></label>
                         <select
-                          value={formData.assignmentType}
-                          onChange={(e) => setFormData({ ...formData, assignmentType: e.target.value })}
+                          value={formData.assetClass}
+                          onChange={handleAssetClassChange}
                           className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none"
                         >
-                          <option value="General Purpose">General Purpose</option>
-                          <option value="Individual">Individual</option>
+                          {(assetClassesList.length > 0 ? assetClassesList.map(ac => ac.name) : ASSET_CLASS_OPTIONS).map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
                         </select>
                       </div>
 
-                      {formData.assignmentType === 'Individual' && (
-                        <div className="animate-slideIn">
-                          <label className="block text-sm font-medium text-slate-700 mb-1">User's Name <span className="text-red-500">*</span></label>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Custodian <span className="text-red-500">*</span></label>
+                        <select
+                          value={formData.custodian}
+                          onChange={(e) => setFormData({ ...formData, custodian: e.target.value })}
+                          className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none ${errors.custodian ? 'border-red-500' : 'border-slate-300'}`}
+                        >
+                          <option value="">Select Assigned Custodian</option>
+                          {(assetClassesList.length > 0
+                            ? (assetClassesList.find(ac => ac.name === formData.assetClass)?.custodianOptions?.map(o => o.name) || [])
+                            : (CUSTODIAN_BY_ASSET_CLASS[formData.assetClass] || [])).map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                        {errors.custodian && <p className="text-red-500 text-xs mt-1">{errors.custodian}</p>}
+                      </div>
+
+                      {formData.custodian === 'Individual' && (
+                        <div className="animate-slideIn md:col-span-2">
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Assigned custodian name <span className="text-red-500">*</span></label>
                           <input
                             type="text"
                             value={formData.assignedUser}
@@ -897,7 +1124,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                           <td className="p-3"><input type="text" value={asset.name} onChange={(e) => handleSuccessEdit(asset.id, 'name', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 text-slate-800 font-medium transition-colors" /></td>
                           <td className="p-3 font-mono text-slate-500 text-xs">{asset.previousId || '-'}</td>
                           <td className="p-3"><div className="flex items-center gap-3"><div className="h-8 w-24 bg-white border border-slate-200 flex items-center justify-center px-1"><div className="flex items-end h-5 space-x-[1px] w-full justify-center opacity-80">{[...Array(25)].map((_, i) => <div key={i} className="bg-slate-900" style={{ width: Math.random() > 0.5 ? '1px' : '2px', height: `${30 + Math.random() * 70}%` }}></div>)}</div></div><span className="font-mono text-abdc-700 font-bold">{asset.productId}</span></div></td>
-                          <td className="p-3 text-slate-500 text-xs"><select value={asset.category} onChange={(e) => handleSuccessEdit(asset.id, 'category', e.target.value)} className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 w-full">{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></td>
+                          <td className="p-3 text-slate-500 text-xs"><select value={asset.category} onChange={(e) => handleSuccessEdit(asset.id, 'category', e.target.value)} className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 w-full">{(categoriesList.length > 0 ? categoriesList : CATEGORIES.map(n => ({ id: n, name: n }))).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></td>
                         </tr>
                       ))}
                     </tbody>
@@ -944,7 +1171,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                             <td className="p-3">
                               <select value={row.category} onChange={(e) => handlePreviewChange(row.rowId, 'category', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 text-slate-600">
                                 <option value="">Select...</option>
-                                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                {(categoriesList.length > 0 ? categoriesList : CATEGORIES.map(n => ({ id: n, name: n }))).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                               </select>
                             </td>
                             <td className="p-3">

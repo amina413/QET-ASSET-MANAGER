@@ -18,19 +18,29 @@ import { loginUser } from '../app/actions/users';
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>('Asset Manager');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Update email and password when role changes
+  React.useEffect(() => {
+    const demoUser = MOCK_LOGIN_USERS[selectedRole];
+    setEmail(demoUser.email);
+    // Optional: could auto-fill password too if we wanted, but let's keep it empty or default
+    setPassword('password123'); // Auto-fill default password for convenience
+  }, [selectedRole]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    const email = MOCK_LOGIN_USERS[selectedRole].email;
-    const result = await loginUser(email);
+    // Use the email from state, not the role selector directly
+    const result = await loginUser(email, password);
 
     if (result.success && result.user) {
-      // Map Prisma user to frontend User type
+      // ... existing success logic ...
       onLogin({
         id: result.user.id,
         name: result.user.name,
@@ -43,10 +53,21 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         lastLogin: result.user.lastLogin.toISOString()
       });
     } else {
+      // ...
       setError(result.error || "Authentication failed. Please ensure the database is seeded.");
     }
     setIsLoading(false);
   };
+
+  // ... inside return ...
+
+  <input
+    type="text"
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+    placeholder="Enter email"
+    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-abdc-500 outline-none"
+  />
 
   return (
     <div className="min-h-screen flex bg-slate-50">
@@ -57,7 +78,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         {/* Background Asset Image with Overlay */}
         <div className="absolute inset-0 z-0">
           <img
-            src="./asset-1.jpg"
+            src="/asset-1.jpg"
             alt="ABDC Building"
             className="w-full h-full object-cover"
           />
@@ -87,7 +108,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="relative z-10 text-sm text-abdc-100/80">
-          &copy; 2026 Abdulkadeer and Co. (ABDC). All rights reserved.
+          &copy; 2026 Quantum Edge Technologies Ltd. All rights reserved.
         </div>
       </div>
 
@@ -118,7 +139,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Select User Role (Demo)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Select User Role</label>
               <div className="relative">
                 <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
                 <select
@@ -154,18 +175,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
                 <input
                   type="text"
-                  value={MOCK_LOGIN_USERS[selectedRole].email}
-                  readOnly
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter email"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-abdc-500 outline-none"
                 />
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
                 <input
                   type="password"
-                  value="password123"
-                  readOnly
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-abdc-500 outline-none"
                 />
               </div>
             </div>

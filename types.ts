@@ -16,6 +16,7 @@ export enum View {
 export type UserRole = 'System Admin' | 'Asset Manager' | 'Custodian' | 'Auditor';
 
 export type ConditionCode = 'A1' | 'A2' | 'A3' | 'A4' | 'F1' | 'F2' | 'F3' | 'F4';
+export type DepreciationMethod = 'STRAIGHT_LINE' | 'REDUCING_BALANCE' | 'SUM_OF_YEARS';
 
 export interface Asset {
   id: string;
@@ -37,12 +38,14 @@ export interface Asset {
   subCategory?: string; // For IT and Office Equipment "Asset Type"
   usefulLife?: number;
   salvageValue?: number;
+  method?: DepreciationMethod;
   // Disposal fields
   disposalMode?: 'Sold' | 'Donated' | 'Scrapped' | 'Written Off';
   disposalDate?: string;
   // Improvements logic
   lastImprovementDate?: string;
   improvements?: AssetImprovement[];
+  history?: AssetHistoryEvent[];
 }
 
 export interface AssetImprovement {
@@ -78,6 +81,7 @@ export interface WipAsset {
   finalDepreciationMethod: string;
   finalUsefulLife: number;
   relatedAssetId?: string;
+  relatedAssetProductId?: string; // Asset tag shown after transfer, e.g. ABDC/ABJ/GEN/1234
 }
 
 export interface AssetHistoryEvent {

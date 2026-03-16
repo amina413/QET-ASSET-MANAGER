@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { MOCK_USERS } from '../constants';
 import { User, UserRole } from '../types';
 import { Plus, Edit2, Trash2, Shield, X, Loader2, ArrowLeft } from 'lucide-react';
+import { canEditUsers, canDeleteUsers } from '../lib/permissions';
 
 interface UserManagementProps {
   currentUser: User;
@@ -24,8 +25,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
     role: 'Custodian' as UserRole
   });
 
-  // Permissions: Auditors cannot modify users
-  const canModifyUsers = currentUser.role !== 'Auditor';
+  // Permissions: Auditor read-only; Custodian read-only; Asset Manager can edit but not delete users
+  const canModifyUsers = canEditUsers(currentUser.role);
+  const canRemoveUsers = canDeleteUsers(currentUser.role);
 
   // Simulate initial data fetch
   useEffect(() => {
@@ -161,12 +163,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
                       >
                         <Edit2 size={16} />
                       </button>
-                      <button
-                        onClick={() => handleDelete(user.id)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canRemoveUsers && (
+                        <button
+                          onClick={() => handleDelete(user.id)}
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>

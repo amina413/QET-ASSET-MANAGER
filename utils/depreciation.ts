@@ -11,7 +11,8 @@ export enum DepreciationMethod {
 
 export interface DepreciationInput {
     acquisition_cost: number;
-    acquisition_date: string; // ISO format or YYYY-MM-DD
+    acquisition_date?: string; // ISO format or YYYY-MM-DD (optional, kept for backward compatibility)
+    registration_date: string | Date; // ISO format or YYYY-MM-DD - used for depreciation calculation
     useful_life: number;
     salvage_value: number;
     method: DepreciationMethod;
@@ -45,11 +46,18 @@ const getDaysBetween = (start: Date, end: Date): number => {
  * ABDC Backend Calculation Engine
  */
 export const calculateDepreciationSchedule = (input: DepreciationInput): DepreciationYear[] => {
-    const { acquisition_cost, acquisition_date, useful_life, salvage_value, method } = input;
+    const { acquisition_cost, registration_date, useful_life, salvage_value, method } = input;
 
     const schedule: DepreciationYear[] = [];
-    const acqDate = new Date(acquisition_date);
-    const startYear = acqDate.getFullYear();
+    
+    // Parse and validate the registration date (used for depreciation calculation)
+    let regDate = registration_date instanceof Date ? registration_date : new Date(registration_date);
+    if (isNaN(regDate.getTime()) || regDate.getFullYear() < 1900 || regDate.getFullYear() > 2100) {
+        console.warn(`Invalid registration date: ${registration_date}, using current date`);
+        regDate = new Date();
+    }
+    
+    const startYear = regDate.getFullYear();
 
     let currentBookValue = acquisition_cost;
     let accumulatedDepreciation = 0;
@@ -60,7 +68,7 @@ export const calculateDepreciationSchedule = (input: DepreciationInput): Depreci
 
     // 1. Calculate Period 1 (Pro-rata for the first fiscal year)
     const endOfFirstYear = new Date(startYear, 11, 31);
-    const daysInFirstYear = getDaysBetween(acqDate, endOfFirstYear) + 1; // Include the acquisition day
+    const daysInFirstYear = getDaysBetween(regDate, endOfFirstYear) + 1; // Include the registration day
     const year1ProRataFactor = daysInFirstYear / 365;
 
     let year = 1;
@@ -94,7 +102,7 @@ export const calculateDepreciationSchedule = (input: DepreciationInput): Depreci
             }
         } else {
             // Determine if we are in the "tail" or full middle years
-            // Actual/365 means we finish exactly 'useful_life' years from acquisition
+            // Actual/365 means we finish exactly 'useful_life' years from registration
             const totalDaysElapsed = ((year - 2) * 365) + daysInFirstYear;
             const remainingDays = (useful_life * 365) - totalDaysElapsed;
 
@@ -146,6 +154,102 @@ export const calculateDepreciationSchedule = (input: DepreciationInput): Depreci
 
         year++;
         currentFiscalYear++;
+    }
+
+    return schedule;
+};
+
+export interface DepreciationMonth {
+    month: number;
+    year: number;
+    month_label: string; // "Jan", "Feb"
+    fiscal_year_label: string; // "FY 2025"
+    depreciation_expense: number;
+    accumulated_depreciation: number;
+    net_book_value: number;
+}
+
+export const calculateMonthlyDepreciationSchedule = (input: DepreciationInput): DepreciationMonth[] => {
+    const { acquisition_cost, registration_date, useful_life, salvage_value, method } = input;
+    const schedule: DepreciationMonth[] = [];
+
+    let currentBookValue = acquisition_cost;
+    let accumulatedDepreciation = 0;
+
+    // Parse and validate registration date
+    let regDate = registration_date instanceof Date ? registration_date : new Date(registration_date);
+    if (isNaN(regDate.getTime()) || regDate.getFullYear() < 1900 || regDate.getFullYear() > 2100) {
+        console.warn(`Invalid registration date: ${registration_date}, using current date`);
+        regDate = new Date();
+    }
+    const startDate = new Date(regDate);
+    const totalMonths = useful_life * 12;
+    const depreciableAmount = acquisition_cost - salvage_value;
+
+    // Monthly Rate Estimation
+    // Note: For high precision, we should strictly follow the Annual Schedule's daily logic and allocate to months.
+    // Ideally: Calculate Annual, then split. But for "Monthly View", a smoother curve is often preferred.
+    // We will use a standard monthly rate derived from the method.
+
+    for (let i = 0; i <= totalMonths; i++) {
+        const currentDate = new Date(startDate);
+        currentDate.setMonth(startDate.getMonth() + i);
+
+        let monthlyExpense = 0;
+
+        if (i === 0) {
+            // Month 0 (Registration Month) - Pro-rata days
+            const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+            const registrationDay = currentDate.getDate();
+            const daysActive = daysInMonth - registrationDay + 1;
+
+            // Base Annual Expense for Year 1 (Approx)
+            let baseAnnual = 0;
+            if (method === DepreciationMethod.STRAIGHT_LINE) baseAnnual = depreciableAmount / useful_life;
+            // For others, we simplify to S.L. or simple rate for the first partial month to avoid extreme complexity in JS
+            else if (method === DepreciationMethod.REDUCING_BALANCE) baseAnnual = currentBookValue * (2 / useful_life);
+            else if (method === DepreciationMethod.SUM_OF_YEARS) baseAnnual = depreciableAmount * (useful_life / ((useful_life * (useful_life + 1)) / 2));
+
+            monthlyExpense = (baseAnnual / 12) * (daysActive / 30); // Approx pro-rata
+        } else {
+            // Full Months
+            if (method === DepreciationMethod.STRAIGHT_LINE) {
+                monthlyExpense = (depreciableAmount / useful_life) / 12;
+            } else if (method === DepreciationMethod.REDUCING_BALANCE) {
+                // Monthly RB is effectively (Book Value * Rate) / 12
+                monthlyExpense = (currentBookValue * (2 / useful_life)) / 12;
+            } else if (method === DepreciationMethod.SUM_OF_YEARS) {
+                // SYD Monthly is complex. We will approximate by taking the current year's annual SYD and dividing by 12.
+                // Determine "Year of Asset Life"
+                const assetYearForMonth = Math.floor((i - 1) / 12) + 1;
+                const SYD_Sum = (useful_life * (useful_life + 1)) / 2;
+                const remainingLife = useful_life - assetYearForMonth + 1;
+                const annualSYD = depreciableAmount * (remainingLife / SYD_Sum);
+                monthlyExpense = annualSYD / 12;
+            }
+        }
+
+        // Cap at salvage
+        if (currentBookValue - monthlyExpense < salvage_value) {
+            monthlyExpense = currentBookValue - salvage_value;
+        }
+        if (currentBookValue <= salvage_value) monthlyExpense = 0;
+
+        monthlyExpense = roundHalfUp(monthlyExpense);
+        accumulatedDepreciation += monthlyExpense;
+        currentBookValue -= monthlyExpense;
+
+        schedule.push({
+            month: currentDate.getMonth() + 1,
+            year: currentDate.getFullYear(),
+            month_label: currentDate.toLocaleString('default', { month: 'short' }),
+            fiscal_year_label: `FY ${currentDate.getFullYear()}`,
+            depreciation_expense: monthlyExpense,
+            accumulated_depreciation: accumulatedDepreciation,
+            net_book_value: currentBookValue
+        });
+
+        if (currentBookValue <= salvage_value && i > 0) break;
     }
 
     return schedule;

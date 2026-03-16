@@ -9,7 +9,7 @@ const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 
 export const metadata: Metadata = {
     title: "ABDC Asset Management System",
-    description: "High-precision asset tracking and depreciation management for Abdulkadeer and Co.",
+    description: "High-precision asset tracking and depreciation management for Quantum Edge Technologies Ltd.",
 };
 
 export default function RootLayout({

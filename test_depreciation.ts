@@ -3,7 +3,7 @@ import { calculateDepreciationSchedule, DepreciationMethod } from './utils/depre
 
 const testInput = {
     acquisition_cost: 10000,
-    acquisition_date: '2024-10-01',
+    registration_date: '2024-10-01',
     useful_life: 5,
     salvage_value: 1000,
     method: DepreciationMethod.REDUCING_BALANCE

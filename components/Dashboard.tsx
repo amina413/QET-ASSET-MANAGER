@@ -1,25 +1,55 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { ASSET_DISTRIBUTION } from '../constants';
-import { ArrowUpRight, AlertCircle, DollarSign, Package, Search, Bell, ChevronDown, LogOut, User as UserIcon, Settings, X, MapPin, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { ArrowUpRight, AlertCircle, DollarSign, Package, Search, Bell, ChevronDown, LogOut, User as UserIcon, X, MapPin, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { User, View, Asset } from '../types';
+
+export interface DashboardNotification {
+  id: string;
+  title: string;
+  desc: string;
+  time: string;
+  unread: boolean;
+  assetId?: string;
+}
 
 // Palette: Brand Greens + Gold Accent
 const COLORS = ['#006B3E', '#005532', '#FFCC00', '#22c55e', '#bbf7d0'];
+
+function formatRelativeTime(dateStr: string | undefined): string {
+  if (!dateStr) return 'Recently';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return 'Recently';
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return '1 day ago';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} wk ago`;
+  return `${Math.floor(diffDays / 30)} mo ago`;
+}
 
 interface DashboardProps {
   currentUser: User;
   onNavigateToSearch: (term: string) => void;
   onLogout: () => void;
   onNavigate?: (view: View) => void;
+  onNavigateToAsset?: (assetId: string) => void;
   assets?: Asset[];
 }
 
-const MetricCard: React.FC<{ title: string; value: string; icon: React.ReactNode; trend?: string; color: string }> = ({ title, value, icon, trend, color }) => (
-  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between h-32 hover:shadow-md transition-shadow">
+const MetricCard: React.FC<{ title: string; value: string; icon: React.ReactNode; trend?: string; color: string; onClick?: () => void }> = ({ title, value, icon, trend, color, onClick }) => (
+  <div
+    role={onClick ? 'button' : undefined}
+    tabIndex={onClick ? 0 : undefined}
+    onClick={onClick}
+    onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click(); } : undefined}
+    className={`bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between h-32 hover:shadow-md transition-shadow ${onClick ? 'cursor-pointer' : ''}`}
+  >
     <div className="flex justify-between items-start">
       <div>
         <p className="text-sm font-medium text-slate-500">{title}</p>
@@ -43,6 +73,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToSearch,
   onLogout,
   onNavigate,
+  onNavigateToAsset,
   assets = []
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -53,12 +84,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [valuationView, setValuationView] = useState<'location' | 'category'>('location');
   const [isPaused, setIsPaused] = useState(false);
 
-  // Notification State
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: 'Asset Transfer Request', desc: 'IT Dept requested transfer of 5 Laptops.', time: '2 hrs ago', unread: true },
-    { id: 2, title: 'Maintenance Due', desc: 'Generator Set A requires servicing.', time: '5 hrs ago', unread: true },
-    { id: 3, title: 'New Asset Registered', desc: 'Toyota Hilux (ABDC-8821) added.', time: '1 day ago', unread: false },
-  ]);
+  // Notification read state (which notification ids user has marked read)
+  const [readIds, setReadIds] = useState<Set<string>>(() => new Set());
 
   const notificationRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -92,13 +119,72 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
+  const isCustodian = currentUser.role === 'Custodian';
+  const relevantAssets = isCustodian
+    ? (assets || []).filter(a => a.location.includes("Abuja"))
+    : (assets || []);
+
+  // Build notifications from real asset data
+  const notifications = useMemo((): DashboardNotification[] => {
+    const list: DashboardNotification[] = [];
+    // Maintenance Due: status Maintenance or condition F1/F2
+    relevantAssets
+      .filter(a => a.status === 'Maintenance' || (a.conditionCode && ['F1', 'F2'].includes(a.conditionCode)))
+      .forEach(a => {
+        list.push({
+          id: `maintenance-${a.id}`,
+          title: 'Maintenance Due',
+          desc: `${a.name} (${a.productId}) requires attention.`,
+          time: 'Due',
+          unread: !readIds.has(`maintenance-${a.id}`),
+          assetId: a.id
+        });
+      });
+    // Pending Transfer
+    relevantAssets
+      .filter(a => a.status === 'Pending Transfer')
+      .forEach(a => {
+        list.push({
+          id: `pending-${a.id}`,
+          title: 'Pending Transfer',
+          desc: `${a.name} (${a.productId}) is awaiting transfer.`,
+          time: 'Pending',
+          unread: !readIds.has(`pending-${a.id}`),
+          assetId: a.id
+        });
+      });
+    // Recently registered (by registrationDate, newest first, max 5)
+    const withDate = relevantAssets
+      .filter(a => a.registrationDate)
+      .sort((a, b) => (new Date(b.registrationDate!).getTime() - new Date(a.registrationDate!).getTime()))
+      .slice(0, 5);
+    withDate.forEach(a => {
+      list.push({
+        id: `recent-${a.id}`,
+        title: 'New Asset Registered',
+        desc: `${a.name} (${a.productId}) added.`,
+        time: formatRelativeTime(a.registrationDate),
+        unread: !readIds.has(`recent-${a.id}`),
+        assetId: a.id
+      });
+    });
+    return list;
+  }, [relevantAssets, readIds]);
+
   const handleMarkAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+    setReadIds(prev => new Set([...prev, ...notifications.map(n => n.id)]));
   };
 
   const handleViewAllNotifications = () => {
     setShowNotifications(false);
-    if (onNavigate) onNavigate(View.PROFILE);
+    if (onNavigate) onNavigate(View.ASSET_MANAGEMENT);
+  };
+
+  const handleNotificationClick = (notif: DashboardNotification) => {
+    setReadIds(prev => new Set([...prev, notif.id]));
+    setShowNotifications(false);
+    if (notif.assetId && onNavigateToAsset) onNavigateToAsset(notif.assetId);
+    else if (onNavigate) onNavigate(View.ASSET_MANAGEMENT);
   };
 
   const handlePendingAction = () => {
@@ -107,16 +193,15 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const unreadCount = notifications.filter(n => n.unread).length;
 
-  const isCustodian = currentUser.role === 'Custodian';
-  const relevantAssets = isCustodian
-    ? (assets || []).filter(a => a.location.includes("Abuja"))
-    : (assets || []);
-
   // --- Calculations ---
   const totalAssets = relevantAssets.length;
   const totalValue = relevantAssets.reduce((sum, a) => sum + a.acquisitionCost, 0);
   const netBookValue = relevantAssets.reduce((sum, a) => sum + a.netBookValue, 0);
-  const pendingDisposal = isCustodian ? 2 : 45;
+  // Pending Approval: assets with status containing "pending" (e.g. Pending Transfer)
+  const pendingApprovalAssets = relevantAssets.filter(
+    a => (a.status || '').toLowerCase().includes('pending')
+  );
+  const pendingApproval = pendingApprovalAssets.length;
 
   // Calculate Total Current Depreciation (Annual Expense)
   const totalCurrentDepreciation = relevantAssets.reduce((sum, asset) => {
@@ -140,6 +225,24 @@ const Dashboard: React.FC<DashboardProps> = ({
     acc[asset.category].value += asset.netBookValue;
     return acc;
   }, {} as Record<string, { name: string, value: number }>));
+
+  // Calculate actual asset distribution by category (for the pie chart)
+  const assetByCategoryData = useMemo(() => {
+    const categoryCounts = relevantAssets.reduce((acc, asset) => {
+      const category = asset.category || 'Uncategorized';
+      acc[category] = (acc[category] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const total = relevantAssets.length;
+    if (total === 0) return [];
+
+    return Object.entries(categoryCounts).map(([name, count]) => ({
+      name,
+      value: count,
+      percentage: Math.round((count / total) * 100)
+    })).sort((a, b) => b.value - a.value);
+  }, [relevantAssets]);
 
   const formatCurrency = (val: number) => {
     if (val >= 1000000000) return `₦${(val / 1000000000).toFixed(1)}B`;
@@ -197,16 +300,27 @@ const Dashboard: React.FC<DashboardProps> = ({
                   )}
                 </div>
                 <div className="max-h-64 overflow-y-auto">
-                  {notifications.map(notif => (
-                    <div key={notif.id} className={`p-4 border-b border-slate-50 hover:bg-slate-50 cursor-pointer ${notif.unread ? 'bg-blue-50/30' : ''}`}>
-                      <div className="flex justify-between items-start mb-1">
-                        <span className={`text-sm font-semibold ${notif.unread ? 'text-slate-900' : 'text-slate-600'}`}>{notif.title}</span>
-                        {notif.unread && <span className="w-2 h-2 bg-accent-500 rounded-full"></span>}
+                  {notifications.length === 0 ? (
+                    <div className="p-6 text-center text-slate-500 text-sm">No notifications</div>
+                  ) : (
+                    notifications.map(notif => (
+                      <div
+                        key={notif.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleNotificationClick(notif)}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNotificationClick(notif); } }}
+                        className={`p-4 border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors ${notif.unread ? 'bg-blue-50/30' : ''}`}
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <span className={`text-sm font-semibold ${notif.unread ? 'text-slate-900' : 'text-slate-600'}`}>{notif.title}</span>
+                          {notif.unread && <span className="w-2 h-2 bg-accent-500 rounded-full flex-shrink-0"></span>}
+                        </div>
+                        <p className="text-xs text-slate-500 mb-2">{notif.desc}</p>
+                        <span className="text-xs text-slate-400">{notif.time}</span>
                       </div>
-                      <p className="text-xs text-slate-500 mb-2">{notif.desc}</p>
-                      <span className="text-xs text-slate-400">{notif.time}</span>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
                 <div className="p-3 text-center border-t border-slate-50">
                   <button
@@ -248,12 +362,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                   >
                     <UserIcon size={16} className="mr-2" /> My Profile
                   </button>
-                  <button
-                    onClick={() => { if (onNavigate) onNavigate(View.SETTINGS); setShowUserMenu(false); }}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg flex items-center"
-                  >
-                    <Settings size={16} className="mr-2" /> Account Settings
-                  </button>
                   <div className="h-px bg-slate-100 my-1"></div>
                   <button
                     onClick={onLogout}
@@ -290,39 +398,56 @@ const Dashboard: React.FC<DashboardProps> = ({
           color="bg-abdc-800"
         />
         <MetricCard
-          title="Pending Disposal"
-          value={pendingDisposal.toString()}
+          title="Pending Approval"
+          value={pendingApproval.toString()}
           icon={<AlertCircle className="text-red-500" size={24} />}
           color="bg-red-500"
+          onClick={pendingApproval > 0 ? handlePendingAction : undefined}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Quantity Distribution Chart */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4 text-transform: lowercase">asset by category</h3>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={ASSET_DISTRIBUTION}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {ASSET_DISTRIBUTION.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" height={36} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          <h3 className="text-lg font-semibold text-slate-800 mb-4">Asset by Category</h3>
+          {assetByCategoryData.length === 0 ? (
+            <div className="h-64 flex items-center justify-center text-slate-400 text-sm">
+              No assets found
+            </div>
+          ) : (
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={assetByCategoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    paddingAngle={5}
+                    dataKey="value"
+                    label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+                  >
+                    {assetByCategoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, name: string, props: any) => [
+                      `${value} assets (${((props.payload?.percent ?? 0) * 100).toFixed(0)}%)`,
+                      props.payload?.name ?? name
+                    ]}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={36}
+                    formatter={(value, entry: any) => `${entry.payload.name} (${entry.payload.value})`}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
         {/* Sliding Valuation Display */}
@@ -379,32 +504,43 @@ const Dashboard: React.FC<DashboardProps> = ({
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-slate-800">Pending Approvals</h3>
-          <button
-            onClick={handlePendingAction}
-            className="text-sm text-abdc-600 hover:text-abdc-800 font-medium"
-          >
-            View All
-          </button>
+          {pendingApproval > 0 && (
+            <button
+              onClick={handlePendingAction}
+              className="text-sm text-abdc-600 hover:text-abdc-800 font-medium"
+            >
+              View All
+            </button>
+          )}
         </div>
 
         <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 rounded-full bg-abdc-50 flex items-center justify-center text-abdc-700 font-bold text-sm border border-abdc-100">AT</div>
-                <div>
-                  <p className="text-sm font-bold text-slate-900">Asset Transfer Request #{2020 + i}</p>
-                  <p className="text-xs text-slate-500">Requested by IT Department • 2 hours ago</p>
-                </div>
-              </div>
-              <button
-                onClick={handlePendingAction}
-                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 hover:border-abdc-300 transition-all"
+          {pendingApproval === 0 ? (
+            <p className="text-sm text-slate-500 py-6 text-center">No pending approvals. All caught up.</p>
+          ) : (
+            pendingApprovalAssets.slice(0, 5).map((asset) => (
+              <div
+                key={asset.id}
+                className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
               >
-                Review
-              </button>
-            </div>
-          ))}
+                <div className="flex items-center space-x-4">
+                  <div className="w-10 h-10 rounded-full bg-abdc-50 flex items-center justify-center text-abdc-700 font-bold text-sm border border-abdc-100">
+                    {(asset.name || asset.productId).slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{asset.name}</p>
+                    <p className="text-xs text-slate-500">{asset.productId} • {asset.status} • {asset.location}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onNavigateToAsset ? onNavigateToAsset(asset.id) : handlePendingAction()}
+                  className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 hover:border-abdc-300 transition-all"
+                >
+                  Review
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

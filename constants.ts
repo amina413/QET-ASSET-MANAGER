@@ -12,153 +12,10 @@ export const CONDITION_DESCRIPTIONS: Record<ConditionCode, string> = {
   'F4': 'Disposed / Written Off'
 };
 
-export const MOCK_ASSETS: Asset[] = [
-  {
-    id: '1',
-    productId: 'ABDC/ABJ/ITE/0042',
-    name: 'HP EliteBook G8',
-    category: 'IT Equipment',
-    acquisitionCost: 850000,
-    acquisitionDate: '2023-01-15',
-    netBookValue: 620000,
-    location: 'Abuja',
-    subLocation: 'IT Server Room',
-    custodian: 'Emeka Okafor',
-    assignedUser: 'John Doe',
-    status: 'Active',
-    conditionCode: 'A2',
-    image: 'https://picsum.photos/200/200',
-    usefulLife: 4,
-    salvageValue: 50000
-  },
-  {
-    id: '2',
-    productId: 'ABDC/LAG/VH/1023',
-    name: 'Toyota Hilux 2022',
-    category: 'Vehicles',
-    acquisitionCost: 25000000,
-    acquisitionDate: '2022-06-10',
-    netBookValue: 18500000,
-    location: 'Abuja',
-    subLocation: 'Parking Lot B',
-    custodian: 'Transport Pool',
-    status: 'Active',
-    conditionCode: 'A3',
-    image: 'https://picsum.photos/201/201',
-    usefulLife: 8,
-    salvageValue: 2000000
-  },
-  {
-    id: '3',
-    productId: 'ABDC/ABJ/FAF/3099',
-    name: 'Conference Table (Mahogany)',
-    category: 'Furniture and Fittings',
-    acquisitionCost: 450000,
-    acquisitionDate: '2021-11-05',
-    netBookValue: 210000,
-    location: 'Abuja',
-    subLocation: 'Conference Room 3B',
-    custodian: 'Facilities Mgr',
-    status: 'Maintenance',
-    conditionCode: 'F1',
-    image: 'https://picsum.photos/202/202',
-    usefulLife: 10,
-    salvageValue: 20000
-  },
-  {
-    id: '4',
-    productId: 'ABDC/ABJ/ITE/0055',
-    name: 'Dell PowerEdge Server',
-    category: 'IT Equipment',
-    acquisitionCost: 4500000,
-    acquisitionDate: '2023-08-20',
-    netBookValue: 4100000,
-    location: 'Abuja',
-    subLocation: 'Server Room',
-    custodian: 'IT Director',
-    status: 'Active',
-    conditionCode: 'A1',
-    image: 'https://picsum.photos/203/203',
-    usefulLife: 5,
-    salvageValue: 250000
-  },
-  // Disposed Asset 1
-  {
-    id: '5',
-    productId: 'ABDC/PHC/OE/0991',
-    name: 'Canon Photocopier (Old)',
-    category: 'Office Equipment',
-    acquisitionCost: 650000,
-    acquisitionDate: '2019-03-10',
-    netBookValue: 0,
-    location: 'Kaduna',
-    subLocation: 'Admin Block',
-    custodian: 'Office Manager',
-    status: 'Disposed',
-    conditionCode: 'F4',
-    image: 'https://picsum.photos/204/204',
-    usefulLife: 4,
-    salvageValue: 10000,
-    disposalMode: 'Scrapped',
-    disposalDate: '2024-01-15'
-  },
-  // Disposed Asset 2
-  {
-    id: '6',
-    productId: 'ABDC/KAD/VH/0882',
-    name: 'Honda Accord 2015',
-    category: 'Vehicles',
-    acquisitionCost: 8000000,
-    acquisitionDate: '2015-05-20',
-    netBookValue: 500000,
-    location: 'Kaduna',
-    subLocation: 'Main Garage',
-    custodian: 'Logistics Officer',
-    status: 'Disposed',
-    conditionCode: 'F4',
-    image: 'https://picsum.photos/205/205',
-    usefulLife: 8,
-    salvageValue: 500000,
-    disposalMode: 'Sold',
-    disposalDate: '2024-02-28'
-  }
-];
+// Fresh start: no seed data. Assets come from the database; WIP list starts empty.
+export const MOCK_ASSETS: Asset[] = [];
 
-export const MOCK_WIP_ASSETS: WipAsset[] = [
-  {
-    id: 'AUC-2024-001',
-    projectName: 'ABDC HQ Annex Construction',
-    assetType: 'Land & Buildings',
-    projectManager: 'Engr. Tunde Bakare',
-    budgetedCost: 450000000,
-    inceptionDate: '2024-01-10',
-    estimatedCompletionDate: '2025-06-30',
-    status: 'In Progress',
-    finalDepreciationMethod: 'Straight-Line',
-    finalUsefulLife: 50,
-    costLedger: [
-      { id: '1', date: '2024-01-15', type: 'Professional Fees', vendor: 'Design Arch Ltd', amount: 15000000, referenceDoc: 'INV-ARCH-01', description: 'Initial Architectural Drawings' },
-      { id: '2', date: '2024-02-20', type: 'Materials', vendor: 'Dangote Cement', amount: 45000000, referenceDoc: 'PO-CEM-88', description: 'Foundation Materials' },
-      { id: '3', date: '2024-03-10', type: 'External Labor', vendor: 'BuildRight Construction', amount: 12000000, referenceDoc: 'INV-LAB-01', description: 'Foundation Laying Labor' }
-    ]
-  },
-  {
-    id: 'AUD-2024-005',
-    projectName: 'Internal HR Portal v2.0',
-    assetType: 'Software Licenses',
-    projectManager: 'Amina Yusuf',
-    budgetedCost: 25000000,
-    inceptionDate: '2024-03-01',
-    estimatedCompletionDate: '2024-09-15',
-    status: 'Testing',
-    finalDepreciationMethod: 'Straight-Line',
-    finalUsefulLife: 5,
-    costLedger: [
-      { id: '1', date: '2024-04-10', type: 'Software Dev', vendor: 'TechSolutions Ltd', amount: 5000000, referenceDoc: 'INV-TS-01', description: 'Module 1 Development' },
-      { id: '2', date: '2024-05-15', type: 'Internal Labor', vendor: 'Internal IT', amount: 2500000, referenceDoc: 'TS-MAY-24', description: 'Capitalized Dev Hours (May)' }
-    ]
-  }
-];
+export const MOCK_WIP_ASSETS: WipAsset[] = [];
 
 export const MOCK_ASSET_HISTORY: AssetHistoryEvent[] = [
   // History for HP EliteBook (ID 1)
@@ -194,7 +51,7 @@ export const MOCK_USERS: User[] = [
 export const ASSET_DISTRIBUTION: ChartDataPoint[] = [
   { name: 'IT Equipment', value: 25 },
   { name: 'Office Equipment', value: 15 },
-  { name: 'Vehicles', value: 20 },
+  { name: 'Motor Vehicles', value: 20 },
   { name: 'Furniture and Fittings', value: 15 },
   { name: 'Plant and Machinery', value: 15 },
   { name: 'Land & Buildings', value: 10 },
@@ -211,28 +68,59 @@ export const DEPRECIATION_DATA: DepreciationPoint[] = [
 export const CATEGORIES = [
   'IT Equipment',
   'Office Equipment',
-  'Vehicles',
+  'Motor Vehicles',
   'Furniture and Fittings',
   'Plant and Machinery',
   'Land & Buildings',
   'Software Licenses'
 ];
 
-export const LOCATIONS = ['Abuja', 'Kaduna'];
+export const LOCATIONS = [
+  'Abuja',
+  'Kaduna',
+  'Adamawa',
+  'Lagos',
+  'Port Harcourt',
+  'Kano',
+  'Enugu',
+  'Ibadan'
+];
 
-// New constant for mapping locations to their specific branches/offices
+// Department/Unit names per location (used when DB has none or as fallback)
 export const LOCATION_BRANCHES: Record<string, string[]> = {
   'Abuja': [
-    'Tax',
     'Advisory',
     'Audit and Assurance',
-    'Shared Services'
+    'Project and Tax',
+    'Shared Services',
+    'Training Room',
+    'Server room 1',
+    'Server room 2',
+    'Server room 3',
+    'Server room 4',
+    'Kitchenette 1',
+    'Kitchenette 2',
+    'Kitchenette 3',
+    'Canteen',
+    'Cafe',
+    'Main security post'
   ],
   'Kaduna': [
-    'Tax',
     'Advisory',
     'Audit and Assurance',
-    'Shared Services'
+    'Project and Tax',
+    'Shared Services',
+    'Training Room',
+    'Server room 1',
+    'Server room 2',
+    'Server room 3',
+    'Server room 4',
+    'Kitchenette 1',
+    'Kitchenette 2',
+    'Kitchenette 3',
+    'Canteen',
+    'Cafe',
+    'Main security post'
   ]
 };
 
@@ -244,7 +132,7 @@ export const LOCATION_CODES: Record<string, string> = {
 export const CATEGORY_CODES: Record<string, string> = {
   'IT Equipment': 'ITE',
   'Office Equipment': 'OE',
-  'Vehicles': 'VH',
+  'Motor Vehicles': 'VH',
   'Furniture and Fittings': 'FAF',
   'Plant and Machinery': 'PM',
   'Land & Buildings': 'LB',
@@ -273,15 +161,73 @@ export const SUB_CATEGORIES: Record<string, string[]> = {
     'Binding Machines',
     'Microwaves',
     'Industrial Fans',
-    'Television Sets'
+    'Television Sets',
+    'Intercom'
+  ],
+  'Motor Vehicles': [
+    'Car',
+    'Sedan (Saloon)',
+    'SUV / Jeep',
+    'Pickup Truck',
+    'Bus (Coaster/Hiace)',
+    'Motorcycle',
+    'Truck/Lorry',
+    'Van/Ambulance'
+  ],
+  'Furniture and Fittings': [
+    'Office Desk/Table',
+    'Office Chair (Swivel)',
+    'Visitor Chair',
+    'File Cabinet/Shelf',
+    'Sofa/Lounge Seating',
+    'Conference Table',
+    'Workstation/Partition',
+    'Safe/Vault'
+  ],
+  'Plant and Machinery': [
+    'Elevator/Lifts',
+    'Power Generator',
+    'Water Pump',
+    'Drilling Rig',
+    'Manufacturing Machine',
+    'Forklift',
+    'Transformer',
+    'Inverter/Solar System (Industrial)'
+  ],
+  'Land & Buildings': [
+    'Office Building',
+    'Residential Building',
+    'Warehouse/Store',
+    'Land (Undeveloped)',
+    'Clinic/Factory'
+  ],
+  'Software Licenses': [
+    'Operating System',
+    'Office Suite',
+    'Antivirus/Security',
+    'Design/Engineering',
+    'Accounting/ERP',
+    'Other License'
   ]
 };
 
 export const DEPARTMENT_CODES: Record<string, string> = {
-  'Audit and Assurance': 'AA',
-  'Advisory': 'ADV',
-  'Tax': 'TAX',
-  'Shared Services': 'SS'
+  'Advisory': '2.104',
+  'Audit and Assurance': '2.03',
+  'Project and Tax': '2.01',
+  'Shared Services': '2.02',
+  'Training Room': '0.01',
+  'Server room 1': 'SR1',
+  'Server room 2': 'SR2',
+  'Server room 3': 'SR3',
+  'Server room 4': 'SR4',
+  'Kitchenette 1': 'K1',
+  'Kitchenette 2': 'K2',
+  'Kitchenette 3': 'K3',
+  'Canteen': 'CAN',
+  'Cafe': 'CAF',
+  'Main security post': 'MSP',
+  'Tax': 'TAX'
 };
 
 export const MOCK_AUDIT_SESSIONS: AuditSession[] = [];

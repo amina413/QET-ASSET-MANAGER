@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View, User } from '../types';
-import { LayoutDashboard, PlusCircle, ScanLine, FileBarChart, Users, Menu, X, LogOut, Briefcase, Construction } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, ScanLine, FileBarChart, Users, Menu, X, LogOut, Briefcase, Construction, Settings, ClipboardCheck } from 'lucide-react';
 
 interface SidebarProps {
   currentView: View;
@@ -16,14 +16,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isMobile
   // Define base menu items
   const allMenuItems = [
     { view: View.DASHBOARD, label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian', 'Auditor'] },
-    // Custodians can now register assets (within their jurisdiction logic handled in component)
-    { view: View.ASSET_REGISTRATION, label: 'Register Asset', icon: <PlusCircle size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian'] },
+    { view: View.AUDIT, label: 'Start Audit', icon: <ClipboardCheck size={20} />, roles: ['Auditor'] },
+    { view: View.ASSET_REGISTRATION, label: 'Register Asset', icon: <PlusCircle size={20} />, roles: ['System Admin', 'Asset Manager'] },
     { view: View.WIP_MANAGEMENT, label: 'Work in Progress', icon: <Construction size={20} />, roles: ['System Admin', 'Asset Manager'] },
     { view: View.ASSET_LOOKUP, label: 'Scan & Lookup', icon: <ScanLine size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian', 'Auditor'] },
     { view: View.ASSET_MANAGEMENT, label: 'Asset Management', icon: <Briefcase size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian'] },
     { view: View.REPORTS, label: 'Reports', icon: <FileBarChart size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor', 'Custodian'] },
     // Custodians view User Admin (read-only handled in component)
     { view: View.USER_MANAGEMENT, label: 'User Admin', icon: <Users size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor', 'Custodian'] },
+    { view: View.SETTINGS, label: 'System Admin Settings', icon: <Settings size={20} />, roles: ['System Admin'] },
   ];
 
   // Filter items based on current user role
@@ -42,7 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isMobile
           <div className="flex items-center">
             <img
               src="./abdc-logo-sidebar.jpg"
-              alt="Abdulkadeer and Co. Logo"
+              alt="Quantum Edge Technologies Ltd. Logo"
               className="h-10 w-auto object-contain"
             />
           </div>
