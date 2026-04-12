@@ -230,27 +230,44 @@ const DepreciationView = ({ activeAsset }: { activeAsset: Asset }) => {
 };
 
 interface AssetListViewProps {
-
   onClose: () => void;
   onExportCSV: () => void;
   onExportExcel: () => void;
+  onExportPDF: () => void;
   onSelectAsset: (asset: Asset) => void;
   showExportOptions: boolean;
   setShowExportOptions: (show: boolean) => void;
   assets: Asset[];
+  selectedIds: Set<string>;
+  onToggleSelect: (productId: string) => void;
+  onSelectAll: () => void;
+  onClearAll: () => void;
+  onPrintSelected: () => void;
+  onPrintAll: () => void;
 }
 
 const AssetListView: React.FC<AssetListViewProps> = memo(({
   onClose,
   onExportCSV,
   onExportExcel,
+  onExportPDF,
   onSelectAsset,
   showExportOptions,
   setShowExportOptions,
-  assets
-}) => (
+  assets,
+  selectedIds,
+  onToggleSelect,
+  onSelectAll,
+  onClearAll,
+  onPrintSelected,
+  onPrintAll,
+}) => {
+  const allSelected = assets.length > 0 && assets.every(a => selectedIds.has(a.productId));
+  const someSelected = selectedIds.size > 0;
+  return (
   <div className="animate-fadeIn space-y-4">
-    <div className="flex justify-between items-center mb-6">
+    {/* Top toolbar */}
+    <div className="flex justify-between items-center mb-2 flex-wrap gap-3">
       <button
         onClick={onClose}
         className="flex items-center text-sm text-slate-500 hover:text-abdc-600 transition-colors group"
@@ -258,34 +275,89 @@ const AssetListView: React.FC<AssetListViewProps> = memo(({
         <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
         Back to Asset Management
       </button>
-      <div className="relative">
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Always visible Print All Tags button */}
         <button
-          onClick={() => setShowExportOptions(!showExportOptions)}
+          onClick={onPrintAll}
           className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 transition-colors shadow-sm flex items-center gap-2 font-medium"
         >
-          <Download size={18} />
-          Export Assets
+          <Printer size={16} />
+          Print All Tags
         </button>
-        {showExportOptions && (
-          <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fadeIn">
-            <button onClick={onExportExcel} className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
-              <FileSpreadsheet size={18} className="text-green-600" />
-              Export to Excel
-            </button>
-            <button onClick={onExportCSV} className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
-              <FileText size={18} className="text-blue-600" />
-              Export to CSV
-            </button>
-          </div>
-        )}
+        <div className="relative">
+          <button
+            onClick={() => setShowExportOptions(!showExportOptions)}
+            className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2 font-medium"
+          >
+            <Download size={18} />
+            Export Assets
+          </button>
+          {showExportOptions && (
+            <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fadeIn">
+              <button onClick={onExportExcel} className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+                <FileSpreadsheet size={18} className="text-green-600" />
+                Export to Excel
+              </button>
+              <button onClick={onExportCSV} className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+                <FileText size={18} className="text-blue-600" />
+                Export to CSV
+              </button>
+              <button onClick={onExportPDF} className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+                <FileText size={18} className="text-red-600" />
+                Export to PDF
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
+
+    {/* Selection action bar — appears when checkboxes are ticked */}
+    {someSelected && (
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-abdc-50 border border-abdc-200 rounded-lg flex-wrap">
+        <CheckCircle2 size={16} className="text-abdc-600 shrink-0" />
+        <span className="text-sm text-abdc-700"><strong>{selectedIds.size}</strong> asset{selectedIds.size > 1 ? 's' : ''} selected</span>
+        <button
+          onClick={onPrintSelected}
+          className="ml-1 px-3 py-1.5 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 text-sm flex items-center gap-1.5 font-medium"
+        >
+          <Printer size={14} />
+          Print Selected ({selectedIds.size})
+        </button>
+        <button onClick={someSelected && !allSelected ? onSelectAll : onClearAll} className="px-3 py-1.5 text-sm text-abdc-600 hover:underline">
+          {allSelected ? 'Deselect All' : 'Select All'}
+        </button>
+        <button onClick={onClearAll} className="px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg bg-white ml-auto">
+          Clear
+        </button>
+      </div>
+    )}
+
+
+    {someSelected && (
+      <div className="px-4 py-2 bg-abdc-50 border border-abdc-200 rounded-lg text-sm text-abdc-700 flex items-center gap-2">
+        <CheckCircle2 size={16} />
+        <span><strong>{selectedIds.size}</strong> asset{selectedIds.size > 1 ? 's' : ''} selected for printing</span>
+        <button onClick={onSelectAll} className="ml-auto text-xs underline hover:no-underline">
+          {allSelected ? 'Deselect All' : 'Select All'}
+        </button>
+      </div>
+    )}
 
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 border-b sticky top-0">
             <tr>
+              <th className="p-4">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={allSelected ? onClearAll : onSelectAll}
+                  className="w-4 h-4 accent-abdc-600 cursor-pointer"
+                  title={allSelected ? 'Deselect all' : 'Select all'}
+                />
+              </th>
               <th className="p-4 font-semibold">Tag ID</th>
               <th className="p-4 font-semibold">Asset Name</th>
               <th className="p-4 font-semibold">Category</th>
@@ -298,30 +370,40 @@ const AssetListView: React.FC<AssetListViewProps> = memo(({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {assets.map((asset) => (
+            {assets.map((asset) => {
+              const isSelected = selectedIds.has(asset.productId);
+              return (
               <tr
                 key={asset.id}
-                onClick={() => onSelectAsset(asset)}
-                className="hover:bg-slate-50 transition-colors group cursor-pointer"
+                className={`hover:bg-slate-50 transition-colors group cursor-pointer ${isSelected ? 'bg-abdc-50' : ''}`}
               >
-                <td className="p-4 font-mono font-medium text-abdc-600">{asset.productId}</td>
-                <td className="p-4 font-bold text-slate-800">{asset.name}</td>
-                <td className="p-4 text-slate-600 text-xs">
+                <td className="p-4" onClick={(e) => { e.stopPropagation(); onToggleSelect(asset.productId); }}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggleSelect(asset.productId)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-4 h-4 accent-abdc-600 cursor-pointer"
+                  />
+                </td>
+                <td className="p-4 font-mono font-medium text-abdc-600 cursor-pointer" onClick={() => onSelectAsset(asset)}>{asset.productId}</td>
+                <td className="p-4 font-bold text-slate-800 cursor-pointer" onClick={() => onSelectAsset(asset)}>{asset.name}</td>
+                <td className="p-4 text-slate-600 text-xs cursor-pointer" onClick={() => onSelectAsset(asset)}>
                   <span className="px-2 py-1 bg-slate-100 rounded-md uppercase tracking-wider">{asset.category}</span>
                 </td>
-                <td className="p-4 text-slate-500">{asset.subCategory || '-'}</td>
-                <td className="p-4 text-slate-600">
+                <td className="p-4 text-slate-500 cursor-pointer" onClick={() => onSelectAsset(asset)}>{asset.subCategory || '-'}</td>
+                <td className="p-4 text-slate-600 cursor-pointer" onClick={() => onSelectAsset(asset)}>
                   <div className="flex items-center gap-1">
                     <MapPin size={12} className="text-slate-400" />
                     {asset.location}
                   </div>
                 </td>
-                <td className="p-4 text-slate-500">{asset.subLocation || '-'}</td>
-                <td className="p-4 text-slate-600">{asset.custodian}</td>
-                <td className="p-4 text-right font-medium text-slate-800">
+                <td className="p-4 text-slate-500 cursor-pointer" onClick={() => onSelectAsset(asset)}>{asset.subLocation || '-'}</td>
+                <td className="p-4 text-slate-600 cursor-pointer" onClick={() => onSelectAsset(asset)}>{asset.custodian}</td>
+                <td className="p-4 text-right font-medium text-slate-800 cursor-pointer" onClick={() => onSelectAsset(asset)}>
                   {asset.acquisitionCost.toLocaleString()}
                 </td>
-                <td className="p-4">
+                <td className="p-4 cursor-pointer" onClick={() => onSelectAsset(asset)}>
                   <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${asset.status === 'Active' ? 'bg-green-100 text-green-700' :
                     asset.status === 'Maintenance' ? 'bg-amber-100 text-amber-700' :
                       'bg-red-100 text-red-700'
@@ -330,13 +412,15 @@ const AssetListView: React.FC<AssetListViewProps> = memo(({
                   </span>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
     </div>
   </div>
-));
+  );
+});
 
 interface AssetLookupProps {
   initialSearchTerm?: string;
@@ -385,6 +469,13 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   const [imageUploadAssetId, setImageUploadAssetId] = useState<string | null>(null);
   const imageUploadInputRef = useRef<HTMLInputElement>(null);
   const assetImageUploadInputRef = useRef<HTMLInputElement>(null);
+
+  // Selection for Print Selected
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
+  const [isPrintSelectedOpen, setIsPrintSelectedOpen] = useState(false);
+  const [isPrintingSelected, setIsPrintingSelected] = useState(false);
+  const [printBatchProgress, setPrintBatchProgress] = useState('');
+  const [previewSelectedQrUrl, setPreviewSelectedQrUrl] = useState<string>('');
 
   // Print Settings State
   const [isPrintSettingsOpen, setIsPrintSettingsOpen] = useState(false);
@@ -915,6 +1006,18 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   }, [isPrintSettingsOpen, activeAsset?.productId, getQRWithLogoDataUrl]);
 
   useEffect(() => {
+    if (!isPrintSelectedOpen || selectedAssetIds.size === 0) { setPreviewSelectedQrUrl(''); return; }
+    let cancelled = false;
+    const firstId = [...selectedAssetIds][0];
+    getQRWithLogoDataUrl(firstId, 120).then(url => { if (!cancelled) setPreviewSelectedQrUrl(url); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [isPrintSelectedOpen, selectedAssetIds, getQRWithLogoDataUrl]);
+
+  useEffect(() => {
+    if (isPrintSelectedOpen) loadPrinters();
+  }, [isPrintSelectedOpen, loadPrinters]);
+
+  useEffect(() => {
     if (!activeAsset?.productId) {
       setPreviewBarcodeUrl('');
       return;
@@ -1090,44 +1193,167 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
         }
       </style></head><body><img src="${imgDataUrl}" alt="Asset Tag" /></body></html>`;
 
-      const printWin = window.open('', '_blank', 'width=400,height=300');
-      if (printWin) {
-        printWin.document.write(printHtml);
-        printWin.document.close();
-        const img = printWin.document.querySelector('img') as HTMLImageElement | null;
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;visibility:hidden;';
+      document.body.appendChild(iframe);
+      const iDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (iDoc) {
+        iDoc.open(); iDoc.write(printHtml); iDoc.close();
+        const img = iDoc.querySelector('img') as HTMLImageElement | null;
         const doPrint = () => {
-          setTimeout(() => {
-            printWin.focus();
-            printWin.print();
-            printWin.close();
-          }, 300);
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setTimeout(() => iframe.parentNode && document.body.removeChild(iframe), 2500);
         };
         if (img) {
-          if (img.complete) doPrint();
-          else img.onload = doPrint;
+          if (img.complete) setTimeout(doPrint, 300);
+          else img.onload = () => setTimeout(doPrint, 300);
         } else {
-          setTimeout(doPrint, 500);
-        }
-      } else {
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position:fixed;left:0;top:0;width:400px;height:300px;border:none;z-index:99999;';
-        document.body.appendChild(iframe);
-        const doc = iframe.contentWindow?.document;
-        if (doc) {
-          doc.open();
-          doc.write(printHtml);
-          doc.close();
-          setTimeout(() => {
-            iframe.contentWindow?.focus();
-            iframe.contentWindow?.print();
-            setTimeout(() => iframe.parentNode && document.body.removeChild(iframe), 2500);
-          }, 600);
+          setTimeout(doPrint, 600);
         }
       }
     } catch (err) {
       document.body.removeChild(outerDiv);
       console.error('Print error:', err);
       alert('Print failed. Please try again.');
+    }
+  };
+
+  const handlePrintSelectedTags = async (settings?: typeof printSettings) => {
+    const s = settings || printSettings;
+    const selectedAssets = assets.filter(a => selectedAssetIds.has(a.productId));
+    if (selectedAssets.length === 0) return;
+    setIsPrintingSelected(true);
+    const wRaw = s.orientation === 'landscape' ? s.height : s.width;
+    const hRaw = s.orientation === 'landscape' ? s.width : s.height;
+    const wIn = toInch(wRaw, s.units);
+    const hIn = toInch(hRaw, s.units);
+    const PRINT_DPI = 203;
+    const pxW = Math.round(wIn * PRINT_DPI);
+    const pxH = Math.round(hIn * PRINT_DPI);
+    const esc = (x: string) => (x || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const labelData = await Promise.all(selectedAssets.map(async (asset) => {
+      const qrUrl = await getQRWithLogoDataUrl(asset.productId || '', 200);
+      const barcodeUrl = getBarcodeDataUrl(asset.productId || '', 1.5, Math.round(pxH * 0.12));
+      return { asset, qrUrl, barcodeUrl };
+    }));
+    const fsH2 = Math.max(6, Math.round(pxH * 0.1));
+    const fsV = Math.max(8, Math.round(pxH * 0.14));
+    const qrPx = Math.min(pxW, pxH) * 0.5;
+    const barcodeH = Math.round(pxH * 0.12);
+    const labelsHtml = labelData.map(({ asset, qrUrl, barcodeUrl }) => `
+      <div style="width:${pxW}px;height:${pxH}px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:${Math.round(pxH * 0.02)}px;font-family:'Segoe UI',Arial,sans-serif;box-sizing:border-box;color:#000;padding:3%;border:1px solid #ccc;break-inside:avoid;page-break-inside:avoid;">
+        <div style="font-size:${fsH2}px;font-weight:700;letter-spacing:0.5px;">Property of Abdulkadeer &amp; Co.</div>
+        <div style="width:${qrPx}px;height:${qrPx}px;display:flex;justify-content:center;align-items:center;padding:4px;background:#fff;border:1px solid #333;">
+          <img src="${qrUrl}" alt="QR" style="width:100%;height:100%;object-fit:contain;" />
+        </div>
+        <div style="font-size:${Math.round(fsV * 0.55)}px;font-weight:600;line-height:1.2;max-width:100%;min-height:${Math.round(pxH * 0.06)}px;">${esc(asset.name || '')}</div>
+        <div style="font-size:${fsV}px;font-weight:800;font-family:Consolas,monospace;">${esc(asset.productId || '')}</div>
+        ${barcodeUrl ? `<div style="height:${barcodeH}px;display:flex;justify-content:center;align-items:center;"><img src="${barcodeUrl}" alt="Barcode" style="max-width:100%;height:100%;object-fit:contain;" /></div>` : ''}
+      </div>`).join('');
+    const printHtml = `<!DOCTYPE html><html><head><title>Print Selected Tags</title><style>*{margin:0;padding:0;box-sizing:border-box}html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.grid{display:flex;flex-wrap:wrap;gap:6px;padding:8px;}@media print{@page{size:${wIn}in ${hIn}in;margin:0}.grid{gap:0;padding:0;}}</style></head><body><div class="grid">${labelsHtml}</div></body></html>`;
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;visibility:hidden;';
+    document.body.appendChild(iframe);
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (iframeDoc) {
+      iframeDoc.open(); iframeDoc.write(printHtml); iframeDoc.close();
+      iframe.contentWindow?.focus();
+      setTimeout(() => {
+        iframe.contentWindow?.print();
+        setTimeout(() => document.body.removeChild(iframe), 2000);
+      }, 800);
+    }
+    setIsPrintingSelected(false);
+  };
+
+  const handlePrintSelectedDirect = async () => {
+    const selectedAssets = assets.filter(a => selectedAssetIds.has(a.productId));
+    if (selectedAssets.length === 0) return;
+    if (!jspmConnected) { alert('JSPM Client is not connected. Install and run JSPM from https://neodynamic.com/downloads/jspm'); return; }
+    setIsPrintingSelected(true);
+    setPrintBatchProgress('');
+    setIsPrintSelectedOpen(false);
+    try {
+      const { JSPrintManager, ClientPrintJob, InstalledPrinter, DefaultPrinter, PrintFile, FileSourceType, WSStatus } = await import('jsprintmanager');
+      if (JSPrintManager.websocket_status !== WSStatus.Open) { alert('JSPM Client is not connected.'); return; }
+      const s = printSettings;
+      const wRaw = s.orientation === 'landscape' ? s.height : s.width;
+      const hRaw = s.orientation === 'landscape' ? s.width : s.height;
+      const wIn = toInch(wRaw, s.units);
+      const hIn = toInch(hRaw, s.units);
+      const PRINT_DPI = 203;
+      const pxW = Math.round(wIn * PRINT_DPI);
+      const pxH = Math.round(hIn * PRINT_DPI);
+      const po = s.orientation === 'landscape' ? 'L' : 'P';
+      const printerSpec = `PX=0-PY=0-PW=${wIn.toFixed(3)}-PH=${hIn.toFixed(3)}-PO=${po}`;
+      const total = selectedAssets.length;
+      const GEN_BATCH = 50;
+
+      const loadImg = (src: string): Promise<HTMLImageElement> => new Promise((res, rej) => {
+        const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = src;
+      });
+
+      const renderLabel = async (asset: Asset): Promise<string> => {
+        const qrDataUrl = await getQRWithLogoDataUrl(asset.productId || '', 300);
+        const barcodeDataUrl = getBarcodeDataUrl(asset.productId || '', 1.2, Math.round(pxH * 0.12));
+        const fsH2 = Math.max(6, Math.round(pxH * 0.1));
+        const fsV = Math.max(8, Math.round(pxH * 0.14));
+        const fsName = Math.round(fsV * 0.55);
+        const qrPx = Math.min(pxW, pxH) * 0.5;
+        const barcodeH = Math.round(pxH * 0.12);
+        const gap = Math.round(pxH * 0.025);
+        const pad = Math.round(Math.min(pxW, pxH) * 0.03);
+        const canvas = document.createElement('canvas');
+        canvas.width = pxW; canvas.height = pxH;
+        const ctx = canvas.getContext('2d')!;
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, pxW, pxH);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = '#000';
+        let y = pad;
+        ctx.font = `bold ${fsH2}px "Segoe UI",Arial,sans-serif`;
+        ctx.fillText('Property of Abdulkadeer & Co.', pxW / 2, y); y += fsH2 + gap;
+        const qrImg = await loadImg(qrDataUrl);
+        const qrX = (pxW - qrPx) / 2;
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+        ctx.strokeRect(qrX - 4, y - 4, qrPx + 8, qrPx + 8);
+        ctx.drawImage(qrImg, qrX, y, qrPx, qrPx); y += qrPx + gap;
+        ctx.font = `600 ${fsName}px "Segoe UI",Arial,sans-serif`;
+        ctx.fillText(asset.name || '', pxW / 2, y); y += fsName + gap;
+        ctx.font = `bold ${fsV}px Consolas,monospace`;
+        ctx.fillText(asset.productId || '', pxW / 2, y); y += fsV + gap;
+        if (barcodeDataUrl) {
+          const bcImg = await loadImg(barcodeDataUrl);
+          const bcW = Math.min(pxW - pad * 2, barcodeH * (bcImg.width / bcImg.height));
+          ctx.drawImage(bcImg, (pxW - bcW) / 2, y, bcW, barcodeH);
+        }
+        return canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+      };
+
+      // Phase 1: generate all PNGs in parallel batches
+      const allBase64: string[] = [];
+      for (let start = 0; start < total; start += GEN_BATCH) {
+        setPrintBatchProgress(`Generating ${Math.min(start + GEN_BATCH, total)} of ${total}...`);
+        const batch = selectedAssets.slice(start, start + GEN_BATCH);
+        const rendered = await Promise.all(batch.map(renderLabel));
+        allBase64.push(...rendered);
+      }
+
+      // Phase 2: send each label as its own job (PNG — no extra software needed)
+      for (let i = 0; i < allBase64.length; i++) {
+        setPrintBatchProgress(`Sending ${i + 1} of ${total} to printer...`);
+        const cpj = new ClientPrintJob();
+        cpj.clientPrinter = selectedPrinter ? new InstalledPrinter(selectedPrinter) : new DefaultPrinter();
+        cpj.files.push(new PrintFile(allBase64[i], FileSourceType.Base64, `label-${printerSpec}.png`, 1));
+        await cpj.sendToClient();
+      }
+      setPrintBatchProgress('');
+    } catch (err) {
+      console.error('Direct print selected error:', err);
+      setPrintBatchProgress('');
+      const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err));
+      alert('Direct print error: ' + msg);
+    } finally {
+      setIsPrintingSelected(false);
     }
   };
 
@@ -1654,6 +1880,116 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     setShowExportOptions(false);
   }, [setNotificationMessage, setNotificationType, setShowNotification, setShowExportOptions]);
 
+  const exportToPDF = useCallback(async () => {
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+      // Header
+      doc.setFillColor(31, 82, 152);
+      doc.rect(0, 0, 297, 22, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ABDC Asset Inventory Report', 14, 10);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Generated: ${dateStr}  |  Total Assets: ${assets.length}`, 14, 17);
+
+      const columns = [
+        { header: '#', dataKey: 'no' },
+        { header: 'Asset Tag', dataKey: 'tag' },
+        { header: 'Asset Name', dataKey: 'name' },
+        { header: 'Category', dataKey: 'category' },
+        { header: 'Location', dataKey: 'location' },
+        { header: 'Custodian', dataKey: 'custodian' },
+        { header: 'Acq. Cost (₦)', dataKey: 'cost' },
+        { header: 'Acq. Date', dataKey: 'date' },
+        { header: 'Condition', dataKey: 'condition' },
+        { header: 'Status', dataKey: 'status' },
+      ];
+
+      const rows = assets.map((a, i) => ({
+        no: i + 1,
+        tag: a.productId,
+        name: a.name,
+        category: a.category,
+        location: a.location,
+        custodian: a.custodian,
+        cost: Number(a.acquisitionCost || 0).toLocaleString('en-NG'),
+        date: a.acquisitionDate || '-',
+        condition: a.conditionCode || '-',
+        status: a.status,
+      }));
+
+      autoTable(doc, {
+        startY: 26,
+        columns,
+        body: rows,
+        styles: { fontSize: 7.5, cellPadding: 2.5, overflow: 'linebreak' },
+        headStyles: { fillColor: [31, 82, 152], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+        alternateRowStyles: { fillColor: [245, 247, 255] },
+        columnStyles: {
+          no: { cellWidth: 8, halign: 'center' },
+          tag: { cellWidth: 32, fontStyle: 'bold' },
+          name: { cellWidth: 48 },
+          category: { cellWidth: 28 },
+          location: { cellWidth: 28 },
+          custodian: { cellWidth: 28 },
+          cost: { cellWidth: 26, halign: 'right' },
+          date: { cellWidth: 22, halign: 'center' },
+          condition: { cellWidth: 18, halign: 'center' },
+          status: { cellWidth: 22, halign: 'center' },
+        },
+        didDrawCell: (data) => {
+          if (data.column.dataKey === 'status' && data.cell.section === 'body') {
+            const status = String(data.cell.raw || '');
+            if (status === 'Active') {
+              doc.setFillColor(220, 252, 231);
+              doc.roundedRect(data.cell.x + 1, data.cell.y + 1, data.cell.width - 2, data.cell.height - 2, 1, 1, 'F');
+              doc.setTextColor(22, 101, 52);
+            } else if (status === 'Disposed') {
+              doc.setFillColor(254, 226, 226);
+              doc.roundedRect(data.cell.x + 1, data.cell.y + 1, data.cell.width - 2, data.cell.height - 2, 1, 1, 'F');
+              doc.setTextColor(153, 27, 27);
+            } else if (status === 'Maintenance') {
+              doc.setFillColor(254, 243, 199);
+              doc.roundedRect(data.cell.x + 1, data.cell.y + 1, data.cell.width - 2, data.cell.height - 2, 1, 1, 'F');
+              doc.setTextColor(120, 53, 15);
+            }
+            doc.setFontSize(7.5);
+            doc.text(status, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height / 2 + 0.5, { align: 'center', baseline: 'middle' });
+            doc.setTextColor(0, 0, 0);
+          }
+        },
+        // Footer with page numbers
+        didDrawPage: (data) => {
+          const pageCount = doc.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.setTextColor(150);
+          doc.text(
+            `Page ${data.pageNumber} of ${pageCount}  |  ABDC Asset Management System`,
+            data.settings.margin.left,
+            doc.internal.pageSize.height - 5
+          );
+        },
+      });
+
+      doc.save(`ABDC_Asset_Inventory_${new Date().toISOString().split('T')[0]}.pdf`);
+      setNotificationMessage(`PDF exported — ${assets.length} assets`);
+      setNotificationType('success');
+      setShowNotification(true);
+      setShowExportOptions(false);
+    } catch (err) {
+      console.error('PDF export error:', err);
+      setNotificationMessage('PDF export failed');
+      setNotificationType('error');
+      setShowNotification(true);
+    }
+  }, [assets, setNotificationMessage, setNotificationType, setShowNotification, setShowExportOptions]);
+
   const priorityAssets = assets.filter(a =>
     ['Maintenance', 'Disposed'].includes(a.status) ||
     (a.conditionCode && ['F1', 'F2', 'F3', 'A4'].includes(a.conditionCode))
@@ -1687,6 +2023,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
           onClose={() => setIsViewAllOpen(false)}
           onExportCSV={exportToCSV}
           onExportExcel={exportToExcel}
+          onExportPDF={exportToPDF}
           onSelectAsset={(asset) => {
             selectAsset(asset);
             setIsViewAllOpen(false);
@@ -1694,6 +2031,16 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
           showExportOptions={showExportOptions}
           setShowExportOptions={setShowExportOptions}
           assets={assets}
+          selectedIds={selectedAssetIds}
+          onToggleSelect={(productId) => setSelectedAssetIds(prev => {
+            const next = new Set(prev);
+            if (next.has(productId)) next.delete(productId); else next.add(productId);
+            return next;
+          })}
+          onSelectAll={() => setSelectedAssetIds(new Set(assets.map(a => a.productId)))}
+          onClearAll={() => setSelectedAssetIds(new Set())}
+          onPrintSelected={() => setIsPrintSelectedOpen(true)}
+          onPrintAll={() => { setSelectedAssetIds(new Set(assets.map(a => a.productId))); setIsPrintSelectedOpen(true); }}
         />
       ) : (
         <>
@@ -2878,6 +3225,103 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
             className="hidden"
           />
         </>
+      )}
+      {isPrintSelectedOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl overflow-y-auto max-h-screen">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Printer size={20} className="text-slate-600" /> Print Selected Tags
+              </h3>
+              <button onClick={() => setIsPrintSelectedOpen(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={20} /></button>
+            </div>
+            <div className="space-y-4">
+              {/* Printer selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Select Printer</label>
+                {jspmConnected && printers.length > 0 ? (
+                  <select value={selectedPrinter} onChange={(e) => setSelectedPrinter(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
+                    {printers.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-500">Install JSPM Client to select printers. <a href="https://neodynamic.com/downloads/jspm" target="_blank" rel="noopener noreferrer" className="text-abdc-600 hover:underline">Download</a></p>
+                    <button type="button" onClick={loadPrinters} disabled={isLoadingPrinters} className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 disabled:opacity-50 flex items-center gap-2">
+                      {isLoadingPrinters ? <Loader2 size={12} className="animate-spin" /> : null} Load printers
+                    </button>
+                  </div>
+                )}
+              </div>
+              {/* Label preview */}
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Label preview (first selected)</label>
+                <div className="bg-white border border-slate-200 rounded overflow-hidden shadow-sm mx-auto"
+                  style={(() => {
+                    const aspect = printSettings.orientation === 'landscape' ? printSettings.height / printSettings.width : printSettings.width / printSettings.height;
+                    const maxW = 220, maxH = 140;
+                    const w = aspect >= maxW / maxH ? maxW : maxH * aspect;
+                    const h = aspect >= maxW / maxH ? maxW / aspect : maxH;
+                    return { width: Math.round(w), height: Math.round(h) };
+                  })()}>
+                  <div className="flex flex-col h-full items-center justify-center text-center gap-1 p-2 overflow-hidden">
+                    <div style={{ fontSize: 8 }} className="font-bold shrink-0">Property of Abdulkadeer &amp; Co.</div>
+                    <div className="w-12 h-12 shrink-0 flex items-center justify-center bg-white border border-slate-200 p-0.5">
+                      {previewSelectedQrUrl ? <img src={previewSelectedQrUrl} alt="QR" className="w-full h-full object-contain" /> : <div className="w-full h-full bg-slate-100 animate-pulse rounded" />}
+                    </div>
+                    <div style={{ fontSize: 6 }} className="font-semibold text-slate-800 shrink-0 break-words w-full px-1">{assets.find(a => selectedAssetIds.has(a.productId))?.name || '-'}</div>
+                    <div style={{ fontSize: 9 }} className="font-mono font-bold truncate max-w-full shrink-0">{[...selectedAssetIds][0] || '-'}</div>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 mt-1 text-center"><strong>{selectedAssetIds.size}</strong> tag{selectedAssetIds.size > 1 ? 's' : ''} will be printed</p>
+              </div>
+              {/* Units */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Units</label>
+                <select value={printSettings.units} onChange={(e) => { const newUnit = e.target.value as 'inch'|'mm'|'cm'; const u = printSettings.units; const wI = toInch(printSettings.width,u); const hI = toInch(printSettings.height,u); setPrintSettings(p => ({ ...p, units: newUnit, width: Math.round(toInch(wI,'inch') * (newUnit==='inch'?1:newUnit==='mm'?25.4:2.54)*100)/100, height: Math.round(toInch(hI,'inch') * (newUnit==='inch'?1:newUnit==='mm'?25.4:2.54)*100)/100 })); }} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
+                  <option value="inch">inch</option><option value="mm">mm</option><option value="cm">cm</option>
+                </select>
+              </div>
+              {/* Width */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Width</label>
+                <div className="flex items-center gap-2">
+                  <input type="number" step="0.01" min="0.5" max="50" value={printSettings.width} onChange={(e) => setPrintSettings(p => ({ ...p, width: parseFloat(e.target.value) || 2.7 }))} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500" />
+                  <span className="text-sm text-slate-500 shrink-0">{printSettings.units}</span>
+                </div>
+              </div>
+              {/* Height */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Height</label>
+                <div className="flex items-center gap-2">
+                  <input type="number" step="0.01" min="0.5" max="50" value={printSettings.height} onChange={(e) => setPrintSettings(p => ({ ...p, height: parseFloat(e.target.value) || 1.1 }))} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500" />
+                  <span className="text-sm text-slate-500 shrink-0">{printSettings.units}</span>
+                </div>
+              </div>
+              {/* Orientation */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Orientation</label>
+                <select value={printSettings.orientation} onChange={(e) => setPrintSettings(p => ({ ...p, orientation: e.target.value as 'normal'|'landscape' }))} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
+                  <option value="normal">Normal</option><option value="landscape">Landscape</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 mt-4">Tip: Set paper size to {printSettings.width}×{printSettings.height} {printSettings.units} in your print dialog.</p>
+            <div className="flex flex-wrap justify-end gap-3 mt-6">
+              <button onClick={() => setIsPrintSelectedOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+              {jspmConnected && printers.length > 0 ? (
+                <button onClick={handlePrintSelectedDirect} disabled={isPrintingSelected} className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2 disabled:opacity-50">
+                  {isPrintingSelected ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+                  {isPrintingSelected ? (printBatchProgress || 'Preparing...') : `Print to ${selectedPrinter || 'Printer'}`}
+                </button>
+              ) : (
+                <button onClick={() => { setIsPrintSelectedOpen(false); handlePrintSelectedTags(printSettings); }} disabled={isPrintingSelected} className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2 disabled:opacity-50">
+                  <Printer size={16} />
+                  {isPrintingSelected ? 'Preparing...' : `Print ${selectedAssetIds.size} Tag${selectedAssetIds.size > 1 ? 's' : ''}`}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

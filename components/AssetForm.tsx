@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { CATEGORIES, LOCATIONS, MOCK_USERS, LOCATION_BRANCHES, LOCATION_CODES, DEPARTMENT_CODES, SUB_CATEGORIES } from '../constants';
 import { Asset, ConditionCode, User } from '../types';
 import { createAsset, getNextSerialForPrefix, createAssetsBulk } from '../app/actions/assets';
 import { getDepartments, getLocations, getCategories, getAssetTypes, getAssetClasses } from '../app/actions/settings';
 import { canRegisterAsset } from '../lib/permissions';
 import { CheckCircle, ChevronRight, Save, UploadCloud, FileSpreadsheet, Download, AlertCircle, Table, Printer, Plus, ArrowLeft, QrCode, ImagePlus, X } from 'lucide-react';
+import QRCode from 'qrcode';
+import JsBarcode from 'jsbarcode';
 
 const steps = ['Acquisition Details', 'Physical Details', 'Custodian & Financial'];
 
@@ -99,6 +101,22 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
   const [importedAssets, setImportedAssets] = useState<Asset[]>([]);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Print All Settings modal
+  const [isPrintAllSettingsOpen, setIsPrintAllSettingsOpen] = useState(false);
+  const [printAllSettings, setPrintAllSettings] = useState({
+    units: 'inch' as 'inch' | 'mm' | 'cm',
+    width: 2.7,
+    height: 1.1,
+    orientation: 'normal' as 'normal' | 'landscape',
+  });
+  const [previewAllQrUrl, setPreviewAllQrUrl] = useState<string>('');
+  const [isPrintingAll, setIsPrintingAll] = useState(false);
+  const [printAllBatchProgress, setPrintAllBatchProgress] = useState('');
+  const [printers, setPrinters] = useState<string[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [jspmConnected, setJspmConnected] = useState(false);
+  const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
 
   // From DB (System Admin can add/remove in Settings)
   const [locationsList, setLocationsList] = useState<{ id: string; name: string; code: string }[]>([]);
@@ -228,22 +246,21 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
   const getDepartmentCode = (departmentName: string) =>
     departmentsList.find(d => d.name === departmentName)?.code ?? (departmentName && DEPARTMENT_CODES[departmentName]) ?? 'GEN';
 
-  /** Returns the prefix part of asset ID (ABDC/LOC/DEPT/CAT/) - serial is added separately */
-  const generateBarcodePrefix = (category: string, name?: string, location?: string, department?: string) => {
-    let prefix = 'ITE';
+  /** Returns the prefix part of asset ID (ABDC/LOC/CAT/) - serial is added separately */
+  const generateBarcodePrefix = (category: string, name?: string, location?: string) => {
+    let catCode = 'ITE';
     const cat = category ? category.trim().toLowerCase() : '';
     const assetName = name ? name.trim().toLowerCase() : '';
     const locCode = location ? getLocationCode(location) : 'GEN';
-    const deptCode = department ? getDepartmentCode(department) : 'GEN';
 
     // Smart Category & Name Matching Logic
-    if (cat === 'it equipment' || cat.includes('computer')) prefix = 'ITE';
-    else if (cat === 'office equipment') prefix = 'OE';
-    else if (cat.includes('vehicle') || cat.includes('car') || cat.includes('truck')) prefix = 'VH';
-    else if (cat.includes('furniture') || cat.includes('fitting') || cat.includes('chair') || cat.includes('table')) prefix = 'FAF';
-    else if (cat.includes('plant') || cat.includes('machinery') || cat.includes('generator')) prefix = 'PMA';
-    else if (cat.includes('land') || cat.includes('building')) prefix = 'LND';
-    else if (cat.includes('software')) prefix = 'SFW';
+    if (cat === 'it equipment' || cat.includes('computer')) catCode = 'ITE';
+    else if (cat === 'office equipment') catCode = 'OE';
+    else if (cat.includes('vehicle') || cat.includes('car') || cat.includes('truck')) catCode = 'VH';
+    else if (cat.includes('furniture') || cat.includes('fitting') || cat.includes('chair') || cat.includes('table')) catCode = 'FF';
+    else if (cat.includes('plant') || cat.includes('machinery') || cat.includes('generator')) catCode = 'PMA';
+    else if (cat.includes('land') || cat.includes('building')) catCode = 'LND';
+    else if (cat.includes('software')) catCode = 'SFW';
 
     // Name based inference overrides
     else if (
@@ -254,7 +271,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       assetName.includes('shredder') ||
       assetName.includes('scanner')
     ) {
-      prefix = 'OE';
+      catCode = 'OE';
     }
     else if (
       assetName.includes('laptop') ||
@@ -263,11 +280,11 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       assetName.includes('server') ||
       assetName.includes('desktop')
     ) {
-      prefix = 'ITE';
+      catCode = 'ITE';
     }
 
-    // Format: ABDC/LOC/DEPT/CAT/ (serial 0001, 0002, ... added by getNextSerialForPrefix)
-    return `ABDC/${locCode}/${deptCode}/${prefix}/`;
+    // Format: ABDC/LOC/CAT/SERIAL
+    return `ABDC/${locCode}/${catCode}/`;
   };
 
   const mapConditionToCode = (condition: string): ConditionCode => {
@@ -287,7 +304,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
 
     setIsSubmitting(true);
 
-    const prefix = generateBarcodePrefix(formData.category, formData.name, formData.location, formData.subLocation);
+    const prefix = generateBarcodePrefix(formData.category, formData.name, formData.location);
     const serial = await getNextSerialForPrefix(prefix);
     const newId = prefix + serial;
     const assetName = formData.name || "New Asset";
@@ -435,37 +452,274 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
     }
   };
 
-  const handlePrintAllTags = () => {
-    const printWindow = window.open('', '', 'height=600,width=800');
-    if (printWindow) {
-      printWindow.document.write('<html><head><title>Print Asset Tags</title>');
-      printWindow.document.write('<script src="https://cdn.tailwindcss.com"></script>');
-      printWindow.document.write('</head><body class="bg-white p-8">');
-      printWindow.document.write('<div class="grid grid-cols-2 gap-8">');
+  const toInch = (v: number, from: string) => from === 'inch' ? v : from === 'mm' ? v / 25.4 : v / 2.54;
+  const fromInch = (v: number, to: string) => to === 'inch' ? v : to === 'mm' ? v * 25.4 : v * 2.54;
 
-      importedAssets.forEach(asset => {
-        const tagContent = `
-        <div class="bg-slate-50 border-2 border-slate-900 rounded-xl p-6 text-center break-inside-avoid shadow-sm relative overflow-hidden">
-            <div class="flex justify-center mb-2">
-                <img src="./abdc-logo-circular.jpg" className="h-10 object-contain" alt="ABDC"/>
-            </div>
-            <div className="text-left">
-                <h3 className="font-bold text-slate-900 text-xl mb-1 tracking-tighter">ABDC ASSET TAG</h3>
-            <div class="h-40 bg-white border border-slate-300 my-2 flex items-center justify-center overflow-hidden p-2">
-                ${getQRCodeSVGString()}
-            </div>
-            <p class="font-mono text-xl font-bold tracking-widest text-slate-900 mb-1">${asset.productId}</p>
-            <p class="text-xs text-slate-600 font-semibold truncate px-2">${asset.name}</p>
+  const loadPrinters = useCallback(async () => {
+    setIsLoadingPrinters(true);
+    try {
+      const { JSPrintManager, WSStatus } = await import('jsprintmanager');
+      JSPrintManager.auto_reconnect = true;
+      await JSPrintManager.start();
+      if (JSPrintManager.websocket_status === WSStatus.Open) {
+        const list = await JSPrintManager.getPrinters(true) as string[];
+        const arr = Array.isArray(list) ? list : [];
+        setPrinters(arr);
+        setSelectedPrinter(arr.length > 0 ? arr[0] : '');
+        setJspmConnected(true);
+      } else {
+        setJspmConnected(false);
+      }
+    } catch {
+      setJspmConnected(false);
+    } finally {
+      setIsLoadingPrinters(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isPrintAllSettingsOpen) loadPrinters();
+  }, [isPrintAllSettingsOpen, loadPrinters]);
+
+  useEffect(() => {
+    if (!isPrintAllSettingsOpen || importedAssets.length === 0) { setPreviewAllQrUrl(''); return; }
+    let cancelled = false;
+    const firstId = importedAssets[0]?.productId || '';
+    (async () => {
+      try {
+        const canvas = document.createElement('canvas');
+        await QRCode.toCanvas(canvas, firstId || 'N/A', { width: 120, margin: 2, errorCorrectionLevel: 'H', color: { dark: '#000000', light: '#ffffff' } });
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'anonymous';
+        await new Promise<void>((resolve) => { logoImg.onload = () => resolve(); logoImg.onerror = () => resolve(); logoImg.src = '/abdc-logo-circular.jpg'; });
+        if (logoImg.width && logoImg.height) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const logoSize = canvas.width * 0.22;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, logoSize / 2 + 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.drawImage(logoImg, (canvas.width - logoSize) / 2, (canvas.height - logoSize) / 2, logoSize, logoSize);
+          }
+        }
+        if (!cancelled) setPreviewAllQrUrl(canvas.toDataURL('image/png'));
+      } catch { if (!cancelled) setPreviewAllQrUrl(''); }
+    })();
+    return () => { cancelled = true; };
+  }, [isPrintAllSettingsOpen, importedAssets]);
+
+  const handlePrintAllTags = async (settings?: typeof printAllSettings) => {
+    if (!importedAssets || importedAssets.length === 0) return;
+    const s = settings || printAllSettings;
+    const wRaw = s.orientation === 'landscape' ? s.height : s.width;
+    const hRaw = s.orientation === 'landscape' ? s.width : s.height;
+    const wIn = toInch(wRaw, s.units);
+    const hIn = toInch(hRaw, s.units);
+    setIsPrintingAll(true);
+    const PRINT_DPI = 203;
+    const pxW = Math.round(wIn * PRINT_DPI);
+    const pxH = Math.round(hIn * PRINT_DPI);
+
+    const esc = (x: string) => (x || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    const getQRDataUrl = async (text: string): Promise<string> => {
+      const canvas = document.createElement('canvas');
+      await QRCode.toCanvas(canvas, text || 'N/A', {
+        width: 200, margin: 2, errorCorrectionLevel: 'H',
+        color: { dark: '#000000', light: '#ffffff' },
+      });
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = () => resolve();
+        logoImg.src = '/abdc-logo-circular.jpg';
+      });
+      if (logoImg.width && logoImg.height) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const logoSize = canvas.width * 0.22;
+          const x = (canvas.width - logoSize) / 2;
+          const y = (canvas.height - logoSize) / 2;
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(canvas.width / 2, canvas.height / 2, logoSize / 2 + 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.drawImage(logoImg, x, y, logoSize, logoSize);
+        }
+      }
+      return canvas.toDataURL('image/png');
+    };
+
+    const getBarcodeUrl = (text: string): string => {
+      try {
+        const canvas = document.createElement('canvas');
+        JsBarcode(canvas, text || 'N/A', {
+          format: 'CODE128', width: 1.5, height: Math.round(pxH * 0.12), displayValue: false,
+        });
+        return canvas.toDataURL('image/png');
+      } catch { return ''; }
+    };
+
+    const labelData = await Promise.all(
+      importedAssets.map(async (asset) => ({
+        asset,
+        qrUrl: await getQRDataUrl(asset.productId || ''),
+        barcodeUrl: getBarcodeUrl(asset.productId || ''),
+      }))
+    );
+
+    const fsH2 = Math.max(6, Math.round(pxH * 0.1));
+    const fsV = Math.max(8, Math.round(pxH * 0.14));
+    const qrPx = Math.min(pxW, pxH) * 0.5;
+    const barcodeH = Math.round(pxH * 0.12);
+
+    const labelsHtml = labelData.map(({ asset, qrUrl, barcodeUrl }) => `
+      <div style="width:${pxW}px;height:${pxH}px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:${Math.round(pxH * 0.02)}px;font-family:'Segoe UI',Arial,sans-serif;box-sizing:border-box;color:#000;padding:3%;border:1px solid #ccc;break-inside:avoid;page-break-inside:avoid;">
+        <div style="font-size:${fsH2}px;font-weight:700;letter-spacing:0.5px;color:#000;">Property of Abdulkadeer &amp; Co.</div>
+        <div style="width:${qrPx}px;height:${qrPx}px;display:flex;justify-content:center;align-items:center;padding:4px;background:#fff;border:1px solid #333;">
+          <img src="${qrUrl}" alt="QR" style="width:100%;height:100%;object-fit:contain;" />
         </div>
-        `;
-        printWindow.document.write(tagContent);
+        <div style="font-size:${Math.round(fsV * 0.55)}px;font-weight:600;color:#000;line-height:1.2;max-width:100%;min-height:${Math.round(pxH * 0.06)}px;">${esc(asset.name || '')}</div>
+        <div style="font-size:${fsV}px;font-weight:800;font-family:Consolas,monospace;color:#000;">${esc(asset.productId || '')}</div>
+        ${barcodeUrl ? `<div style="height:${barcodeH}px;display:flex;justify-content:center;align-items:center;"><img src="${barcodeUrl}" alt="Barcode" style="max-width:100%;height:100%;object-fit:contain;" /></div>` : ''}
+      </div>
+    `).join('');
+
+    const printHtml = `<!DOCTYPE html><html><head><title>Print All Asset Tags</title><style>*{margin:0;padding:0;box-sizing:border-box}html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.grid{display:flex;flex-wrap:wrap;gap:6px;padding:8px;}@media print{@page{size:${wIn}in ${hIn}in;margin:0}.grid{gap:0;padding:0;}}</style></head><body><div class="grid">${labelsHtml}</div></body></html>`;
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;visibility:hidden;';
+    document.body.appendChild(iframe);
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (iframeDoc) {
+      iframeDoc.open(); iframeDoc.write(printHtml); iframeDoc.close();
+      iframe.contentWindow?.focus();
+      setTimeout(() => {
+        iframe.contentWindow?.print();
+        setTimeout(() => document.body.removeChild(iframe), 2000);
+      }, 800);
+    }
+    setIsPrintingAll(false);
+  };
+
+  const handlePrintAllDirect = async () => {
+    if (!importedAssets || importedAssets.length === 0) return;
+    if (!jspmConnected) {
+      alert('JSPM Client is not connected. Install and run JSPM from https://neodynamic.com/downloads/jspm for direct printing.');
+      return;
+    }
+    setIsPrintingAll(true);
+    setPrintAllBatchProgress('');
+    setIsPrintAllSettingsOpen(false);
+    try {
+      const { JSPrintManager, ClientPrintJob, InstalledPrinter, DefaultPrinter, PrintFile, FileSourceType, WSStatus } = await import('jsprintmanager');
+      if (JSPrintManager.websocket_status !== WSStatus.Open) {
+        alert('JSPM Client is not connected. Please install and run JSPM from https://neodynamic.com/downloads/jspm');
+        return;
+      }
+      const s = printAllSettings;
+      const wRaw = s.orientation === 'landscape' ? s.height : s.width;
+      const hRaw = s.orientation === 'landscape' ? s.width : s.height;
+      const wIn = toInch(wRaw, s.units);
+      const hIn = toInch(hRaw, s.units);
+      const PRINT_DPI = 203;
+      const pxW = Math.round(wIn * PRINT_DPI);
+      const pxH = Math.round(hIn * PRINT_DPI);
+      const po = s.orientation === 'landscape' ? 'L' : 'P';
+      const printerSpec = `PX=0-PY=0-PW=${wIn.toFixed(3)}-PH=${hIn.toFixed(3)}-PO=${po}`;
+      const GEN_BATCH = 50;
+      const total = importedAssets.length;
+
+      const loadImg = (src: string): Promise<HTMLImageElement> => new Promise((res, rej) => {
+        const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = src;
       });
 
-      printWindow.document.write('</div>');
-      printWindow.document.write('<style>@media print { body { -webkit-print-color-adjust: exact; } }</style>');
-      printWindow.document.write('<script>setTimeout(() => { window.print(); window.close(); }, 1000);</script>');
-      printWindow.document.write('</body></html>');
-      printWindow.document.close();
+      const makeQRDataUrl = async (productId: string): Promise<string> => {
+        const qrCanvas = document.createElement('canvas');
+        await QRCode.toCanvas(qrCanvas, productId || 'N/A', { width: 300, margin: 2, errorCorrectionLevel: 'H', color: { dark: '#000000', light: '#ffffff' } });
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'anonymous';
+        await new Promise<void>((resolve) => { logoImg.onload = () => resolve(); logoImg.onerror = () => resolve(); logoImg.src = '/abdc-logo-circular.jpg'; });
+        if (logoImg.width && logoImg.height) {
+          const ctx = qrCanvas.getContext('2d');
+          if (ctx) {
+            const logoSize = qrCanvas.width * 0.22;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(qrCanvas.width / 2, qrCanvas.height / 2, logoSize / 2 + 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.drawImage(logoImg, (qrCanvas.width - logoSize) / 2, (qrCanvas.height - logoSize) / 2, logoSize, logoSize);
+          }
+        }
+        return qrCanvas.toDataURL('image/png');
+      };
+
+      const renderLabel = async (asset: { productId?: string; name?: string }): Promise<string> => {
+        const qrDataUrl = await makeQRDataUrl(asset.productId || '');
+        let barcodeDataUrl = '';
+        try {
+          const bc = document.createElement('canvas');
+          JsBarcode(bc, asset.productId || 'N/A', { format: 'CODE128', width: 1.2, height: Math.round(pxH * 0.12), displayValue: false });
+          barcodeDataUrl = bc.toDataURL('image/png');
+        } catch { /* ignore */ }
+        const fsH2 = Math.max(6, Math.round(pxH * 0.1));
+        const fsV = Math.max(8, Math.round(pxH * 0.14));
+        const fsName = Math.round(fsV * 0.55);
+        const qrPx = Math.min(pxW, pxH) * 0.5;
+        const barcodeH = Math.round(pxH * 0.12);
+        const gap = Math.round(pxH * 0.025);
+        const pad = Math.round(Math.min(pxW, pxH) * 0.03);
+        const canvas = document.createElement('canvas');
+        canvas.width = pxW; canvas.height = pxH;
+        const ctx = canvas.getContext('2d')!;
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, pxW, pxH);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = '#000';
+        let y = pad;
+        ctx.font = `bold ${fsH2}px "Segoe UI",Arial,sans-serif`;
+        ctx.fillText('Property of Abdulkadeer & Co.', pxW / 2, y); y += fsH2 + gap;
+        const qrImg = await loadImg(qrDataUrl);
+        const qrX = (pxW - qrPx) / 2;
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+        ctx.strokeRect(qrX - 4, y - 4, qrPx + 8, qrPx + 8);
+        ctx.drawImage(qrImg, qrX, y, qrPx, qrPx); y += qrPx + gap;
+        ctx.font = `600 ${fsName}px "Segoe UI",Arial,sans-serif`;
+        ctx.fillText(asset.name || '', pxW / 2, y); y += fsName + gap;
+        ctx.font = `bold ${fsV}px Consolas,monospace`;
+        ctx.fillText(asset.productId || '', pxW / 2, y); y += fsV + gap;
+        if (barcodeDataUrl) {
+          const bcImg = await loadImg(barcodeDataUrl);
+          const bcW = Math.min(pxW - pad * 2, barcodeH * (bcImg.width / bcImg.height));
+          ctx.drawImage(bcImg, (pxW - bcW) / 2, y, bcW, barcodeH);
+        }
+        return canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+      };
+
+      // Phase 1: generate all PNGs in parallel batches
+      const allBase64: string[] = [];
+      for (let start = 0; start < total; start += GEN_BATCH) {
+        setPrintAllBatchProgress(`Generating ${Math.min(start + GEN_BATCH, total)} of ${total}...`);
+        const batch = importedAssets.slice(start, start + GEN_BATCH);
+        const rendered = await Promise.all(batch.map(renderLabel));
+        allBase64.push(...rendered);
+      }
+
+      // Phase 2: send each label as its own job (PNG — no extra software needed)
+      for (let i = 0; i < allBase64.length; i++) {
+        setPrintAllBatchProgress(`Sending ${i + 1} of ${total} to printer...`);
+        const cpj = new ClientPrintJob();
+        cpj.clientPrinter = selectedPrinter ? new InstalledPrinter(selectedPrinter) : new DefaultPrinter();
+        cpj.files.push(new PrintFile(allBase64[i], FileSourceType.Base64, `label-${printerSpec}.png`, 1));
+        await cpj.sendToClient();
+      }
+      setPrintAllBatchProgress('');
+    } catch (err) {
+      console.error('Direct print all error:', err);
+      setPrintAllBatchProgress('');
+      const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err));
+      alert('Direct print error: ' + msg);
+    } finally {
+      setIsPrintingAll(false);
     }
   };
 
@@ -635,7 +889,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
     setIsSubmitting(true);
 
     const rows = validRows.map(row => ({
-      prefix: generateBarcodePrefix(row.category, row.name, row.location, row.subLocation),
+      prefix: generateBarcodePrefix(row.category, row.name, row.location),
       name: row.name,
       category: row.category,
       subCategory: row.subCategory,
@@ -1109,7 +1363,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                 <div className="bg-slate-50 p-3 border-b border-slate-200 flex justify-between items-center">
                   <h3 className="font-bold text-slate-700 text-sm flex items-center"><Table size={16} className="mr-2" /> Generated Tag List</h3>
                   <div className="flex gap-2">
-                    <button onClick={handlePrintAllTags} className="text-xs text-abdc-600 font-bold hover:underline flex items-center px-2 py-1 bg-white border border-abdc-200 rounded"><Printer size={14} className="mr-1" /> Print All Tags</button>
+                    <button onClick={() => setIsPrintAllSettingsOpen(true)} className="text-xs text-abdc-600 font-bold hover:underline flex items-center px-2 py-1 bg-white border border-abdc-200 rounded"><Printer size={14} className="mr-1" /> Print All Tags</button>
                     <button onClick={downloadImportedTags} className="text-xs text-abdc-600 font-bold hover:underline flex items-center px-2 py-1 bg-white border border-abdc-200 rounded"><Download size={14} className="mr-1" /> Export List</button>
                   </div>
                 </div>
@@ -1202,6 +1456,176 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Print All Tags Settings Modal */}
+      {isPrintAllSettingsOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Printer size={20} className="text-slate-600" /> Print All Tags — Settings
+              </h3>
+              <button onClick={() => setIsPrintAllSettingsOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              {/* Printer selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Select Printer</label>
+                {jspmConnected && printers.length > 0 ? (
+                  <select
+                    value={selectedPrinter}
+                    onChange={(e) => setSelectedPrinter(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                  >
+                    {printers.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-500">Install JSPM Client to select printers directly. <a href="https://neodynamic.com/downloads/jspm" target="_blank" rel="noopener noreferrer" className="text-abdc-600 hover:underline">Download</a></p>
+                    <button
+                      type="button"
+                      onClick={loadPrinters}
+                      disabled={isLoadingPrinters}
+                      className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {isLoadingPrinters ? <span className="animate-spin inline-block w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full" /> : null}
+                      Load printers
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Label preview */}
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Label preview (first asset)</label>
+                <div
+                  className="bg-white border border-slate-200 rounded overflow-hidden shadow-sm mx-auto"
+                  style={(() => {
+                    const aspect = printAllSettings.orientation === 'landscape'
+                      ? printAllSettings.height / printAllSettings.width
+                      : printAllSettings.width / printAllSettings.height;
+                    const maxW = 220, maxH = 140;
+                    const w = aspect >= maxW / maxH ? maxW : maxH * aspect;
+                    const h = aspect >= maxW / maxH ? maxW / aspect : maxH;
+                    return { width: Math.round(w), height: Math.round(h) };
+                  })()}
+                >
+                  <div className="flex flex-col h-full items-center justify-center text-center gap-1 p-2 overflow-hidden">
+                    <div style={{ fontSize: 8 }} className="font-bold shrink-0">Property of Abdulkadeer &amp; Co.</div>
+                    <div className="w-12 h-12 shrink-0 flex items-center justify-center bg-white border border-slate-200 p-0.5">
+                      {previewAllQrUrl
+                        ? <img src={previewAllQrUrl} alt="QR" className="w-full h-full object-contain" />
+                        : <div className="w-full h-full bg-slate-100 animate-pulse rounded" />}
+                    </div>
+                    <div style={{ fontSize: 6 }} className="font-semibold text-slate-800 shrink-0 break-words w-full px-1">{importedAssets[0]?.name || '-'}</div>
+                    <div style={{ fontSize: 9 }} className="font-mono font-bold truncate max-w-full shrink-0">{importedAssets[0]?.productId || '-'}</div>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 mt-1 text-center">{importedAssets.length} tags will be printed</p>
+              </div>
+
+              {/* Units */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Units</label>
+                <select
+                  value={printAllSettings.units}
+                  onChange={(e) => {
+                    const newUnit = e.target.value as 'inch' | 'mm' | 'cm';
+                    const u = printAllSettings.units;
+                    const wI = toInch(printAllSettings.width, u);
+                    const hI = toInch(printAllSettings.height, u);
+                    setPrintAllSettings(p => ({
+                      ...p,
+                      units: newUnit,
+                      width: Math.round(fromInch(wI, newUnit) * 100) / 100,
+                      height: Math.round(fromInch(hI, newUnit) * 100) / 100,
+                    }));
+                  }}
+                  className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                >
+                  <option value="inch">inch</option>
+                  <option value="mm">mm</option>
+                  <option value="cm">cm</option>
+                </select>
+              </div>
+
+              {/* Width */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Width</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" step="0.01" min="0.5" max="50"
+                    value={printAllSettings.width}
+                    onChange={(e) => setPrintAllSettings(p => ({ ...p, width: parseFloat(e.target.value) || 2.7 }))}
+                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500"
+                  />
+                  <span className="text-sm text-slate-500 shrink-0">{printAllSettings.units}</span>
+                </div>
+              </div>
+
+              {/* Height */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Height</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" step="0.01" min="0.5" max="50"
+                    value={printAllSettings.height}
+                    onChange={(e) => setPrintAllSettings(p => ({ ...p, height: parseFloat(e.target.value) || 1.1 }))}
+                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500"
+                  />
+                  <span className="text-sm text-slate-500 shrink-0">{printAllSettings.units}</span>
+                </div>
+              </div>
+
+              {/* Orientation */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Orientation</label>
+                <select
+                  value={printAllSettings.orientation}
+                  onChange={(e) => setPrintAllSettings(p => ({ ...p, orientation: e.target.value as 'normal' | 'landscape' }))}
+                  className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                >
+                  <option value="normal">Normal</option>
+                  <option value="landscape">Landscape</option>
+                </select>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-500 mt-4">
+              Tip: In the print dialog, set paper size to match your label ({printAllSettings.width}×{printAllSettings.height} {printAllSettings.units}).
+            </p>
+
+            <div className="flex flex-wrap justify-end gap-3 mt-6">
+              <button onClick={() => setIsPrintAllSettingsOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">
+                Cancel
+              </button>
+              {jspmConnected && printers.length > 0 ? (
+                <button
+                  onClick={handlePrintAllDirect}
+                  disabled={isPrintingAll}
+                  className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Printer size={16} />
+                  {isPrintingAll ? (printAllBatchProgress || 'Preparing...') : `Print to ${selectedPrinter || 'Printer'}`}
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setIsPrintAllSettingsOpen(false); handlePrintAllTags(printAllSettings); }}
+                  disabled={isPrintingAll}
+                  className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Printer size={16} />
+                  {isPrintingAll ? 'Preparing...' : `Print All ${importedAssets.length} Tags`}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
