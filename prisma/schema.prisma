@@ -1,11 +1,182 @@
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id         String         @id @default(cuid())
+  name       String
+  email      String         @unique
+  password   String         @default("$2a$10$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+  department String
+  role       Role           @default(CUSTODIAN)
+  lastLogin  DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  assets     Asset[]        @relation("AssetCustodian")
+  history    AssetHistory[]
+}
+
+model Asset {
+  id               String                 @id @default(cuid())
+  productId        String                 @unique
+  name             String
+  category         String
+  subCategory      String?
+  acquisitionCost  Decimal
+  acquisitionDate  DateTime
+  salvageValue     Decimal                @default(0)
+  usefulLife       Int
+  method           DepreciationMethod     @default(STRAIGHT_LINE)
+  location         String
+  subLocation      String?
+  status           AssetStatus            @default(ACTIVE)
+  conditionCode    String?
+  image            String?
+  registrationDate DateTime               @default(now())
+  custodianId      String
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  custodian        User                   @relation("AssetCustodian", fields: [custodianId], references: [id])
+  history          AssetHistory[]
+  improvements     AssetImprovement[]
+  schedules        DepreciationSchedule[]
+  transferRequests TransferRequest[]
+}
+
+model DepreciationSchedule {
+  id                  String   @id @default(cuid())
+  assetId             String
+  year                Int
+  fiscalYear          Int
+  depreciationExpense Decimal
+  accumulatedDepr     Decimal
+  netBookValue        Decimal
+  createdAt           DateTime @default(now())
+  asset               Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model TransferRequest {
+  id            String    @id @default(cuid())
+  assetId       String
+  fromLocation  String
+  toLocation    String
+  toCustodian   String
+  toCustodianId String?
+  requestedById String
+  approvedById  String?
+  status        String    @default("PENDING")
+  requestedAt   DateTime  @default(now())
+  resolvedAt    DateTime?
+  notes         String?
+  asset         Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model AssetHistory {
+  id           String   @id @default(cuid())
+  assetId      String
+  date         DateTime @default(now())
+  action       String
+  details      String
+  type         String
+  userId       String
+  fromLocation String?
+  toCustodian  String?
+  toLocation   String?
+  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model AssetImprovement {
+  id                 String   @id @default(cuid())
+  assetId            String
+  date               DateTime @default(now())
+  type               String
+  amount             Decimal
+  description        String
+  newAcquisitionCost Decimal
+  asset              Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  location  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Custodian {
+  id         String   @id @default(cuid())
+  name       String
+  department String
+  location   String
+  email      String?
+  phone      String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  code       String?
+  sortOrder  Int         @default(0)
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  assetTypes AssetType[]
+}
+
+model AssetType {
+  id         String   @id @default(cuid())
+  categoryId String
+  name       String
+  code       String?
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+
+model AssetClass {
+  id               String            @id @default(cuid())
+  name             String            @unique
+  code             String?
+  sortOrder        Int               @default(0)
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  custodianOptions CustodianOption[]
+}
+
+model CustodianOption {
+  id           String     @id @default(cuid())
+  assetClassId String
+  name         String
+  sortOrder    Int        @default(0)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  assetClass   AssetClass @relation(fields: [assetClassId], references: [id], onDelete: Cascade)
 }
 
 enum Role {
@@ -27,192 +198,3 @@ enum DepreciationMethod {
   REDUCING_BALANCE
   SUM_OF_YEARS
 }
-
-model User {
-  id         String   @id @default(cuid())
-  name       String
-  email      String   @unique
-  password   String   @default("$2a$10$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") // Default to a placeholder if needed, or handle in migration. Better to make it optional temporarily or give a default. Actually, for dev, often easier to wipe db. Let's make it mandatory but we will reset DB.
-  department String
-  role       Role     @default(CUSTODIAN)
-  lastLogin  DateTime @default(now())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  assets     Asset[]  @relation("AssetCustodian")
-  history    AssetHistory[]
-}
-
-model Asset {
-  id               String      @id @default(cuid())
-  productId        String      @unique // e.g. AB-IT-001
-  name             String
-  category         String
-  subCategory      String?
-  
-  // Financials - using Decimal for precision
-  acquisitionCost  Decimal
-  acquisitionDate  DateTime
-  salvageValue     Decimal     @default(0)
-  usefulLife       Int         // in years
-  
-  method           DepreciationMethod @default(STRAIGHT_LINE)
-  
-  location         String
-  subLocation      String?
-  
-  status           AssetStatus @default(ACTIVE)
-  conditionCode    String?     // A1, A2, etc.
-  
-  image            String?
-  registrationDate DateTime    @default(now())
-  
-  // Relations
-  custodian        User        @relation("AssetCustodian", fields: [custodianId], references: [id])
-  custodianId      String
-  
-  history          AssetHistory[]
-  schedules        DepreciationSchedule[]
-  improvements     AssetImprovement[]
-  transferRequests TransferRequest[]
-
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-}
-
-model DepreciationSchedule {
-  id                   String   @id @default(cuid())
-  assetId              String
-  year                 Int
-  fiscalYear           Int
-  depreciationExpense  Decimal
-  accumulatedDepr      Decimal
-  netBookValue         Decimal
-  
-  asset                Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-
-  createdAt            DateTime @default(now())
-}
-
-model TransferRequest {
-  id           String   @id @default(cuid())
-  assetId      String
-  fromLocation String
-  toLocation   String
-  toCustodian  String
-  toCustodianId String?
-  requestedById String
-  approvedById  String?
-  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  requestedAt  DateTime @default(now())
-  resolvedAt   DateTime?
-  notes        String?
-  
-  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-}
-
-model AssetHistory {
-  id        String   @id @default(cuid())
-  assetId   String
-  date      DateTime @default(now())
-  action    String
-  details   String
-  type      String   // Registration, Transfer, etc.
-  fromLocation String?
-  toLocation   String?
-  toCustodian String?
-  
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  
-  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-}
-
-model AssetImprovement {
-  id                 String   @id @default(cuid())
-  assetId            String
-  date               DateTime @default(now())
-  type               String   // Addition, Reduction, Revaluation
-  amount             Decimal
-  description        String
-  newAcquisitionCost Decimal
-  
-  asset              Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-}
-
-model Department {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  code      String   @unique
-  location  String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Custodian {
-  id          String   @id @default(cuid())
-  name        String
-  department  String
-  location    String
-  email       String?
-  phone       String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Location {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  code      String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Category {
-  id         String      @id @default(cuid())
-  name       String      @unique
-  code       String?     // e.g. ITE, OE
-  sortOrder  Int         @default(0)
-  isActive   Boolean     @default(true)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  assetTypes AssetType[]
-}
-
-model AssetType {
-  id         String   @id @default(cuid())
-  categoryId String
-  name       String   // e.g. Laptops, Monitors
-  code       String?
-  sortOrder  Int      @default(0)
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-}
-
-model AssetClass {
-  id               String            @id @default(cuid())
-  name             String            @unique // e.g. General Purpose, Cluster
-  code             String?
-  sortOrder        Int               @default(0)
-  isActive         Boolean           @default(true)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  custodianOptions CustodianOption[]
-}
-
-model CustodianOption {
-  id          String    @id @default(cuid())
-  assetClassId String
-  name        String    // e.g. HR/Admin, Chairman's Secretary 3.01
-  sortOrder   Int       @default(0)
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  assetClass  AssetClass @relation(fields: [assetClassId], references: [id], onDelete: Cascade)
-}
-

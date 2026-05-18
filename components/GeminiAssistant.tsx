@@ -20,7 +20,7 @@ interface GeminiAssistantProps {
 const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Hello! I am your ABDC Asset Assistant. Ask me about asset values, disposal policies, or drafting reports. You can also upload images, documents, or use voice input.' }
+    { role: 'model', text: 'Hello! I am your QET Asset Assistant. Ask me about asset values, disposal policies, or drafting reports. You can also upload images, documents, or use voice input.' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -248,7 +248,7 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 p-4 bg-gradient-to-r from-abdc-800 to-accent-500 text-white rounded-full shadow-lg hover:shadow-xl transition-transform hover:scale-105 z-50 flex items-center gap-2"
+          className="fixed bottom-6 right-6 p-4 bg-gradient-to-r from-qet-800 to-accent-500 text-white rounded-full shadow-lg hover:shadow-xl transition-transform hover:scale-105 z-50 flex items-center gap-2"
         >
           <Sparkles size={24} />
           <span className="font-semibold hidden md:inline">Ask AI Assistant</span>
@@ -259,10 +259,10 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
       {isOpen && (
         <div className="fixed bottom-6 right-6 w-96 h-[500px] bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 flex flex-col animate-slideIn overflow-hidden font-sans">
           {/* Header */}
-          <div className="bg-gradient-to-r from-abdc-800 to-accent-500 p-4 text-white flex justify-between items-center">
+          <div className="bg-gradient-to-r from-qet-800 to-accent-500 p-4 text-white flex justify-between items-center">
             <div className="flex items-center gap-2">
               <Sparkles size={18} />
-              <h3 className="font-bold">ABDC AI Assistant</h3>
+              <h3 className="font-bold">QET AI Assistant</h3>
             </div>
             <button onClick={() => setIsOpen(false)} className="hover:bg-white/20 p-1 rounded">
               <X size={18} />
@@ -274,7 +274,7 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`max-w-[80%] p-3 rounded-lg text-sm ${msg.role === 'user'
-                  ? 'bg-abdc-600 text-white rounded-tr-none'
+                  ? 'bg-qet-600 text-white rounded-tr-none'
                   : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none shadow-sm'
                   }`}>
                   {msg.text}
@@ -305,7 +305,7 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
             {isLoading && (
               <div className="flex justify-start">
                 <div className="bg-white p-3 rounded-lg rounded-tl-none border border-slate-200 shadow-sm">
-                  <Loader2 size={16} className="animate-spin text-abdc-600" />
+                  <Loader2 size={16} className="animate-spin text-qet-600" />
                 </div>
               </div>
             )}
@@ -392,7 +392,7 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
                 onClick={toggleVoiceOutput}
                 className={`p-2 rounded-lg transition-colors ${
                   isSpeaking 
-                    ? 'bg-abdc-600 text-white hover:bg-abdc-700' 
+                    ? 'bg-qet-600 text-white hover:bg-qet-700' 
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
                 title={isSpeaking ? 'Stop Voice Output' : 'Enable Voice Output'}
@@ -407,12 +407,12 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder="Ask about assets, reports..."
-                className="flex-1 px-4 py-2 bg-slate-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-abdc-500"
+                className="flex-1 px-4 py-2 bg-slate-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-qet-500"
               />
               <button
                 onClick={handleSend}
                 disabled={isLoading || (!input.trim() && attachedImages.length === 0 && attachedDocuments.length === 0)}
-                className="p-2 bg-abdc-600 text-white rounded-full hover:bg-abdc-700 disabled:opacity-50"
+                className="p-2 bg-qet-600 text-white rounded-full hover:bg-qet-700 disabled:opacity-50"
               >
                 <Send size={18} />
               </button>

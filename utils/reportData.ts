@@ -1,5 +1,5 @@
 /**
- * Report data generators for ABDC Asset Management
+ * Report data generators for QET Asset Management
  * Includes yearly aggregation with opening/closing balances
  */
 

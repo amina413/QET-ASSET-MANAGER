@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+    darkMode: 'class',
     content: [
         "./index.html",
         "./*.{js,ts,jsx,tsx}",
@@ -10,24 +11,26 @@ export default {
     theme: {
         extend: {
             colors: {
-                abdc: {
-                    50: '#eefdf4',
-                    100: '#dcfce9',
-                    200: '#bbf7d0',
-                    300: '#86efac',
-                    400: '#4ade80',
-                    500: '#22c55e',
-                    600: '#006B3E',
-                    700: '#005532',
-                    800: '#004226',
-                    900: '#00331e',
+                qet: {
+                    50: '#eff6ff',
+                    100: '#dbeafe',
+                    200: '#bfdbfe',
+                    300: '#93c5fd',
+                    400: '#60a5fa',
+                    500: '#3b82f6',
+                    600: '#2563eb',
+                    700: '#1d4ed8',
+                    800: '#1e40af',
+                    900: '#1e3a8a',
+                    950: '#0f172a',
                 },
                 accent: {
-                    50: '#fffdf0',
-                    100: '#fff9c2',
-                    500: '#FFCC00',
-                    600: '#e6b800',
-                    700: '#b38f00',
+                    50: '#f0f9ff',
+                    100: '#e0f2fe',
+                    400: '#38bdf8',
+                    500: '#0ea5e9',
+                    600: '#0284c7',
+                    700: '#0369a1',
                 }
             },
             animation: {

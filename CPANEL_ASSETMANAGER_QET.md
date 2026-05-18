@@ -1,4 +1,4 @@
-# Deploy to assetmanager.abdc.com.ng
+# Deploy to assetmanager.qet.com.ng
 
 ## Important: Security
 
@@ -33,9 +33,9 @@
 
 ## Step 2: Upload to cPanel
 
-1. Log in at **https://cpanel.abdc.com.ng/**
+1. Log in at **https://cpanel.qet.com.ng/**
 2. Go to **File Manager**
-3. Navigate to the document root for **assetmanager.abdc.com.ng** (e.g. `public_html/assetmanager` or the subdomain folder)
+3. Navigate to the document root for **assetmanager.qet.com.ng** (e.g. `public_html/assetmanager` or the subdomain folder)
 4. Upload your ZIP and extract it
 
 ## Step 3: Setup Node.js Application
@@ -49,7 +49,7 @@
 | **Node.js version** | 18 or 20 |
 | **Application mode** | Production |
 | **Application root** | Path to your app (e.g. `public_html/assetmanager` or `assetmanager.abdc.com.ng`) |
-| **Application URL** | assetmanager.abdc.com.ng |
+| **Application URL** | assetmanager.qet.com.ng |
 | **Application startup file** | `server.js` |
 
 4. **Environment variables** (in the Node.js App UI):
@@ -66,7 +66,7 @@ If the app runs on a port (e.g. 3000), cPanel may need a **Proxy** or **Applicat
 
 ## Step 5: Verify
 
-Open **https://assetmanager.abdc.com.ng** in your browser.
+Open **https://assetmanager.qet.com.ng** in your browser.
 
 ## Troubleshooting
 

@@ -13,10 +13,60 @@
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #006B3E;
+    background: #2563eb;
     border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #004226;
+    background: #1e3a8a;
+}
+
+@layer base {
+  .dark {
+    color-scheme: dark;
+  }
+  
+  .dark body {
+    @apply bg-[#040810] text-slate-100;
+  }
+
+  /* Global component background overrides */
+  .dark .bg-white {
+    @apply bg-[#081020] border-slate-800 text-slate-100 !important;
+  }
+  .dark .bg-slate-50 {
+    @apply bg-[#040810] text-slate-100 !important;
+  }
+  
+  /* Text and Border overrides */
+  .dark .text-slate-900, 
+  .dark .text-slate-800, 
+  .dark .text-gray-900 {
+    @apply text-slate-100 !important;
+  }
+  .dark .text-slate-700,
+  .dark .text-slate-600, 
+  .dark .text-slate-500,
+  .dark .text-gray-600 {
+    @apply text-slate-300 !important;
+  }
+  .dark .border-slate-200, 
+  .dark .border-slate-100,
+  .dark .border-gray-200 {
+    @apply border-slate-800 !important;
+  }
+  .dark .bg-slate-100, .dark .bg-slate-200 {
+     @apply bg-slate-800 text-slate-100 !important;
+  }
+  
+  /* Override standard shadows to accommodate dark backgrounds */
+  .dark .shadow-sm, .dark .shadow, .dark .shadow-md, .dark .shadow-lg {
+      box-shadow: none !important;
+      border: 1px solid #1e293b !important;
+  }
+
+  /* Automatically swap the main platform logo to the white text variant in dark mode */
+  .dark img[src*="qet-logo-transparent.png"] {
+      content: url("/qet-logo-sidebar.png");
+  }
 }

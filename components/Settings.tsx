@@ -25,7 +25,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       <div className="max-w-4xl mx-auto pb-20 animate-fadeIn">
          <button
             onClick={onBack}
-            className="flex items-center text-sm text-slate-500 hover:text-abdc-600 mb-6 transition-colors group"
+            className="flex items-center text-sm text-slate-500 hover:text-qet-600 mb-6 transition-colors group"
          >
             <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
             Back to Dashboard
@@ -42,21 +42,21 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                <div className="space-y-1">
                   <button
                      onClick={() => setActiveTab('general')}
-                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'general' ? 'bg-white text-abdc-600 shadow-sm border border-slate-200' : 'text-slate-600 hover:bg-slate-100'}`}
+                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'general' ? 'bg-white text-qet-600 shadow-sm border border-slate-200' : 'text-slate-600 hover:bg-slate-100'}`}
                   >
                      <Monitor size={18} />
                      <span>General</span>
                   </button>
                   <button
                      onClick={() => setActiveTab('security')}
-                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'security' ? 'bg-white text-abdc-600 shadow-sm border border-slate-200' : 'text-slate-600 hover:bg-slate-100'}`}
+                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'security' ? 'bg-white text-qet-600 shadow-sm border border-slate-200' : 'text-slate-600 hover:bg-slate-100'}`}
                   >
                      <Lock size={18} />
                      <span>Security</span>
                   </button>
                   <button
                      onClick={() => setActiveTab('notifications')}
-                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'notifications' ? 'bg-white text-abdc-600 shadow-sm border border-slate-200' : 'text-slate-600 hover:bg-slate-100'}`}
+                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'notifications' ? 'bg-white text-qet-600 shadow-sm border border-slate-200' : 'text-slate-600 hover:bg-slate-100'}`}
                   >
                      <Bell size={18} />
                      <span>Notifications</span>
@@ -74,9 +74,9 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                         <div>
                            <label className="block text-sm font-medium text-slate-700 mb-2">Theme Preference</label>
                            <div className="flex gap-4">
-                              <div className="border-2 border-abdc-500 rounded-lg p-3 bg-white cursor-pointer w-32 shadow-sm">
+                              <div className="border-2 border-qet-500 rounded-lg p-3 bg-white cursor-pointer w-32 shadow-sm">
                                  <div className="h-12 bg-slate-100 rounded mb-2"></div>
-                                 <p className="text-center text-xs font-bold text-abdc-700">Light Mode</p>
+                                 <p className="text-center text-xs font-bold text-qet-700">Light Mode</p>
                               </div>
                               <div className="border border-slate-200 rounded-lg p-3 bg-slate-900 cursor-not-allowed w-32 opacity-50">
                                  <div className="h-12 bg-slate-700 rounded mb-2"></div>
@@ -120,7 +120,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                      </div>
 
                      <div className="pt-4">
-                        <button className="text-abdc-600 text-sm font-medium hover:underline">Enable Two-Factor Authentication</button>
+                        <button className="text-qet-600 text-sm font-medium hover:underline">Enable Two-Factor Authentication</button>
                      </div>
                   </div>
                )}
@@ -135,7 +135,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                               <p className="text-sm font-bold text-slate-800">Email Alerts</p>
                               <p className="text-xs text-slate-500">Receive system updates via email.</p>
                            </div>
-                           <div className={`w-10 h-5 rounded-full relative transition-colors ${notifications.email ? 'bg-abdc-600' : 'bg-slate-300'}`} onClick={() => setNotifications({ ...notifications, email: !notifications.email })}>
+                           <div className={`w-10 h-5 rounded-full relative transition-colors ${notifications.email ? 'bg-qet-600' : 'bg-slate-300'}`} onClick={() => setNotifications({ ...notifications, email: !notifications.email })}>
                               <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${notifications.email ? 'left-5.5' : 'left-0.5'}`}></div>
                            </div>
                         </label>
@@ -145,7 +145,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                               <p className="text-sm font-bold text-slate-800">Browser Push Notifications</p>
                               <p className="text-xs text-slate-500">Get notified about transfers immediately.</p>
                            </div>
-                           <div className={`w-10 h-5 rounded-full relative transition-colors ${notifications.push ? 'bg-abdc-600' : 'bg-slate-300'}`} onClick={() => setNotifications({ ...notifications, push: !notifications.push })}>
+                           <div className={`w-10 h-5 rounded-full relative transition-colors ${notifications.push ? 'bg-qet-600' : 'bg-slate-300'}`} onClick={() => setNotifications({ ...notifications, push: !notifications.push })}>
                               <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${notifications.push ? 'left-5.5' : 'left-0.5'}`}></div>
                            </div>
                         </label>
@@ -155,7 +155,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                               <p className="text-sm font-bold text-slate-800">Weekly Summary Report</p>
                               <p className="text-xs text-slate-500">A weekly digest of asset activities.</p>
                            </div>
-                           <div className={`w-10 h-5 rounded-full relative transition-colors ${notifications.weeklyReport ? 'bg-abdc-600' : 'bg-slate-300'}`} onClick={() => setNotifications({ ...notifications, weeklyReport: !notifications.weeklyReport })}>
+                           <div className={`w-10 h-5 rounded-full relative transition-colors ${notifications.weeklyReport ? 'bg-qet-600' : 'bg-slate-300'}`} onClick={() => setNotifications({ ...notifications, weeklyReport: !notifications.weeklyReport })}>
                               <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${notifications.weeklyReport ? 'left-5.5' : 'left-0.5'}`}></div>
                            </div>
                         </label>
@@ -166,7 +166,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
                   <button
                      onClick={handleSave}
-                     className="px-6 py-2 bg-abdc-600 text-white rounded-lg font-bold hover:bg-abdc-700 transition-colors flex items-center"
+                     className="px-6 py-2 bg-qet-600 text-white rounded-lg font-bold hover:bg-qet-700 transition-colors flex items-center"
                   >
                      {isSaved ? <Check size={18} className="mr-2" /> : <Save size={18} className="mr-2" />}
                      {isSaved ? 'Saved!' : 'Save Changes'}

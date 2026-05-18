@@ -1,4 +1,4 @@
-# Deploy ABDC Asset Manager on cPanel
+# Deploy QET ASSET MANAGER on cPanel
 
 This guide walks you through deploying the Next.js app on cPanel hosting.
 
@@ -32,7 +32,7 @@ npm run build
 
 ```bash
 cd ~/yourdomain.com
-git clone https://github.com/your-repo/ABDC_Asset_Manager.git .
+git clone https://github.com/your-repo/QET_Asset_Manager.git .
 npm install
 npm run build
 ```

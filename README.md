@@ -1,9 +1,9 @@
-# ABDC Asset Management System
+# QET ASSET MANAGER
 
 ## How to run the app
 
 ### Option 1: Double-click (easiest)
-1. Open the folder: `ABDC_Asset_Manager`
+1. Open the folder: `QET-Asset-Manager`
 2. Double-click **`start.bat`**
 3. Wait until you see **"✓ Ready"** in the window
 4. Open your browser and go to: **http://localhost:3000**  
@@ -13,7 +13,7 @@
 1. Open Command Prompt or PowerShell
 2. Go to the project folder:
    ```
-   cd "c:\Users\ABDC 1\Videos\fixt asset\ABDC_Asset_Manager"
+   cd "c:\Users\QET 1\Videos\fixt asset\QET_Asset_Manager"
    ```
 3. Run:
    ```
@@ -43,7 +43,7 @@
 npm install
 npx prisma generate
 npx prisma migrate deploy   # or: npx prisma db push
-node prisma/seed.js          # optional: seed users and reference data (default login: admin@abdc.com / password123)
+node prisma/seed.js          # optional: seed users and reference data (default login: admin@qet.com / password123)
 npm run build
 npm start
 ```

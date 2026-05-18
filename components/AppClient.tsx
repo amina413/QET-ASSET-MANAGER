@@ -17,7 +17,7 @@ import Audit from './Audit';
 import Login from './Login';
 import { Menu, Loader2 } from 'lucide-react';
 
-const SESSION_KEY = 'abdc_user';
+const SESSION_KEY = 'qet_user';
 
 interface AppClientProps {
     initialAssets: Asset[];
@@ -38,6 +38,15 @@ export default function AppClient({ initialAssets, initialUsers }: AppClientProp
             if (stored) {
                 const user = JSON.parse(stored) as User;
                 if (user?.id && user?.email) setCurrentUser(user);
+            }
+            
+            // Initialize dark mode
+            if (typeof window !== 'undefined') {
+                if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
             }
         } catch {
             // Ignore invalid stored data
@@ -147,7 +156,7 @@ export default function AppClient({ initialAssets, initialUsers }: AppClientProp
     if (isRestoringSession) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <Loader2 className="w-10 h-10 text-abdc-600 animate-spin" />
+                <Loader2 className="w-10 h-10 text-qet-600 animate-spin" />
             </div>
         );
     }

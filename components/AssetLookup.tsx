@@ -57,7 +57,7 @@ const DepreciationView = ({ activeAsset }: { activeAsset: Asset }) => {
     <>
       {/* 1. Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-abdc-300 transition-colors">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-qet-300 transition-colors">
           <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><TrendingDown size={48} className="text-blue-600" /></div>
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Net Book Value</p>
           <h3 className="text-2xl font-bold text-slate-800">₦{effectiveNBV.toLocaleString(undefined, { maximumFractionDigits: 0 })}</h3>
@@ -82,8 +82,8 @@ const DepreciationView = ({ activeAsset }: { activeAsset: Asset }) => {
           <p className="text-xs text-slate-400 mt-2">Fiscal Year {currentYear}</p>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-green-300 transition-colors">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><RefreshCw size={48} className="text-green-600" /></div>
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-blue-300 transition-colors">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><RefreshCw size={48} className="text-blue-600" /></div>
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Methodology</p>
           <h3 className="text-lg font-bold text-slate-800 break-words line-clamp-1" title={activeAsset.method}>{activeAsset.method?.replace('_', ' ') || 'Straight Line'}</h3>
           <p className="text-xs text-slate-400 mt-2">Life: {activeAsset.usefulLife} Years</p>
@@ -95,7 +95,7 @@ const DepreciationView = ({ activeAsset }: { activeAsset: Asset }) => {
         {/* Chart Area */}
         <div className="lg:col-span-3 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h4 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
-            <Activity size={18} className="text-abdc-600" /> Depreciation Trajectory (Annual)
+            <Activity size={18} className="text-qet-600" /> Depreciation Trajectory (Annual)
           </h4>
           <div className="h-64 flex items-end justify-between gap-2 px-2 pb-2 border-b border-slate-200">
             {schedule.map((entry, idx) => {
@@ -112,12 +112,12 @@ const DepreciationView = ({ activeAsset }: { activeAsset: Asset }) => {
                   </div>
 
                   <div
-                    className={`w-full max-w-[40px] rounded-t-sm transition-all duration-500 relative cursor-pointer ${isCurrent ? 'bg-abdc-600 shadow-lg shadow-abdc-200' : isPast ? 'bg-slate-300 hover:bg-slate-400' : 'bg-abdc-200 hover:bg-abdc-300'}`}
+                    className={`w-full max-w-[40px] rounded-t-sm transition-all duration-500 relative cursor-pointer ${isCurrent ? 'bg-qet-600 shadow-lg shadow-qet-200' : isPast ? 'bg-slate-300 hover:bg-slate-400' : 'bg-qet-200 hover:bg-qet-300'}`}
                     style={{ height: `${Math.max(heightPercent, 2)}%` }}
                   >
                     {isCurrent && <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white rounded-full"></div>}
                   </div>
-                  <span className={`text-[10px] mt-2 font-medium ${isCurrent ? 'text-abdc-700 font-bold bg-abdc-50 px-1 rounded' : 'text-slate-400'}`}>{entry.fiscal_year}</span>
+                  <span className={`text-[10px] mt-2 font-medium ${isCurrent ? 'text-qet-700 font-bold bg-qet-50 px-1 rounded' : 'text-slate-400'}`}>{entry.fiscal_year}</span>
                 </div>
               )
             })}
@@ -131,8 +131,8 @@ const DepreciationView = ({ activeAsset }: { activeAsset: Asset }) => {
               <Table size={18} className="text-slate-500" /> Depreciation Schedule
             </h4>
             <div className="flex bg-white rounded-lg border border-slate-200 p-1">
-              <button onClick={() => setViewMode('Annual')} className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'Annual' ? 'bg-abdc-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>Annual</button>
-              <button onClick={() => setViewMode('Monthly')} className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'Monthly' ? 'bg-abdc-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>Monthly</button>
+              <button onClick={() => setViewMode('Annual')} className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'Annual' ? 'bg-qet-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>Annual</button>
+              <button onClick={() => setViewMode('Monthly')} className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'Monthly' ? 'bg-qet-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>Monthly</button>
             </div>
           </div>
           <div className="overflow-x-auto max-h-[500px]">
@@ -195,7 +195,7 @@ const DepreciationView = ({ activeAsset }: { activeAsset: Asset }) => {
       </div>
 
       {/* Simulator Section */}
-      <div className="bg-slate-50 p-6 rounded-xl border border-dashed border-slate-300 mt-4 transition-all hover:border-abdc-300 hover:shadow-sm h-fit">
+      <div className="bg-slate-50 p-6 rounded-xl border border-dashed border-slate-300 mt-4 transition-all hover:border-qet-300 hover:shadow-sm h-fit">
         <div className="flex items-start gap-4">
           <div className="p-3 bg-white rounded-lg shadow-sm text-slate-400">
             <Calculator size={24} />
@@ -270,7 +270,7 @@ const AssetListView: React.FC<AssetListViewProps> = memo(({
     <div className="flex justify-between items-center mb-2 flex-wrap gap-3">
       <button
         onClick={onClose}
-        className="flex items-center text-sm text-slate-500 hover:text-abdc-600 transition-colors group"
+        className="flex items-center text-sm text-slate-500 hover:text-qet-600 transition-colors group"
       >
         <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
         Back to Asset Management
@@ -279,7 +279,7 @@ const AssetListView: React.FC<AssetListViewProps> = memo(({
         {/* Always visible Print All Tags button */}
         <button
           onClick={onPrintAll}
-          className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 transition-colors shadow-sm flex items-center gap-2 font-medium"
+          className="px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 transition-colors shadow-sm flex items-center gap-2 font-medium"
         >
           <Printer size={16} />
           Print All Tags
@@ -314,17 +314,17 @@ const AssetListView: React.FC<AssetListViewProps> = memo(({
 
     {/* Selection action bar — appears when checkboxes are ticked */}
     {someSelected && (
-      <div className="flex items-center gap-3 px-4 py-2.5 bg-abdc-50 border border-abdc-200 rounded-lg flex-wrap">
-        <CheckCircle2 size={16} className="text-abdc-600 shrink-0" />
-        <span className="text-sm text-abdc-700"><strong>{selectedIds.size}</strong> asset{selectedIds.size > 1 ? 's' : ''} selected</span>
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-qet-50 border border-qet-200 rounded-lg flex-wrap">
+        <CheckCircle2 size={16} className="text-qet-600 shrink-0" />
+        <span className="text-sm text-qet-700"><strong>{selectedIds.size}</strong> asset{selectedIds.size > 1 ? 's' : ''} selected</span>
         <button
           onClick={onPrintSelected}
-          className="ml-1 px-3 py-1.5 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 text-sm flex items-center gap-1.5 font-medium"
+          className="ml-1 px-3 py-1.5 bg-qet-600 text-white rounded-lg hover:bg-qet-700 text-sm flex items-center gap-1.5 font-medium"
         >
           <Printer size={14} />
           Print Selected ({selectedIds.size})
         </button>
-        <button onClick={someSelected && !allSelected ? onSelectAll : onClearAll} className="px-3 py-1.5 text-sm text-abdc-600 hover:underline">
+        <button onClick={someSelected && !allSelected ? onSelectAll : onClearAll} className="px-3 py-1.5 text-sm text-qet-600 hover:underline">
           {allSelected ? 'Deselect All' : 'Select All'}
         </button>
         <button onClick={onClearAll} className="px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg bg-white ml-auto">
@@ -335,7 +335,7 @@ const AssetListView: React.FC<AssetListViewProps> = memo(({
 
 
     {someSelected && (
-      <div className="px-4 py-2 bg-abdc-50 border border-abdc-200 rounded-lg text-sm text-abdc-700 flex items-center gap-2">
+      <div className="px-4 py-2 bg-qet-50 border border-qet-200 rounded-lg text-sm text-qet-700 flex items-center gap-2">
         <CheckCircle2 size={16} />
         <span><strong>{selectedIds.size}</strong> asset{selectedIds.size > 1 ? 's' : ''} selected for printing</span>
         <button onClick={onSelectAll} className="ml-auto text-xs underline hover:no-underline">
@@ -354,7 +354,7 @@ const AssetListView: React.FC<AssetListViewProps> = memo(({
                   type="checkbox"
                   checked={allSelected}
                   onChange={allSelected ? onClearAll : onSelectAll}
-                  className="w-4 h-4 accent-abdc-600 cursor-pointer"
+                  className="w-4 h-4 accent-qet-600 cursor-pointer"
                   title={allSelected ? 'Deselect all' : 'Select all'}
                 />
               </th>
@@ -375,7 +375,7 @@ const AssetListView: React.FC<AssetListViewProps> = memo(({
               return (
               <tr
                 key={asset.id}
-                className={`hover:bg-slate-50 transition-colors group cursor-pointer ${isSelected ? 'bg-abdc-50' : ''}`}
+                className={`hover:bg-slate-50 transition-colors group cursor-pointer ${isSelected ? 'bg-qet-50' : ''}`}
               >
                 <td className="p-4" onClick={(e) => { e.stopPropagation(); onToggleSelect(asset.productId); }}>
                   <input
@@ -383,10 +383,10 @@ const AssetListView: React.FC<AssetListViewProps> = memo(({
                     checked={isSelected}
                     onChange={() => onToggleSelect(asset.productId)}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-4 h-4 accent-abdc-600 cursor-pointer"
+                    className="w-4 h-4 accent-qet-600 cursor-pointer"
                   />
                 </td>
-                <td className="p-4 font-mono font-medium text-abdc-600 cursor-pointer" onClick={() => onSelectAsset(asset)}>{asset.productId}</td>
+                <td className="p-4 font-mono font-medium text-qet-600 cursor-pointer" onClick={() => onSelectAsset(asset)}>{asset.productId}</td>
                 <td className="p-4 font-bold text-slate-800 cursor-pointer" onClick={() => onSelectAsset(asset)}>{asset.name}</td>
                 <td className="p-4 text-slate-600 text-xs cursor-pointer" onClick={() => onSelectAsset(asset)}>
                   <span className="px-2 py-1 bg-slate-100 rounded-md uppercase tracking-wider">{asset.category}</span>
@@ -976,7 +976,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     await new Promise<void>((resolve) => {
       logoImg.onload = () => resolve();
       logoImg.onerror = () => resolve();
-      logoImg.src = '/abdc-logo-circular.jpg';
+      logoImg.src = '/qet-logo-circular.png';
     });
     if (logoImg.width && logoImg.height) {
       const ctx = canvas.getContext('2d');
@@ -1833,7 +1833,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `ABDC_Asset_Inventory_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `QET_Asset_Inventory_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -1872,7 +1872,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Assets");
-    XLSX.writeFile(wb, `ABDC_Asset_Inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(wb, `QET_Asset_Inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
 
     setNotificationMessage("Excel exported successfully");
     setNotificationType('success');
@@ -1893,7 +1893,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.text('ABDC Asset Inventory Report', 14, 10);
+      doc.text('QET Asset Inventory Report', 14, 10);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.text(`Generated: ${dateStr}  |  Total Assets: ${assets.length}`, 14, 17);
@@ -1970,14 +1970,14 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
           doc.setFontSize(8);
           doc.setTextColor(150);
           doc.text(
-            `Page ${data.pageNumber} of ${pageCount}  |  ABDC Asset Management System`,
+            `Page ${data.pageNumber} of ${pageCount}  |  QET Asset Management System`,
             data.settings.margin.left,
             doc.internal.pageSize.height - 5
           );
         },
       });
 
-      doc.save(`ABDC_Asset_Inventory_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`QET_Asset_Inventory_${new Date().toISOString().split('T')[0]}.pdf`);
       setNotificationMessage(`PDF exported — ${assets.length} assets`);
       setNotificationType('success');
       setShowNotification(true);
@@ -2011,7 +2011,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
               onBack();
             }
           }}
-          className="flex items-center text-sm text-slate-500 hover:text-abdc-600 mb-6 transition-colors group"
+          className="flex items-center text-sm text-slate-500 hover:text-qet-600 mb-6 transition-colors group"
         >
           <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
           {activeAsset ? 'Back to Search' : 'Back to Dashboard'}
@@ -2045,10 +2045,14 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
       ) : (
         <>
           {/* Header Area */}
-          <div className={`bg-white p-6 rounded-xl shadow-sm border mb-6 space-y-4 ${managementMode ? 'border-abdc-200 bg-abdc-50' : 'border-slate-100'}`}>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3 text-abdc-800">
-                {managementMode ? <Briefcase size={28} /> : <ScanLine size={28} />}
+          <div className={`bg-white p-6 rounded-xl shadow-sm border mb-6 space-y-4 ${managementMode ? 'border-qet-200 bg-qet-50' : 'border-slate-100'}`}>
+            <div className="flex justify-between items-start">
+              <div className="flex items-start gap-4 text-qet-800">
+                <img
+                  src="./qet-logo-transparent.png"
+                  alt="QET Logo"
+                  className="h-12 w-auto object-contain"
+                />
                 <div>
                   <h2 className="text-2xl font-bold">{managementMode ? 'Asset Management' : 'Scan & Lookup'}</h2>
                   <p className="text-sm text-slate-500 opacity-80">{managementMode ? 'Update conditions, transfer assets, and lifecycle management.' : 'Search inventory, scan tags, and track assets.'}</p>
@@ -2064,7 +2068,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                   value={searchTerm}
                   onChange={(e) => handleSearch(e.target.value)}
                   placeholder={managementMode ? "Search to manage..." : "Search assets by name, ID..."}
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-abdc-500 outline-none text-slate-700"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-qet-500 outline-none text-slate-700"
                 />
               </div>
 
@@ -2095,7 +2099,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                 <select
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value)}
-                  className="w-full pl-3 pr-8 py-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-abdc-500 outline-none text-slate-700 appearance-none text-sm"
+                  className="w-full pl-3 pr-8 py-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-qet-500 outline-none text-slate-700 appearance-none text-sm"
                 >
                   <option value="All">All Locations</option>
                   {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
@@ -2108,7 +2112,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                 <select
                   value={conditionFilter}
                   onChange={(e) => setConditionFilter(e.target.value)}
-                  className="w-full pl-3 pr-8 py-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-abdc-500 outline-none text-slate-700 appearance-none text-sm"
+                  className="w-full pl-3 pr-8 py-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-qet-500 outline-none text-slate-700 appearance-none text-sm"
                 >
                   <option value="All">All Conditions</option>
                   {Object.entries(CONDITION_DESCRIPTIONS).map(([code, desc]) => (
@@ -2131,7 +2135,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                 </button>
                 <button
                   onClick={() => startCamera()}
-                  className="flex flex-col items-center justify-center p-4 bg-white border border-abdc-200 rounded-xl text-abdc-700 hover:bg-abdc-50 transition-colors shadow-sm"
+                  className="flex flex-col items-center justify-center p-4 bg-white border border-qet-200 rounded-xl text-qet-700 hover:bg-qet-50 transition-colors shadow-sm"
                 >
                   <Camera size={24} className="mb-2" />
                   <span className="text-sm font-semibold">Scan Barcode / QR</span>
@@ -2164,7 +2168,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                   <h2 className="text-xl font-bold text-slate-900">{trackedAsset.name}</h2>
                   <p className="font-mono text-sm text-slate-500">{trackedAsset.productId}</p>
                 </div>
-                <button onClick={() => selectAsset(trackedAsset)} className="text-sm text-abdc-600 hover:underline">View Details</button>
+                <button onClick={() => selectAsset(trackedAsset)} className="text-sm text-qet-600 hover:underline">View Details</button>
               </div>
               <div className="grid grid-cols-3 gap-4 mt-4">
                 <div className="bg-slate-50 p-3 rounded-lg">
@@ -2195,9 +2199,9 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                       setPendingAction('transfer');
                       setIsViewAllOpen(true);
                     }}
-                    className="p-4 bg-white border border-slate-200 rounded-xl hover:border-abdc-500 hover:shadow-md transition-all text-left group"
+                    className="p-4 bg-white border border-slate-200 rounded-xl hover:border-qet-500 hover:shadow-md transition-all text-left group"
                   >
-                    <div className="w-10 h-10 bg-abdc-100 rounded-full flex items-center justify-center text-abdc-600 mb-3 group-hover:bg-abdc-600 group-hover:text-white transition-colors">
+                    <div className="w-10 h-10 bg-qet-100 rounded-full flex items-center justify-center text-qet-600 mb-3 group-hover:bg-qet-600 group-hover:text-white transition-colors">
                       <ArrowRightLeft size={20} />
                     </div>
                     <h4 className="font-bold text-slate-800">Transfer Asset</h4>
@@ -2208,9 +2212,9 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                       setPendingAction('condition');
                       setIsViewAllOpen(true);
                     }}
-                    className="p-4 bg-white border border-slate-200 rounded-xl hover:border-amber-500 hover:shadow-md transition-all text-left group"
+                    className="p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-left group"
                   >
-                    <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mb-3 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                    <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 mb-3 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                       <Activity size={20} />
                     </div>
                     <h4 className="font-bold text-slate-800">Update Condition</h4>
@@ -2225,8 +2229,8 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                       <p className="text-xs text-slate-500 mt-1">Verify physical inventory.</p>
                     </button>
                   )}
-                  <button onClick={() => setIsViewAllOpen(true)} className="p-4 bg-white border border-slate-200 rounded-xl hover:border-abdc-500 hover:shadow-md transition-all text-left group">
-                    <div className="w-10 h-10 bg-abdc-100 rounded-full flex items-center justify-center text-abdc-600 mb-3 group-hover:bg-abdc-600 group-hover:text-white transition-colors">
+                  <button onClick={() => setIsViewAllOpen(true)} className="p-4 bg-white border border-slate-200 rounded-xl hover:border-qet-500 hover:shadow-md transition-all text-left group">
+                    <div className="w-10 h-10 bg-qet-100 rounded-full flex items-center justify-center text-qet-600 mb-3 group-hover:bg-qet-600 group-hover:text-white transition-colors">
                       <Table size={20} />
                     </div>
                     <h4 className="font-bold text-slate-800">View All Assets</h4>
@@ -2265,7 +2269,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                             </td>
                             <td className="p-4 text-slate-600">{asset.location}</td>
                             <td className="p-4 text-right">
-                              <button onClick={() => selectAsset(asset)} className="text-abdc-600 hover:text-abdc-800 font-medium text-xs border border-abdc-200 px-3 py-1 rounded hover:bg-abdc-50">Manage</button>
+                              <button onClick={() => selectAsset(asset)} className="text-qet-600 hover:text-qet-800 font-medium text-xs border border-qet-200 px-3 py-1 rounded hover:bg-qet-50">Manage</button>
                             </td>
                           </tr>
                         ))
@@ -2358,21 +2362,21 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4 flex-1">
                               {asset.image ? (
-                                <button type="button" onClick={(e) => { e.stopPropagation(); setImageLightboxUrl(asset.image!); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 focus:ring-2 focus:ring-abdc-500" title="Click to open image">
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setImageLightboxUrl(asset.image!); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 focus:ring-2 focus:ring-qet-500" title="Click to open image">
                                   <img src={asset.image} alt={asset.name} className="w-12 h-12 object-cover hover:opacity-90 transition-opacity" />
                                 </button>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={(e) => handleImageUploadClick(e, asset.id)}
-                                  className="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-400 transition-colors cursor-pointer border-2 border-dashed border-slate-300 hover:border-abdc-500 group"
+                                  className="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-400 transition-colors cursor-pointer border-2 border-dashed border-slate-300 hover:border-qet-500 group"
                                   title="Click to upload image"
                                   disabled={isUploadingImage && imageUploadAssetId === asset.id}
                                 >
                                   {isUploadingImage && imageUploadAssetId === asset.id ? (
-                                    <Loader2 size={16} className="animate-spin text-abdc-600" />
+                                    <Loader2 size={16} className="animate-spin text-qet-600" />
                                   ) : (
-                                    <ImageIcon size={16} className="text-slate-500 group-hover:text-abdc-600" />
+                                    <ImageIcon size={16} className="text-slate-500 group-hover:text-qet-600" />
                                   )}
                                 </button>
                               )}
@@ -2445,24 +2449,24 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider ml-1">Search Results ({searchResults.length})</h3>
               {searchResults.map((asset) => (
-                <div key={asset.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between hover:border-abdc-300 cursor-pointer transition-all">
+                <div key={asset.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between hover:border-qet-300 cursor-pointer transition-all">
                   <div className="flex items-center space-x-4 flex-1" onClick={() => selectAsset(asset)}>
                     {asset.image ? (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); setImageLightboxUrl(asset.image!); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 focus:ring-2 focus:ring-abdc-500" title="Click to open image">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setImageLightboxUrl(asset.image!); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 focus:ring-2 focus:ring-qet-500" title="Click to open image">
                         <img src={asset.image} alt={asset.name} className="w-12 h-12 object-cover hover:opacity-90 transition-opacity" />
                       </button>
                     ) : (
                       <button
                         type="button"
                         onClick={(e) => handleImageUploadClick(e, asset.id)}
-                        className="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-400 transition-colors cursor-pointer border-2 border-dashed border-slate-300 hover:border-abdc-500 group"
+                        className="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-400 transition-colors cursor-pointer border-2 border-dashed border-slate-300 hover:border-qet-500 group"
                         title="Click to upload image"
                         disabled={isUploadingImage && imageUploadAssetId === asset.id}
                       >
                         {isUploadingImage && imageUploadAssetId === asset.id ? (
-                          <Loader2 size={16} className="animate-spin text-abdc-600" />
+                          <Loader2 size={16} className="animate-spin text-qet-600" />
                         ) : (
-                          <ImageIcon size={16} className="text-slate-500 group-hover:text-abdc-600" />
+                          <ImageIcon size={16} className="text-slate-500 group-hover:text-qet-600" />
                         )}
                       </button>
                     )}
@@ -2477,7 +2481,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                   </div>
                   <div className="flex items-center gap-2">
                     {managementMode && (
-                      <button onClick={() => openTransferModal(asset)} className="p-2 text-abdc-600 hover:bg-abdc-50 rounded-lg" title="Quick Transfer">
+                      <button onClick={() => openTransferModal(asset)} className="p-2 text-qet-600 hover:bg-qet-50 rounded-lg" title="Quick Transfer">
                         <ArrowRightLeft size={18} />
                       </button>
                     )}
@@ -2494,10 +2498,10 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
           {activeAsset && (
             <div className="space-y-4 animate-slideIn" data-asset-detail>
               <div className="flex justify-between items-center mb-2">
-                <button onClick={() => setActiveAsset(null)} className="text-sm text-abdc-600 hover:underline">Back to List</button>
+                <button onClick={() => setActiveAsset(null)} className="text-sm text-qet-600 hover:underline">Back to List</button>
               </div>
 
-              <div className="bg-white p-6 rounded-xl shadow-md border-l-4 border-abdc-600 relative overflow-hidden">
+              <div className="bg-white p-6 rounded-xl shadow-md border-l-4 border-qet-600 relative overflow-hidden">
                 <div className="flex justify-between items-start relative z-10">
                   <div>
                     <div className="flex gap-2 mb-2">
@@ -2518,23 +2522,23 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                     </div>
                   </div>
                   {activeAsset.image ? (
-                    <button type="button" onClick={() => setImageLightboxUrl(activeAsset.image!)} className="block rounded-lg overflow-hidden border border-slate-200 bg-slate-200 focus:ring-2 focus:ring-abdc-500 focus:ring-offset-2" title="Click to open image">
+                    <button type="button" onClick={() => setImageLightboxUrl(activeAsset.image!)} className="block rounded-lg overflow-hidden border border-slate-200 bg-slate-200 focus:ring-2 focus:ring-qet-500 focus:ring-offset-2" title="Click to open image">
                       <img src={activeAsset.image} alt={activeAsset.name} className="w-24 h-24 object-cover hover:opacity-90 transition-opacity" />
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={() => handleImageUploadClick({ stopPropagation: () => { } } as any, activeAsset.id)}
-                      className="w-24 h-24 rounded-lg bg-slate-200 border-2 border-dashed border-slate-300 hover:border-abdc-500 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-300 transition-colors cursor-pointer group"
+                      className="w-24 h-24 rounded-lg bg-slate-200 border-2 border-dashed border-slate-300 hover:border-qet-500 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-300 transition-colors cursor-pointer group"
                       title="Click to upload image"
                       disabled={isUploadingImage && imageUploadAssetId === activeAsset.id}
                     >
                       {isUploadingImage && imageUploadAssetId === activeAsset.id ? (
-                        <Loader2 size={20} className="animate-spin text-abdc-600" />
+                        <Loader2 size={20} className="animate-spin text-qet-600" />
                       ) : (
                         <>
-                          <ImageIcon size={24} className="text-slate-500 group-hover:text-abdc-600 mb-1" />
-                          <span className="text-[10px] group-hover:text-abdc-600">Upload</span>
+                          <ImageIcon size={24} className="text-slate-500 group-hover:text-qet-600 mb-1" />
+                          <span className="text-[10px] group-hover:text-qet-600">Upload</span>
                         </>
                       )}
                     </button>
@@ -2543,7 +2547,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
               </div>
 
               {/* Professional Asset Tag - QR left, ID + Barcode + Name right */}
-              <div id="asset-tag-print-area" className="w-[260px] min-h-[110px] bg-white border-2 border-slate-900 rounded-lg shadow-xl mx-auto overflow-hidden flex flex-col relative group hover:scale-[1.02] transition-transform duration-300" title="Label: 2.6in × 1.1in (ABDC stock)">
+              <div id="asset-tag-print-area" className="w-[260px] min-h-[110px] bg-white border-2 border-slate-900 rounded-lg shadow-xl mx-auto overflow-hidden flex flex-col relative group hover:scale-[1.02] transition-transform duration-300" title="Label: 2.6in × 1.1in (QET stock)">
                 {/* Print button */}
                 <div className="absolute top-2 right-2 z-20">
                   <button
@@ -2563,7 +2567,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                       size={72}
                       level="H"
                       imageSettings={{
-                        src: '/abdc-logo-circular.jpg',
+                        src: '/qet-logo-circular.png',
                         height: 20,
                         width: 20,
                         excavate: true,
@@ -2597,10 +2601,10 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
               {/* Detailed Tabs */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 min-h-[300px] mt-6">
                 <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg mb-6">
-                  <button onClick={() => setActiveTab('overview')} className={`flex-1 py-1.5 text-xs font-bold rounded-md uppercase ${activeTab === 'overview' ? 'bg-white shadow text-abdc-700' : 'text-slate-500'}`}>Overview</button>
-                  <button onClick={() => setActiveTab('history')} className={`flex-1 py-1.5 text-xs font-bold rounded-md uppercase ${activeTab === 'history' ? 'bg-white shadow text-abdc-700' : 'text-slate-500'}`}>History</button>
-                  <button onClick={() => setActiveTab('transfers')} className={`flex-1 py-1.5 text-xs font-bold rounded-md uppercase ${activeTab === 'transfers' ? 'bg-white shadow text-abdc-700' : 'text-slate-500'}`}>Transfers</button>
-                  <button onClick={() => setActiveTab('depreciation')} className={`flex-1 py-1.5 text-xs font-bold rounded-md uppercase ${activeTab === 'depreciation' ? 'bg-white shadow text-abdc-700' : 'text-slate-500'}`}>Depreciation</button>
+                  <button onClick={() => setActiveTab('overview')} className={`flex-1 py-1.5 text-xs font-bold rounded-md uppercase ${activeTab === 'overview' ? 'bg-white shadow text-qet-700' : 'text-slate-500'}`}>Overview</button>
+                  <button onClick={() => setActiveTab('history')} className={`flex-1 py-1.5 text-xs font-bold rounded-md uppercase ${activeTab === 'history' ? 'bg-white shadow text-qet-700' : 'text-slate-500'}`}>History</button>
+                  <button onClick={() => setActiveTab('transfers')} className={`flex-1 py-1.5 text-xs font-bold rounded-md uppercase ${activeTab === 'transfers' ? 'bg-white shadow text-qet-700' : 'text-slate-500'}`}>Transfers</button>
+                  <button onClick={() => setActiveTab('depreciation')} className={`flex-1 py-1.5 text-xs font-bold rounded-md uppercase ${activeTab === 'depreciation' ? 'bg-white shadow text-qet-700' : 'text-slate-500'}`}>Depreciation</button>
                 </div>
 
                 {activeTab === 'overview' && (
@@ -2613,7 +2617,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                           <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Identification</p>
                           <div className="space-y-2">
                             <div><span className="text-xs text-slate-400 block">Asset Name</span> <span className="text-sm font-medium text-slate-800">{activeAsset.name}</span></div>
-                            <div><span className="text-xs text-slate-400 block">System Generated ID</span> <span className="text-sm font-mono font-bold text-abdc-700 bg-abdc-50 px-2 py-0.5 rounded inline-block">{activeAsset.productId}</span></div>
+                            <div><span className="text-xs text-slate-400 block">System Generated ID</span> <span className="text-sm font-mono font-bold text-qet-700 bg-qet-50 px-2 py-0.5 rounded inline-block">{activeAsset.productId}</span></div>
                             <div><span className="text-xs text-slate-400 block">Category</span> <span className="text-sm font-medium text-slate-800">{activeAsset.category}</span></div>
                           </div>
                         </div>
@@ -2665,7 +2669,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                           </div>
                           <div className="p-3 border rounded-lg bg-slate-50">
                             <p className="text-xs text-slate-500 mb-1">Net Book Value</p>
-                            <p className="text-sm font-bold text-abdc-700">₦{activeAsset.netBookValue.toLocaleString()}</p>
+                            <p className="text-sm font-bold text-qet-700">₦{activeAsset.netBookValue.toLocaleString()}</p>
                           </div>
                           <div className="p-3 border rounded-lg bg-slate-50">
                             <p className="text-xs text-slate-500 mb-1">Purchase Date</p>
@@ -2724,7 +2728,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                               <tr key={h.id} className="hover:bg-slate-50">
                                 <td className="p-3 text-slate-600">{h.date.split(' ')[0]}</td>
                                 <td className="p-3 font-medium text-slate-700">{h.fromLocation || '-'}</td>
-                                <td className="p-3 font-medium text-abdc-700 flex items-center gap-1"><ArrowRightLeft size={12} /> {h.toLocation || '-'}</td>
+                                <td className="p-3 font-medium text-qet-700 flex items-center gap-1"><ArrowRightLeft size={12} /> {h.toLocation || '-'}</td>
                                 <td className="p-3 text-slate-600">{h.toCustodian || '-'}</td>
                               </tr>
                             ))
@@ -2768,7 +2772,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                       <select
                         value={selectedPrinter}
                         onChange={(e) => setSelectedPrinter(e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                        className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500"
                       >
                         {printers.map((p) => (
                           <option key={p} value={p}>{p}</option>
@@ -2776,7 +2780,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                       </select>
                     ) : (
                       <div className="space-y-2">
-                        <p className="text-xs text-slate-500">Install JSPM Client to select printers in the app. <a href="https://neodynamic.com/downloads/jspm" target="_blank" rel="noopener noreferrer" className="text-abdc-600 hover:underline">Download</a></p>
+                        <p className="text-xs text-slate-500">Install JSPM Client to select printers in the app. <a href="https://neodynamic.com/downloads/jspm" target="_blank" rel="noopener noreferrer" className="text-qet-600 hover:underline">Download</a></p>
                         <button
                           type="button"
                           onClick={loadPrinters}
@@ -2837,7 +2841,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                           height: Math.round(fromInch(hIn, newUnit) * 100) / 100,
                         }));
                       }}
-                      className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500"
                     >
                       <option value="inch">inch</option>
                       <option value="mm">mm</option>
@@ -2854,7 +2858,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                         max="50"
                         value={printSettings.width}
                         onChange={(e) => setPrintSettings(p => ({ ...p, width: parseFloat(e.target.value) || 2.7 }))}
-                        className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500"
+                        className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-qet-500"
                       />
                       <span className="text-sm text-slate-500 shrink-0">{printSettings.units}</span>
                     </div>
@@ -2869,7 +2873,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                         max="50"
                         value={printSettings.height}
                         onChange={(e) => setPrintSettings(p => ({ ...p, height: parseFloat(e.target.value) || 1.1 }))}
-                        className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500"
+                        className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-qet-500"
                       />
                       <span className="text-sm text-slate-500 shrink-0">{printSettings.units}</span>
                     </div>
@@ -2879,7 +2883,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                     <select
                       value={printSettings.orientation}
                       onChange={(e) => setPrintSettings(p => ({ ...p, orientation: e.target.value as 'normal' | 'landscape' }))}
-                      className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                      className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500"
                     >
                       <option value="normal">Normal</option>
                       <option value="landscape">Landscape</option>
@@ -2895,7 +2899,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                     <button
                       onClick={handlePrintDirect}
                       disabled={isPrintingDirect}
-                      className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2 disabled:opacity-50"
+                      className="px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 flex items-center gap-2 disabled:opacity-50"
                     >
                       {isPrintingDirect ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
                       Print to {selectedPrinter || 'Printer'}
@@ -2903,7 +2907,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                   ) : (
                     <button
                       onClick={() => { setIsPrintSettingsOpen(false); handlePrintTag(printSettings); }}
-                      className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2"
+                      className="px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 flex items-center gap-2"
                     >
                       <Printer size={16} /> Print (system dialog)
                     </button>
@@ -2926,14 +2930,14 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">New Location</label>
-                      <select value={transferLocation} onChange={e => { setTransferLocation(e.target.value); setTransferSubLocation('') }} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
+                      <select value={transferLocation} onChange={e => { setTransferLocation(e.target.value); setTransferSubLocation('') }} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500">
                         <option value="">Select Branch</option>
                         {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Target Department</label>
-                      <select value={transferSubLocation} onChange={e => setTransferSubLocation(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
+                      <select value={transferSubLocation} onChange={e => setTransferSubLocation(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500">
                         <option value="">Select Dept...</option>
                         {transferLocation && LOCATION_BRANCHES[transferLocation]?.map(b => <option key={b} value={b}>{b}</option>)}
                       </select>
@@ -2945,7 +2949,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                         const u = custodianOptions.find(x => x.id === id);
                         setTransferCustodianId(id);
                         setTransferCustodian(u?.name || '');
-                      }} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
+                      }} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500">
                         <option value="">Select Custodian...</option>
                         {custodianOptions.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                       </select>
@@ -2953,7 +2957,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                   </div>
                   <div className="flex justify-end gap-3 mt-6">
                     <button onClick={() => setIsTransferOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-                    <button onClick={submitTransfer} disabled={isTransferring || !transferLocation || !transferCustodianId || (!canInitiate && !canApprove)} className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center disabled:opacity-50" title={!canInitiate && !canApprove ? 'Insufficient permissions' : ''}>
+                    <button onClick={submitTransfer} disabled={isTransferring || !transferLocation || !transferCustodianId || (!canInitiate && !canApprove)} className="px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 flex items-center disabled:opacity-50" title={!canInitiate && !canApprove ? 'Insufficient permissions' : ''}>
                       {isTransferring && <Loader2 size={14} className="animate-spin mr-2" />}
                       Confirm Transfer
                     </button>
@@ -2976,7 +2980,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                     <select
                       value={selectedDeviceId}
                       onChange={(e) => switchScanDevice(e.target.value)}
-                      className="w-full max-w-xs px-3 py-2 bg-slate-800/90 text-white rounded-lg border border-slate-600 text-sm focus:ring-2 focus:ring-abdc-500 outline-none"
+                      className="w-full max-w-xs px-3 py-2 bg-slate-800/90 text-white rounded-lg border border-slate-600 text-sm focus:ring-2 focus:ring-qet-500 outline-none"
                     >
                       {videoDevices.map((d) => (
                         <option key={d.deviceId} value={d.deviceId}>
@@ -3003,12 +3007,12 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                   </button>
                 </div>
               )}
-              <div className="relative w-full max-w-lg aspect-square bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-abdc-500/50">
+              <div className="relative w-full max-w-lg aspect-square bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-qet-500/50">
                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover"></video>
-                <div className="absolute inset-0 border-2 border-abdc-500/50 m-12 rounded-lg animate-pulse"></div>
+                <div className="absolute inset-0 border-2 border-qet-500/50 m-12 rounded-lg animate-pulse"></div>
                 <div className="absolute bottom-6 left-0 right-0 gap-4 flex justify-center">
                   <button onClick={() => captureAndAnalyze()} className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
-                    <div className="w-12 h-12 rounded-full border-4 border-abdc-600"></div>
+                    <div className="w-12 h-12 rounded-full border-4 border-qet-600"></div>
                   </button>
                   {/* Simulate Scan - for testing without a physical barcode/QR */}
                   {assets.length > 0 && (
@@ -3040,7 +3044,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">New Condition Code</label>
-                      <select value={newConditionCode} onChange={e => setNewConditionCode(e.target.value as ConditionCode)} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
+                      <select value={newConditionCode} onChange={e => setNewConditionCode(e.target.value as ConditionCode)} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500">
                         {Object.entries(CONDITION_DESCRIPTIONS).map(([code, desc]) => (
                           <option key={code} value={code}>{code} - {desc}</option>
                         ))}
@@ -3073,8 +3077,8 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                         <span>{activeAsset?.custodian || 'Unassigned'}</span>
                       </div>
                     </div>
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Issue Type</label><select value={reportType} onChange={(e) => setReportType(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500"><option value="Damage">Physical Damage</option><option value="Malfunction">Functional Malfunction</option><option value="Lost">Lost / Stolen</option><option value="Maintenance">Routine Maintenance Needed</option><option value="Registration Error">Mistake/Error in Registration</option></select></div>
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Description</label><textarea value={reportDesc} onChange={(e) => setReportDesc(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg h-24 resize-none outline-none focus:ring-2 focus:ring-abdc-500" placeholder="Describe the issue in detail..." /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Issue Type</label><select value={reportType} onChange={(e) => setReportType(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-qet-500"><option value="Damage">Physical Damage</option><option value="Malfunction">Functional Malfunction</option><option value="Lost">Lost / Stolen</option><option value="Maintenance">Routine Maintenance Needed</option><option value="Registration Error">Mistake/Error in Registration</option></select></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Description</label><textarea value={reportDesc} onChange={(e) => setReportDesc(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg h-24 resize-none outline-none focus:ring-2 focus:ring-qet-500" placeholder="Describe the issue in detail..." /></div>
                   </div>
                   <div className="flex justify-end gap-3 mt-6"><button onClick={() => setIsReportOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button><button onClick={submitReport} disabled={isSubmittingReport || !reportDesc} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center disabled:opacity-50">{isSubmittingReport && <Loader2 size={16} className="animate-spin mr-2" />}Submit Report</button></div>
                 </div>
@@ -3240,12 +3244,12 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Select Printer</label>
                 {jspmConnected && printers.length > 0 ? (
-                  <select value={selectedPrinter} onChange={(e) => setSelectedPrinter(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
+                  <select value={selectedPrinter} onChange={(e) => setSelectedPrinter(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500">
                     {printers.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-xs text-slate-500">Install JSPM Client to select printers. <a href="https://neodynamic.com/downloads/jspm" target="_blank" rel="noopener noreferrer" className="text-abdc-600 hover:underline">Download</a></p>
+                    <p className="text-xs text-slate-500">Install JSPM Client to select printers. <a href="https://neodynamic.com/downloads/jspm" target="_blank" rel="noopener noreferrer" className="text-qet-600 hover:underline">Download</a></p>
                     <button type="button" onClick={loadPrinters} disabled={isLoadingPrinters} className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 disabled:opacity-50 flex items-center gap-2">
                       {isLoadingPrinters ? <Loader2 size={12} className="animate-spin" /> : null} Load printers
                     </button>
@@ -3277,7 +3281,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
               {/* Units */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Units</label>
-                <select value={printSettings.units} onChange={(e) => { const newUnit = e.target.value as 'inch'|'mm'|'cm'; const u = printSettings.units; const wI = toInch(printSettings.width,u); const hI = toInch(printSettings.height,u); setPrintSettings(p => ({ ...p, units: newUnit, width: Math.round(toInch(wI,'inch') * (newUnit==='inch'?1:newUnit==='mm'?25.4:2.54)*100)/100, height: Math.round(toInch(hI,'inch') * (newUnit==='inch'?1:newUnit==='mm'?25.4:2.54)*100)/100 })); }} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
+                <select value={printSettings.units} onChange={(e) => { const newUnit = e.target.value as 'inch'|'mm'|'cm'; const u = printSettings.units; const wI = toInch(printSettings.width,u); const hI = toInch(printSettings.height,u); setPrintSettings(p => ({ ...p, units: newUnit, width: Math.round(toInch(wI,'inch') * (newUnit==='inch'?1:newUnit==='mm'?25.4:2.54)*100)/100, height: Math.round(toInch(hI,'inch') * (newUnit==='inch'?1:newUnit==='mm'?25.4:2.54)*100)/100 })); }} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500">
                   <option value="inch">inch</option><option value="mm">mm</option><option value="cm">cm</option>
                 </select>
               </div>
@@ -3285,7 +3289,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Width</label>
                 <div className="flex items-center gap-2">
-                  <input type="number" step="0.01" min="0.5" max="50" value={printSettings.width} onChange={(e) => setPrintSettings(p => ({ ...p, width: parseFloat(e.target.value) || 2.7 }))} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500" />
+                  <input type="number" step="0.01" min="0.5" max="50" value={printSettings.width} onChange={(e) => setPrintSettings(p => ({ ...p, width: parseFloat(e.target.value) || 2.7 }))} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-qet-500" />
                   <span className="text-sm text-slate-500 shrink-0">{printSettings.units}</span>
                 </div>
               </div>
@@ -3293,14 +3297,14 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Height</label>
                 <div className="flex items-center gap-2">
-                  <input type="number" step="0.01" min="0.5" max="50" value={printSettings.height} onChange={(e) => setPrintSettings(p => ({ ...p, height: parseFloat(e.target.value) || 1.1 }))} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500" />
+                  <input type="number" step="0.01" min="0.5" max="50" value={printSettings.height} onChange={(e) => setPrintSettings(p => ({ ...p, height: parseFloat(e.target.value) || 1.1 }))} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-qet-500" />
                   <span className="text-sm text-slate-500 shrink-0">{printSettings.units}</span>
                 </div>
               </div>
               {/* Orientation */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Orientation</label>
-                <select value={printSettings.orientation} onChange={(e) => setPrintSettings(p => ({ ...p, orientation: e.target.value as 'normal'|'landscape' }))} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500">
+                <select value={printSettings.orientation} onChange={(e) => setPrintSettings(p => ({ ...p, orientation: e.target.value as 'normal'|'landscape' }))} className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500">
                   <option value="normal">Normal</option><option value="landscape">Landscape</option>
                 </select>
               </div>
@@ -3309,12 +3313,12 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
             <div className="flex flex-wrap justify-end gap-3 mt-6">
               <button onClick={() => setIsPrintSelectedOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
               {jspmConnected && printers.length > 0 ? (
-                <button onClick={handlePrintSelectedDirect} disabled={isPrintingSelected} className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2 disabled:opacity-50">
+                <button onClick={handlePrintSelectedDirect} disabled={isPrintingSelected} className="px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 flex items-center gap-2 disabled:opacity-50">
                   {isPrintingSelected ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
                   {isPrintingSelected ? (printBatchProgress || 'Preparing...') : `Print to ${selectedPrinter || 'Printer'}`}
                 </button>
               ) : (
-                <button onClick={() => { setIsPrintSelectedOpen(false); handlePrintSelectedTags(printSettings); }} disabled={isPrintingSelected} className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2 disabled:opacity-50">
+                <button onClick={() => { setIsPrintSelectedOpen(false); handlePrintSelectedTags(printSettings); }} disabled={isPrintingSelected} className="px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 flex items-center gap-2 disabled:opacity-50">
                   <Printer size={16} />
                   {isPrintingSelected ? 'Preparing...' : `Print ${selectedAssetIds.size} Tag${selectedAssetIds.size > 1 ? 's' : ''}`}
                 </button>

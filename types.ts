@@ -81,7 +81,7 @@ export interface WipAsset {
   finalDepreciationMethod: string;
   finalUsefulLife: number;
   relatedAssetId?: string;
-  relatedAssetProductId?: string; // Asset tag shown after transfer, e.g. ABDC/ABJ/GEN/1234
+  relatedAssetProductId?: string; // Asset tag shown after transfer, e.g. QET/ABJ/GEN/1234
 }
 
 export interface AssetHistoryEvent {

@@ -128,8 +128,8 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
             const totalCost = calculateTotalCost(selectedProject);
             const newAsset: Asset = {
                 id: (MOCK_ASSETS.length + 500).toString(),
-                // Generate Asset Tag: ABDC/LOC/CAT/RANDOM
-                productId: `ABDC/${selectedProject.location ? LOCATION_CODES[selectedProject.location] : 'ABJ'}/${CATEGORY_CODES[selectedProject.assetType] || 'GEN'}/${Math.floor(1000 + Math.random() * 9000)}`,
+                // Generate Asset Tag: QET/LOC/CAT/RANDOM
+                productId: `QET/${selectedProject.location ? LOCATION_CODES[selectedProject.location] : 'ABJ'}/${CATEGORY_CODES[selectedProject.assetType] || 'GEN'}/${Math.floor(1000 + Math.random() * 9000)}`,
                 name: selectedProject.projectName,
                 category: selectedProject.assetType,
                 acquisitionCost: totalCost,
@@ -172,7 +172,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                 asset = MOCK_ASSETS.find(a => a.id === selectedProject.relatedAssetId);
             } else {
                 // Fallback for older data
-                const assetProductId = `ABDC-${selectedProject.id.split('-')[1]}-`;
+                const assetProductId = `QET-${selectedProject.id.split('-')[1]}-`;
                 asset = MOCK_ASSETS.find(a => a.productId.startsWith(assetProductId) && a.name === selectedProject.projectName);
             }
 
@@ -276,7 +276,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
 
                     <div className="flex justify-end gap-3 pt-6 border-t">
                         <button onClick={() => setViewMode('list')} className="px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg">Cancel</button>
-                        <button onClick={handleCreateProject} className="px-6 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700">Start Project</button>
+                        <button onClick={handleCreateProject} className="px-6 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700">Start Project</button>
                     </div>
                 </div>
             </div>
@@ -364,7 +364,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                     <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <Calculator size={20} className="text-abdc-600" /> Cost Accumulation Ledger
+                                <Calculator size={20} className="text-qet-600" /> Cost Accumulation Ledger
                             </h3>
                             {selectedProject.assetType === 'Software Licenses' && (
                                 <p className="text-xs text-slate-500 mt-1">
@@ -373,7 +373,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                             )}
                         </div>
                         {selectedProject.status !== 'Capitalized' && (
-                            <button onClick={() => setIsAddingCost(!isAddingCost)} className="px-3 py-1.5 bg-white border border-abdc-200 text-abdc-700 rounded-lg text-sm font-medium hover:bg-abdc-50">
+                            <button onClick={() => setIsAddingCost(!isAddingCost)} className="px-3 py-1.5 bg-white border border-qet-200 text-qet-700 rounded-lg text-sm font-medium hover:bg-qet-50">
                                 {isAddingCost ? 'Cancel' : '+ Add Cost Item'}
                             </button>
                         )}
@@ -381,7 +381,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
 
                     {/* Add Cost Form Inline */}
                     {isAddingCost && (
-                        <div className="p-4 bg-abdc-50 border-b border-abdc-100 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+                        <div className="p-4 bg-qet-50 border-b border-qet-100 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
                             <div className="lg:col-span-1">
                                 <label className="text-xs font-bold text-slate-500">Date</label>
                                 <input type="date" className="w-full p-2 text-sm bg-white border border-slate-300 rounded" value={newCostItem.date} onChange={e => setNewCostItem({ ...newCostItem, date: e.target.value })} />
@@ -410,7 +410,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                                 <input type="number" placeholder="0.00" className="w-full p-2 text-sm bg-white border border-slate-300 rounded" value={newCostItem.amount || ''} onChange={e => setNewCostItem({ ...newCostItem, amount: Number(e.target.value) })} />
                             </div>
                             <div className="lg:col-span-1">
-                                <button onClick={handleAddCost} className="w-full py-2 bg-abdc-600 text-white rounded text-sm font-bold">Add Entry</button>
+                                <button onClick={handleAddCost} className="w-full py-2 bg-qet-600 text-white rounded text-sm font-bold">Add Entry</button>
                             </div>
                         </div>
                     )}
@@ -447,7 +447,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                             {selectedProject.costLedger.length > 0 && (
                                 <tr className="bg-slate-50 font-bold">
                                     <td colSpan={4} className="p-4 text-right text-slate-600 uppercase text-xs tracking-wider">Total Accumulated Cost</td>
-                                    <td className="p-4 text-right text-abdc-700 text-base">₦{totalCost.toLocaleString()}</td>
+                                    <td className="p-4 text-right text-qet-700 text-base">₦{totalCost.toLocaleString()}</td>
                                 </tr>
                             )}
                         </tbody>
@@ -457,11 +457,11 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                 {/* Capitalization Section - Static */}
                 {selectedProject.status !== 'Capitalized' && (
                     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden mt-6">
-                        <div className="bg-abdc-600 p-6 text-white">
+                        <div className="bg-qet-600 p-6 text-white">
                             <h3 className="text-xl font-bold flex items-center gap-2">
                                 <CheckCircle2 /> Project Finalization & Asset Registration
                             </h3>
-                            <p className="text-abdc-100 text-sm mt-1">Review the information below and register this project as a fixed asset.</p>
+                            <p className="text-qet-100 text-sm mt-1">Review the information below and register this project as a fixed asset.</p>
                         </div>
                         <div className="p-6 space-y-4">
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
@@ -471,7 +471,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                                 </div>
                                 <div className="flex justify-between mb-2">
                                     <span className="text-slate-500 text-sm">Total Capitalized Value:</span>
-                                    <span className="font-bold text-abdc-700 text-lg">₦{totalCost.toLocaleString()}</span>
+                                    <span className="font-bold text-qet-700 text-lg">₦{totalCost.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-slate-500 text-sm">Date Placed in Service:</span>
@@ -500,7 +500,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                             <button
                                 onClick={handleCapitalize}
                                 disabled={isProcessingCap}
-                                className="px-6 py-2 bg-abdc-600 text-white font-bold rounded-lg hover:bg-abdc-700 flex items-center shadow-lg shadow-abdc-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-6 py-2 bg-qet-600 text-white font-bold rounded-lg hover:bg-qet-700 flex items-center shadow-lg shadow-qet-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isProcessingCap ? <Loader2 size={18} className="animate-spin mr-2" /> : <CheckCircle2 size={18} className="mr-2" />}
                                 {isProcessingCap ? 'Finalizing...' : 'Register Asset'}
@@ -518,7 +518,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
             {onBack && (
                 <button
                     onClick={onBack}
-                    className="flex items-center text-sm text-slate-500 hover:text-abdc-600 mb-6 transition-colors group"
+                    className="flex items-center text-sm text-slate-500 hover:text-qet-600 mb-6 transition-colors group"
                 >
                     <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
                     Back to Dashboard
@@ -526,15 +526,22 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
             )}
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <Construction className="text-abdc-600" /> Work in Progress (WIP)
-                    </h1>
-                    <p className="text-slate-500">Track Assets Under Construction (AUC) and Development (AUD).</p>
+                <div className="flex items-start gap-4">
+                    <img
+                        src="./qet-logo-transparent.png"
+                        alt="QET Logo"
+                        className="h-12 w-auto object-contain"
+                    />
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                            Work in Progress (WIP)
+                        </h1>
+                        <p className="text-slate-500">Track Assets Under Construction (AUC) and Development (AUD).</p>
+                    </div>
                 </div>
                 <button
                     onClick={() => setViewMode('create')}
-                    className="flex items-center px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 transition-colors shadow-sm"
+                    className="flex items-center px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 transition-colors shadow-sm"
                 >
                     <Plus size={18} className="mr-2" /> Create Project
                 </button>
@@ -548,7 +555,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                         placeholder="Search projects..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500"
+                        className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-qet-500"
                     />
                 </div>
             </div>
@@ -559,7 +566,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                     const percent = Math.min(100, Math.round((total / project.budgetedCost) * 100));
 
                     return (
-                        <div key={project.id} onClick={() => { setSelectedProject(project); setViewMode('detail'); }} className="bg-white rounded-xl shadow-sm border border-slate-100 hover:shadow-md hover:border-abdc-300 transition-all cursor-pointer overflow-hidden group">
+                        <div key={project.id} onClick={() => { setSelectedProject(project); setViewMode('detail'); }} className="bg-white rounded-xl shadow-sm border border-slate-100 hover:shadow-md hover:border-qet-300 transition-all cursor-pointer overflow-hidden group">
                             <div className="p-6">
                                 <div className="flex justify-between items-start mb-4">
                                     <div className={`p-2 rounded-lg ${project.assetType.includes('Software') ? 'bg-purple-50 text-purple-600' : 'bg-orange-50 text-orange-600'}`}>
@@ -569,7 +576,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                                         {project.status === 'Capitalized' ? <><CheckCircle2 size={12} /> Complete Transfer</> : project.status}
                                     </span>
                                 </div>
-                                <h3 className="font-bold text-slate-800 text-lg mb-1 group-hover:text-abdc-600 transition-colors">{project.projectName}</h3>
+                                <h3 className="font-bold text-slate-800 text-lg mb-1 group-hover:text-qet-600 transition-colors">{project.projectName}</h3>
                                 <p className="text-xs text-slate-400 font-mono mb-4">{project.id}</p>
 
                                 <div className="space-y-3">
@@ -578,7 +585,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                                         <span className="font-semibold text-slate-700">₦{project.budgetedCost.toLocaleString()}</span>
                                     </div>
                                     <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                                        <div className={`h-full rounded-full ${percent > 100 ? 'bg-red-500' : 'bg-abdc-500'}`} style={{ width: `${percent}%` }}></div>
+                                        <div className={`h-full rounded-full ${percent > 100 ? 'bg-red-500' : 'bg-qet-500'}`} style={{ width: `${percent}%` }}></div>
                                     </div>
                                     <div className="flex justify-between text-xs text-slate-400">
                                         <span>{project.inceptionDate}</span>
@@ -607,10 +614,10 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                         </div>
                         <div className="p-6 text-center">
                             <p className="text-sm text-slate-500 mb-2">New Asset ID</p>
-                            <p className="text-xl font-bold font-mono text-abdc-700 mb-6">{notificationAssetId}</p>
+                            <p className="text-xl font-bold font-mono text-qet-700 mb-6">{notificationAssetId}</p>
                             <button
                                 onClick={() => setShowNotification(false)}
-                                className="px-6 py-3 bg-abdc-600 text-white font-bold rounded-lg hover:bg-abdc-700 shadow-lg w-full"
+                                className="px-6 py-3 bg-qet-600 text-white font-bold rounded-lg hover:bg-qet-700 shadow-lg w-full"
                             >
                                 Close
                             </button>

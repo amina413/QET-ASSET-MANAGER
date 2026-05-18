@@ -246,7 +246,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
   const getDepartmentCode = (departmentName: string) =>
     departmentsList.find(d => d.name === departmentName)?.code ?? (departmentName && DEPARTMENT_CODES[departmentName]) ?? 'GEN';
 
-  /** Returns the prefix part of asset ID (ABDC/LOC/CAT/) - serial is added separately */
+  /** Returns the prefix part of asset ID (QET/LOC/CAT/) - serial is added separately */
   const generateBarcodePrefix = (category: string, name?: string, location?: string) => {
     let catCode = 'ITE';
     const cat = category ? category.trim().toLowerCase() : '';
@@ -283,8 +283,8 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       catCode = 'ITE';
     }
 
-    // Format: ABDC/LOC/CAT/SERIAL
-    return `ABDC/${locCode}/${catCode}/`;
+    // Format: QET/LOC/CAT/SERIAL
+    return `QET/${locCode}/${catCode}/`;
   };
 
   const mapConditionToCode = (condition: string): ConditionCode => {
@@ -422,7 +422,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
           <rect x="${size - 7}" y="${size - 7}" width="1" height="1" fill="black" />
         </g>
         <circle cx="${mid}" cy="${mid}" r="4.5" fill="white" stroke="#e2e8f0" stroke-width="0.2" />
-        <image href="./abdc-logo-circular.jpg" x="${mid - 3.5}" y="${mid - 3.5}" width="7" height="7" clip-path="circle(50%)" />
+        <image href="./qet-logo-circular.png" x="${mid - 3.5}" y="${mid - 3.5}" width="7" height="7" clip-path="circle(50%)" />
       </svg>
     `;
   };
@@ -491,7 +491,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
         await QRCode.toCanvas(canvas, firstId || 'N/A', { width: 120, margin: 2, errorCorrectionLevel: 'H', color: { dark: '#000000', light: '#ffffff' } });
         const logoImg = new Image();
         logoImg.crossOrigin = 'anonymous';
-        await new Promise<void>((resolve) => { logoImg.onload = () => resolve(); logoImg.onerror = () => resolve(); logoImg.src = '/abdc-logo-circular.jpg'; });
+        await new Promise<void>((resolve) => { logoImg.onload = () => resolve(); logoImg.onerror = () => resolve(); logoImg.src = '/qet-logo-circular.png'; });
         if (logoImg.width && logoImg.height) {
           const ctx = canvas.getContext('2d');
           if (ctx) {
@@ -534,7 +534,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       await new Promise<void>((resolve) => {
         logoImg.onload = () => resolve();
         logoImg.onerror = () => resolve();
-        logoImg.src = '/abdc-logo-circular.jpg';
+        logoImg.src = '/qet-logo-circular.png';
       });
       if (logoImg.width && logoImg.height) {
         const ctx = canvas.getContext('2d');
@@ -640,7 +640,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
         await QRCode.toCanvas(qrCanvas, productId || 'N/A', { width: 300, margin: 2, errorCorrectionLevel: 'H', color: { dark: '#000000', light: '#ffffff' } });
         const logoImg = new Image();
         logoImg.crossOrigin = 'anonymous';
-        await new Promise<void>((resolve) => { logoImg.onload = () => resolve(); logoImg.onerror = () => resolve(); logoImg.src = '/abdc-logo-circular.jpg'; });
+        await new Promise<void>((resolve) => { logoImg.onload = () => resolve(); logoImg.onerror = () => resolve(); logoImg.src = '/qet-logo-circular.png'; });
         if (logoImg.width && logoImg.height) {
           const ctx = qrCanvas.getContext('2d');
           if (ctx) {
@@ -950,7 +950,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "New Asset Tags");
-    XLSX.writeFile(wb, "ABDC_Generated_Tags.xlsx");
+    XLSX.writeFile(wb, "QET_Generated_Tags.xlsx");
   };
 
   // Column headers must match parser and single-entry form
@@ -1017,14 +1017,14 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
     ws['!cols'] = Array.from({ length: colCount }, () => ({ wch: 18 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Assets");
-    XLSX.writeFile(wb, "ABDC_Asset_Upload_Template.xlsx");
+    XLSX.writeFile(wb, "QET_Asset_Upload_Template.xlsx");
   };
 
   if (!canRegisterAsset(currentUser.role)) {
     return (
       <div className="max-w-4xl mx-auto pb-20">
         {onBack && (
-          <button onClick={onBack} className="flex items-center text-sm text-slate-500 hover:text-abdc-600 mb-6 transition-colors group">
+          <button onClick={onBack} className="flex items-center text-sm text-slate-500 hover:text-qet-600 mb-6 transition-colors group">
             <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
             Back to Dashboard
           </button>
@@ -1041,7 +1041,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
   return (
     <div className="max-w-4xl mx-auto pb-20">
       {onBack && (
-        <button onClick={onBack} className="flex items-center text-sm text-slate-500 hover:text-abdc-600 mb-6 transition-colors group">
+        <button onClick={onBack} className="flex items-center text-sm text-slate-500 hover:text-qet-600 mb-6 transition-colors group">
           <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
           Back to Dashboard
         </button>
@@ -1050,8 +1050,8 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Register New Asset</h1>
         <div className="bg-slate-200 p-1 rounded-lg flex text-sm font-medium">
-          <button onClick={() => { setMode('single'); resetForm(); }} className={`px-4 py-1.5 rounded-md transition-all ${mode === 'single' ? 'bg-white text-abdc-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Single Entry</button>
-          <button onClick={() => { setMode('bulk'); resetForm(); }} className={`px-4 py-1.5 rounded-md transition-all ${mode === 'bulk' ? 'bg-white text-abdc-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Bulk Upload</button>
+          <button onClick={() => { setMode('single'); resetForm(); }} className={`px-4 py-1.5 rounded-md transition-all ${mode === 'single' ? 'bg-white text-qet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Single Entry</button>
+          <button onClick={() => { setMode('bulk'); resetForm(); }} className={`px-4 py-1.5 rounded-md transition-all ${mode === 'bulk' ? 'bg-white text-qet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Bulk Upload</button>
         </div>
       </div>
 
@@ -1063,10 +1063,10 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                 <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-slate-200 -z-10"></div>
                 {steps.map((step, index) => (
                   <div key={step} className="flex flex-col items-center bg-slate-50 px-2">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mb-2 transition-colors ${index <= currentStep ? 'bg-abdc-600 text-white' : 'bg-slate-300 text-slate-600'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mb-2 transition-colors ${index <= currentStep ? 'bg-qet-600 text-white' : 'bg-slate-300 text-slate-600'}`}>
                       {index < currentStep ? <CheckCircle size={16} /> : index + 1}
                     </div>
-                    <span className={`text-xs font-medium ${index === currentStep ? 'text-abdc-600' : 'text-slate-500'}`}>{step}</span>
+                    <span className={`text-xs font-medium ${index === currentStep ? 'text-qet-600' : 'text-slate-500'}`}>{step}</span>
                   </div>
                 ))}
               </div>
@@ -1094,9 +1094,9 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                   </div>
                   <div className="text-center">
                     <div className="flex justify-center mb-2">
-                      <img src="./abdc-logo-circular.jpg" className="h-12 object-contain" alt="ABDC Logo" />
+                      <img src="./qet-logo-circular.png" className="h-12 object-contain" alt="QET Logo" />
                     </div>
-                    <h3 className="font-bold text-slate-900 text-xl mb-1 tracking-tight">ABDC ASSET TAG</h3>
+                    <h3 className="font-bold text-slate-900 text-xl mb-1 tracking-tight">QET ASSET TAG</h3>
 
                     <div className="h-48 bg-white border border-slate-300 my-4 flex items-center justify-center overflow-hidden px-4 rounded-sm">
                       {showQrCode ? (
@@ -1112,7 +1112,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
 
                     <p className="font-mono text-xl font-bold tracking-widest text-slate-900 break-words">{registeredAsset.productId}</p>
                     <p className="text-xs text-slate-500 mt-2 font-medium">{registeredAsset.name}</p>
-                    <p className="text-[10px] text-slate-400 mt-2 uppercase">Property of Abdulkadeer and Co. (ABDC)</p>
+                    <p className="text-[10px] text-slate-400 mt-2 uppercase">Property of Quantum Edge Technologies (QET)</p>
                   </div>
                 </div>
 
@@ -1120,7 +1120,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                   <button onClick={handlePrintTag} className="flex items-center px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
                     <Printer size={18} className="mr-2" /> Print Tag
                   </button>
-                  <button onClick={resetForm} className="flex items-center px-6 py-3 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 transition-colors shadow-lg shadow-abdc-200">
+                  <button onClick={resetForm} className="flex items-center px-6 py-3 bg-qet-600 text-white rounded-lg hover:bg-qet-700 transition-colors shadow-lg shadow-qet-200">
                     <Plus size={18} className="mr-2" /> Register Another Asset
                   </button>
                 </div>
@@ -1133,12 +1133,12 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Asset Name <span className="text-red-500">*</span></label>
-                        <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.name ? 'border-red-500' : 'border-slate-300'}`} placeholder="e.g. HP EliteBook" />
+                        <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.name ? 'border-red-500' : 'border-slate-300'}`} placeholder="e.g. HP EliteBook" />
                         {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Category <span className="text-red-500">*</span></label>
-                        <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.category ? 'border-red-500' : 'border-slate-300'}`}>
+                        <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.category ? 'border-red-500' : 'border-slate-300'}`}>
                           <option value="">Select Category</option>
                           {(categoriesList.length > 0 ? categoriesList : CATEGORIES.map(n => ({ id: n, name: n }))).map(c => (
                             <option key={c.id} value={c.name}>{c.name}</option>
@@ -1158,7 +1158,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                             <select
                               value={formData.subCategory}
                               onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
-                              className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.subCategory ? 'border-red-500' : 'border-slate-300'}`}
+                              className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.subCategory ? 'border-red-500' : 'border-slate-300'}`}
                             >
                               <option value="">Select Asset Type</option>
                               {options.map(sc => (
@@ -1171,27 +1171,27 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                       })()}
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Acquisition Cost (₦) <span className="text-red-500">*</span></label>
-                        <input type="number" value={formData.cost} onChange={(e) => setFormData({ ...formData, cost: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.cost ? 'border-red-500' : 'border-slate-300'}`} placeholder="0.00" />
+                        <input type="number" value={formData.cost} onChange={(e) => setFormData({ ...formData, cost: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.cost ? 'border-red-500' : 'border-slate-300'}`} placeholder="0.00" />
                         {errors.cost && <p className="text-red-500 text-xs mt-1">{errors.cost}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Acquisition Date <span className="text-red-500">*</span></label>
-                        <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.date ? 'border-red-500' : 'border-slate-300'} [color-scheme:light]`} />
+                        <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.date ? 'border-red-500' : 'border-slate-300'} [color-scheme:light]`} />
                         {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Registration Date <span className="text-red-500">*</span></label>
-                        <input type="date" value={formData.registrationDate} onChange={(e) => setFormData({ ...formData, registrationDate: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.registrationDate ? 'border-red-500' : 'border-slate-300'} [color-scheme:light]`} />
+                        <input type="date" value={formData.registrationDate} onChange={(e) => setFormData({ ...formData, registrationDate: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.registrationDate ? 'border-red-500' : 'border-slate-300'} [color-scheme:light]`} />
                         {errors.registrationDate && <p className="text-red-500 text-xs mt-1">{errors.registrationDate}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Vendor Name <span className="text-red-500">*</span></label>
-                        <input type="text" value={formData.vendor} onChange={(e) => setFormData({ ...formData, vendor: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.vendor ? 'border-red-500' : 'border-slate-300'}`} placeholder="Supplier Name" />
+                        <input type="text" value={formData.vendor} onChange={(e) => setFormData({ ...formData, vendor: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.vendor ? 'border-red-500' : 'border-slate-300'}`} placeholder="Supplier Name" />
                         {errors.vendor && <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Number <span className="text-red-500">*</span></label>
-                        <input type="text" value={formData.invoice} onChange={(e) => setFormData({ ...formData, invoice: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.invoice ? 'border-red-500' : 'border-slate-300'}`} placeholder="INV-####" />
+                        <input type="text" value={formData.invoice} onChange={(e) => setFormData({ ...formData, invoice: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.invoice ? 'border-red-500' : 'border-slate-300'}`} placeholder="INV-####" />
                         {errors.invoice && <p className="text-red-500 text-xs mt-1">{errors.invoice}</p>}
                       </div>
                     </div>
@@ -1204,16 +1204,16 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Model / Serial Number</label>
-                        <input type="text" value={formData.model} onChange={(e) => setFormData({ ...formData, model: e.target.value })} className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none" placeholder="S/N" />
+                        <input type="text" value={formData.model} onChange={(e) => setFormData({ ...formData, model: e.target.value })} className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500 outline-none" placeholder="S/N" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Useful Life (Years) <span className="text-red-500">*</span></label>
-                        <input type="number" value={formData.life} onChange={(e) => setFormData({ ...formData, life: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.life ? 'border-red-500' : 'border-slate-300'}`} placeholder="e.g. 5" />
+                        <input type="number" value={formData.life} onChange={(e) => setFormData({ ...formData, life: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.life ? 'border-red-500' : 'border-slate-300'}`} placeholder="e.g. 5" />
                         {errors.life && <p className="text-red-500 text-xs mt-1">{errors.life}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Location <span className="text-red-500">*</span></label>
-                        <select value={formData.location} onChange={handleLocationChange} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.location ? 'border-red-500' : 'border-slate-300'}`}>
+                        <select value={formData.location} onChange={handleLocationChange} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.location ? 'border-red-500' : 'border-slate-300'}`}>
                           <option value="">Select Location</option>
                           {locationsList.map(l => (
                             <option key={l.id} value={l.name}>{l.name}</option>
@@ -1230,7 +1230,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                         return (
                           <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Department / Unit <span className="text-red-500">*</span></label>
-                            <select value={formData.subLocation} onChange={(e) => setFormData({ ...formData, subLocation: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.subLocation ? 'border-red-500' : 'border-slate-300'}`}>
+                            <select value={formData.subLocation} onChange={(e) => setFormData({ ...formData, subLocation: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.subLocation ? 'border-red-500' : 'border-slate-300'}`}>
                               <option value="">Select Department</option>
                               {options.map(b => <option key={b} value={b}>{b}</option>)}
                             </select>
@@ -1241,7 +1241,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
 
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-slate-700 mb-1">Condition</label>
-                        <select value={formData.condition} onChange={(e) => setFormData({ ...formData, condition: e.target.value })} className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none">
+                        <select value={formData.condition} onChange={(e) => setFormData({ ...formData, condition: e.target.value })} className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500 outline-none">
                           <option value="New">New</option>
                           <option value="Good">Good</option>
                           <option value="Fair">Fair</option>
@@ -1258,7 +1258,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                             <button type="button" onClick={clearImage} className="absolute top-2 right-2 p-1.5 bg-slate-800/80 text-white rounded-full hover:bg-red-600 transition-colors" title="Remove picture"><X size={14} /></button>
                           </div>
                         ) : (
-                          <button type="button" onClick={() => imageInputRef.current?.click()} className="flex items-center gap-2 px-4 py-3 w-full border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-abdc-500 hover:text-abdc-600 hover:bg-abdc-50/50 transition-colors">
+                          <button type="button" onClick={() => imageInputRef.current?.click()} className="flex items-center gap-2 px-4 py-3 w-full border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-qet-500 hover:text-qet-600 hover:bg-qet-50/50 transition-colors">
                             <ImagePlus size={20} />
                             <span>Upload picture (optional, max {MAX_IMAGE_SIZE_MB} MB)</span>
                           </button>
@@ -1277,7 +1277,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                         <select
                           value={formData.assetClass}
                           onChange={handleAssetClassChange}
-                          className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none"
+                          className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500 outline-none"
                         >
                           {(assetClassesList.length > 0 ? assetClassesList.map(ac => ac.name) : ASSET_CLASS_OPTIONS).map(opt => (
                             <option key={opt} value={opt}>{opt}</option>
@@ -1290,7 +1290,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                         <select
                           value={formData.custodian}
                           onChange={(e) => setFormData({ ...formData, custodian: e.target.value })}
-                          className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none ${errors.custodian ? 'border-red-500' : 'border-slate-300'}`}
+                          className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 outline-none ${errors.custodian ? 'border-red-500' : 'border-slate-300'}`}
                         >
                           <option value="">Select Assigned Custodian</option>
                           {(assetClassesList.length > 0
@@ -1310,7 +1310,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                             value={formData.assignedUser}
                             onChange={(e) => setFormData({ ...formData, assignedUser: e.target.value })}
                             placeholder="Enter the individual's full name"
-                            className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none ${errors.assignedUser ? 'border-red-500' : 'border-slate-300'}`}
+                            className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 outline-none ${errors.assignedUser ? 'border-red-500' : 'border-slate-300'}`}
                           />
                           {errors.assignedUser && <p className="text-red-500 text-xs mt-1">{errors.assignedUser}</p>}
                         </div>
@@ -1318,7 +1318,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
 
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Depreciation Method</label>
-                        <select value={formData.depreciationMethod} onChange={(e) => setFormData({ ...formData, depreciationMethod: e.target.value })} className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500 outline-none">
+                        <select value={formData.depreciationMethod} onChange={(e) => setFormData({ ...formData, depreciationMethod: e.target.value })} className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500 outline-none">
                           <option value="Straight-Line">Straight-Line</option>
                           <option value="Reducing Balance">Reducing Balance</option>
                           <option value="Sum of Years">Sum of Years</option>
@@ -1326,7 +1326,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Salvage Value (₦) <span className="text-red-500">*</span></label>
-                        <input type="number" value={formData.salvageValue} onChange={(e) => setFormData({ ...formData, salvageValue: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-abdc-500 ${errors.salvageValue ? 'border-red-500' : 'border-slate-300'}`} placeholder="0.00" />
+                        <input type="number" value={formData.salvageValue} onChange={(e) => setFormData({ ...formData, salvageValue: e.target.value })} className={`w-full px-4 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-qet-500 ${errors.salvageValue ? 'border-red-500' : 'border-slate-300'}`} placeholder="0.00" />
                         {errors.salvageValue && <p className="text-red-500 text-xs mt-1">{errors.salvageValue}</p>}
                       </div>
                     </div>
@@ -1336,9 +1336,9 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                 <div className="mt-8 flex justify-between">
                   <button type="button" onClick={handleBack} disabled={currentStep === 0} className={`px-6 py-2 rounded-lg text-sm font-medium ${currentStep === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-100'}`}>Back</button>
                   {currentStep < steps.length - 1 ? (
-                    <button type="button" onClick={handleNext} className="flex items-center px-6 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 transition-colors">Next Step <ChevronRight size={16} className="ml-2" /></button>
+                    <button type="button" onClick={handleNext} className="flex items-center px-6 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 transition-colors">Next Step <ChevronRight size={16} className="ml-2" /></button>
                   ) : (
-                    <button type="submit" disabled={isSubmitting} className="flex items-center px-8 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 transition-colors shadow-lg shadow-abdc-200">{isSubmitting ? 'Processing...' : (<>Save & Generate ID <Save size={16} className="ml-2" /></>)}</button>
+                    <button type="submit" disabled={isSubmitting} className="flex items-center px-8 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 transition-colors shadow-lg shadow-qet-200">{isSubmitting ? 'Processing...' : (<>Save & Generate ID <Save size={16} className="ml-2" /></>)}</button>
                   )}
                 </div>
               </form>
@@ -1363,8 +1363,8 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                 <div className="bg-slate-50 p-3 border-b border-slate-200 flex justify-between items-center">
                   <h3 className="font-bold text-slate-700 text-sm flex items-center"><Table size={16} className="mr-2" /> Generated Tag List</h3>
                   <div className="flex gap-2">
-                    <button onClick={() => setIsPrintAllSettingsOpen(true)} className="text-xs text-abdc-600 font-bold hover:underline flex items-center px-2 py-1 bg-white border border-abdc-200 rounded"><Printer size={14} className="mr-1" /> Print All Tags</button>
-                    <button onClick={downloadImportedTags} className="text-xs text-abdc-600 font-bold hover:underline flex items-center px-2 py-1 bg-white border border-abdc-200 rounded"><Download size={14} className="mr-1" /> Export List</button>
+                    <button onClick={() => setIsPrintAllSettingsOpen(true)} className="text-xs text-qet-600 font-bold hover:underline flex items-center px-2 py-1 bg-white border border-qet-200 rounded"><Printer size={14} className="mr-1" /> Print All Tags</button>
+                    <button onClick={downloadImportedTags} className="text-xs text-qet-600 font-bold hover:underline flex items-center px-2 py-1 bg-white border border-qet-200 rounded"><Download size={14} className="mr-1" /> Export List</button>
                   </div>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
@@ -1375,22 +1375,22 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                     <tbody className="divide-y divide-slate-100">
                       {importedAssets.map((asset) => (
                         <tr key={asset.id} className="hover:bg-slate-50 group">
-                          <td className="p-3"><input type="text" value={asset.name} onChange={(e) => handleSuccessEdit(asset.id, 'name', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 text-slate-800 font-medium transition-colors" /></td>
+                          <td className="p-3"><input type="text" value={asset.name} onChange={(e) => handleSuccessEdit(asset.id, 'name', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-qet-500 focus:bg-white focus:outline-none py-1 text-slate-800 font-medium transition-colors" /></td>
                           <td className="p-3 font-mono text-slate-500 text-xs">{asset.previousId || '-'}</td>
-                          <td className="p-3"><div className="flex items-center gap-3"><div className="h-8 w-24 bg-white border border-slate-200 flex items-center justify-center px-1"><div className="flex items-end h-5 space-x-[1px] w-full justify-center opacity-80">{[...Array(25)].map((_, i) => <div key={i} className="bg-slate-900" style={{ width: Math.random() > 0.5 ? '1px' : '2px', height: `${30 + Math.random() * 70}%` }}></div>)}</div></div><span className="font-mono text-abdc-700 font-bold">{asset.productId}</span></div></td>
-                          <td className="p-3 text-slate-500 text-xs"><select value={asset.category} onChange={(e) => handleSuccessEdit(asset.id, 'category', e.target.value)} className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 w-full">{(categoriesList.length > 0 ? categoriesList : CATEGORIES.map(n => ({ id: n, name: n }))).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></td>
+                          <td className="p-3"><div className="flex items-center gap-3"><div className="h-8 w-24 bg-white border border-slate-200 flex items-center justify-center px-1"><div className="flex items-end h-5 space-x-[1px] w-full justify-center opacity-80">{[...Array(25)].map((_, i) => <div key={i} className="bg-slate-900" style={{ width: Math.random() > 0.5 ? '1px' : '2px', height: `${30 + Math.random() * 70}%` }}></div>)}</div></div><span className="font-mono text-qet-700 font-bold">{asset.productId}</span></div></td>
+                          <td className="p-3 text-slate-500 text-xs"><select value={asset.category} onChange={(e) => handleSuccessEdit(asset.id, 'category', e.target.value)} className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-qet-500 focus:bg-white focus:outline-none py-1 w-full">{(categoriesList.length > 0 ? categoriesList : CATEGORIES.map(n => ({ id: n, name: n }))).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               </div>
-              <div className="flex justify-end gap-3"><button onClick={resetForm} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 font-medium">Upload Another File</button><button onClick={() => { if (onBack) onBack(); }} className="px-6 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 font-medium shadow-md">Return to Dashboard</button></div>
+              <div className="flex justify-end gap-3"><button onClick={resetForm} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 font-medium">Upload Another File</button><button onClick={() => { if (onBack) onBack(); }} className="px-6 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 font-medium shadow-md">Return to Dashboard</button></div>
             </div>
           ) : (
             <>
-              <div className="flex flex-col items-center justify-center mb-8"><div className="text-center max-w-lg"><div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-abdc-600"><FileSpreadsheet size={32} /></div><h2 className="text-xl font-bold text-slate-800 mb-2">Upload Asset Data File</h2><p className="text-slate-500 text-sm mb-6">Support for Excel (.xlsx, .xls) and CSV. Ensure your file matches the template structure.</p><button onClick={downloadTemplate} className="inline-flex items-center px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors mb-6"><Download size={16} className="mr-2" /> Download Template</button></div><div className={`w-full max-w-2xl h-48 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-colors cursor-pointer ${dragActive ? 'border-abdc-500 bg-abdc-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}><UploadCloud size={40} className={`mb-3 ${dragActive ? 'text-abdc-600' : 'text-slate-400'}`} /><p className="text-sm font-medium text-slate-700">Drag & Drop your file here</p><p className="text-xs text-slate-400 mt-1">or click to browse</p><input ref={fileInputRef} type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileChange} /></div></div>
-              {isProcessingFile && <div className="flex items-center justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-abdc-600"></div><span className="ml-3 text-slate-600 font-medium">Processing file...</span></div>}
+              <div className="flex flex-col items-center justify-center mb-8"><div className="text-center max-w-lg"><div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-qet-600"><FileSpreadsheet size={32} /></div><h2 className="text-xl font-bold text-slate-800 mb-2">Upload Asset Data File</h2><p className="text-slate-500 text-sm mb-6">Support for Excel (.xlsx, .xls) and CSV. Ensure your file matches the template structure.</p><button onClick={downloadTemplate} className="inline-flex items-center px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors mb-6"><Download size={16} className="mr-2" /> Download Template</button></div><div className={`w-full max-w-2xl h-48 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-colors cursor-pointer ${dragActive ? 'border-qet-500 bg-qet-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}><UploadCloud size={40} className={`mb-3 ${dragActive ? 'text-qet-600' : 'text-slate-400'}`} /><p className="text-sm font-medium text-slate-700">Drag & Drop your file here</p><p className="text-xs text-slate-400 mt-1">or click to browse</p><input ref={fileInputRef} type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileChange} /></div></div>
+              {isProcessingFile && <div className="flex items-center justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-qet-600"></div><span className="ml-3 text-slate-600 font-medium">Processing file...</span></div>}
               {parsedData.length > 0 && (
                 <div className="animate-slideIn">
                   <div className="flex justify-between items-center mb-4">
@@ -1420,25 +1420,25 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                           <tr key={row.rowId} className={row.isValid ? 'bg-white hover:bg-slate-50' : 'bg-red-50 hover:bg-red-100'}>
                             <td className="p-3">{row.isValid ? <CheckCircle size={18} className="text-green-500" /> : <AlertCircle size={18} className="text-red-500" />}</td>
                             <td className="p-3">
-                              <input type="text" value={row.name} onChange={(e) => handlePreviewChange(row.rowId, 'name', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 font-medium text-slate-800 transition-colors" />
+                              <input type="text" value={row.name} onChange={(e) => handlePreviewChange(row.rowId, 'name', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-qet-500 focus:bg-white focus:outline-none py-1 font-medium text-slate-800 transition-colors" />
                             </td>
                             <td className="p-3">
-                              <select value={row.category} onChange={(e) => handlePreviewChange(row.rowId, 'category', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 text-slate-600">
+                              <select value={row.category} onChange={(e) => handlePreviewChange(row.rowId, 'category', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-qet-500 focus:bg-white focus:outline-none py-1 text-slate-600">
                                 <option value="">Select...</option>
                                 {(categoriesList.length > 0 ? categoriesList : CATEGORIES.map(n => ({ id: n, name: n }))).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                               </select>
                             </td>
                             <td className="p-3">
-                              <input type="text" value={row.subCategory} onChange={(e) => handlePreviewChange(row.rowId, 'subCategory', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 text-slate-600" />
+                              <input type="text" value={row.subCategory} onChange={(e) => handlePreviewChange(row.rowId, 'subCategory', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-qet-500 focus:bg-white focus:outline-none py-1 text-slate-600" />
                             </td>
                             <td className="p-3">
-                              <input type="date" value={row.date} onChange={(e) => handlePreviewChange(row.rowId, 'date', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 text-slate-600 [color-scheme:light]" />
+                              <input type="date" value={row.date} onChange={(e) => handlePreviewChange(row.rowId, 'date', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-qet-500 focus:bg-white focus:outline-none py-1 text-slate-600 [color-scheme:light]" />
                             </td>
                             <td className="p-3">
-                              <input type="date" value={row.registrationDate} onChange={(e) => handlePreviewChange(row.rowId, 'registrationDate', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 text-slate-600 [color-scheme:light]" />
+                              <input type="date" value={row.registrationDate} onChange={(e) => handlePreviewChange(row.rowId, 'registrationDate', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-qet-500 focus:bg-white focus:outline-none py-1 text-slate-600 [color-scheme:light]" />
                             </td>
                             <td className="p-3">
-                              <input type="number" value={row.cost} onChange={(e) => handlePreviewChange(row.rowId, 'cost', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-abdc-500 focus:bg-white focus:outline-none py-1 text-slate-600" />
+                              <input type="number" value={row.cost} onChange={(e) => handlePreviewChange(row.rowId, 'cost', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-qet-500 focus:bg-white focus:outline-none py-1 text-slate-600" />
                             </td>
                             <td className="p-3 text-red-600 text-xs font-semibold">{row.errors.join(', ')}</td>
                           </tr>
@@ -1448,7 +1448,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                   </div>
                   <div className="flex justify-end gap-4">
                     <button onClick={() => setParsedData([])} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Clear</button>
-                    <button onClick={handleBulkImport} disabled={isSubmitting || parsedData.filter(d => d.isValid).length === 0} className="px-6 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 transition-colors shadow-lg shadow-abdc-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+                    <button onClick={handleBulkImport} disabled={isSubmitting || parsedData.filter(d => d.isValid).length === 0} className="px-6 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 transition-colors shadow-lg shadow-qet-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
                       {isSubmitting ? 'Importing...' : 'Import Valid Assets'}
                     </button>
                   </div>
@@ -1479,7 +1479,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                   <select
                     value={selectedPrinter}
                     onChange={(e) => setSelectedPrinter(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500"
                   >
                     {printers.map((p) => (
                       <option key={p} value={p}>{p}</option>
@@ -1487,7 +1487,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                   </select>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-xs text-slate-500">Install JSPM Client to select printers directly. <a href="https://neodynamic.com/downloads/jspm" target="_blank" rel="noopener noreferrer" className="text-abdc-600 hover:underline">Download</a></p>
+                    <p className="text-xs text-slate-500">Install JSPM Client to select printers directly. <a href="https://neodynamic.com/downloads/jspm" target="_blank" rel="noopener noreferrer" className="text-qet-600 hover:underline">Download</a></p>
                     <button
                       type="button"
                       onClick={loadPrinters}
@@ -1547,7 +1547,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                       height: Math.round(fromInch(hI, newUnit) * 100) / 100,
                     }));
                   }}
-                  className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                  className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500"
                 >
                   <option value="inch">inch</option>
                   <option value="mm">mm</option>
@@ -1563,7 +1563,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                     type="number" step="0.01" min="0.5" max="50"
                     value={printAllSettings.width}
                     onChange={(e) => setPrintAllSettings(p => ({ ...p, width: parseFloat(e.target.value) || 2.7 }))}
-                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500"
+                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-qet-500"
                   />
                   <span className="text-sm text-slate-500 shrink-0">{printAllSettings.units}</span>
                 </div>
@@ -1577,7 +1577,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                     type="number" step="0.01" min="0.5" max="50"
                     value={printAllSettings.height}
                     onChange={(e) => setPrintAllSettings(p => ({ ...p, height: parseFloat(e.target.value) || 1.1 }))}
-                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-abdc-500"
+                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-qet-500"
                   />
                   <span className="text-sm text-slate-500 shrink-0">{printAllSettings.units}</span>
                 </div>
@@ -1589,7 +1589,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                 <select
                   value={printAllSettings.orientation}
                   onChange={(e) => setPrintAllSettings(p => ({ ...p, orientation: e.target.value as 'normal' | 'landscape' }))}
-                  className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-abdc-500"
+                  className="w-full p-2 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-qet-500"
                 >
                   <option value="normal">Normal</option>
                   <option value="landscape">Landscape</option>
@@ -1609,7 +1609,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                 <button
                   onClick={handlePrintAllDirect}
                   disabled={isPrintingAll}
-                  className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2 disabled:opacity-50"
+                  className="px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 flex items-center gap-2 disabled:opacity-50"
                 >
                   <Printer size={16} />
                   {isPrintingAll ? (printAllBatchProgress || 'Preparing...') : `Print to ${selectedPrinter || 'Printer'}`}
@@ -1618,7 +1618,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
                 <button
                   onClick={() => { setIsPrintAllSettingsOpen(false); handlePrintAllTags(printAllSettings); }}
                   disabled={isPrintingAll}
-                  className="px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 flex items-center gap-2 disabled:opacity-50"
+                  className="px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 flex items-center gap-2 disabled:opacity-50"
                 >
                   <Printer size={16} />
                   {isPrintingAll ? 'Preparing...' : `Print All ${importedAssets.length} Tags`}

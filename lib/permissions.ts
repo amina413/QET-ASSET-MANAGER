@@ -1,5 +1,5 @@
 /**
- * Role-based permissions for ABDC Asset Management System
+ * Role-based permissions for QET Asset Management System
  * B. Asset Manager, C. Custodian, D. Audit User (+ System Admin)
  */
 

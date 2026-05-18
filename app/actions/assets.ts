@@ -83,7 +83,7 @@ export async function getAssets() {
 }
 
 /**
- * Get the next serial number for a given asset ID prefix (e.g. ABDC/KAD/KD/FAF/).
+ * Get the next serial number for a given asset ID prefix (e.g. QET/KAD/KD/FAF/).
  * Returns zero-padded 4-digit serial (0001, 0002, ...) based on existing assets in the register.
  */
 export async function getNextSerialForPrefix(prefix: string): Promise<string> {

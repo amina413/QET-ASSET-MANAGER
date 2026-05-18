@@ -1,6 +1,6 @@
 
 /**
- * ABDC Asset Management - high-precision depreciation service
+ * QET Asset Management - high-precision depreciation service
  */
 
 export enum DepreciationMethod {
@@ -43,7 +43,7 @@ const getDaysBetween = (start: Date, end: Date): number => {
 };
 
 /**
- * ABDC Backend Calculation Engine
+ * QET Backend Calculation Engine
  */
 export const calculateDepreciationSchedule = (input: DepreciationInput): DepreciationYear[] => {
     const { acquisition_cost, registration_date, useful_life, salvage_value, method } = input;

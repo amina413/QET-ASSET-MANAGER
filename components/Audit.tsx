@@ -139,21 +139,25 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
       {onBack && (
         <button
           onClick={onBack}
-          className="flex items-center text-sm text-slate-500 hover:text-abdc-600 mb-6 transition-colors"
+          className="flex items-center text-sm text-slate-500 hover:text-qet-600 mb-6 transition-colors"
         >
           <ArrowLeft size={16} className="mr-1" />
           Back to Dashboard
         </button>
       )}
 
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <ClipboardCheck size={28} className="text-blue-600" />
-          Asset Audit
-        </h1>
-        <p className="text-slate-500 mt-1">
-          Start an audit session to verify physical inventory. Record verification status for each asset.
-        </p>
+      <div className="flex justify-between items-start mb-8">
+        <div className="flex items-start gap-4">
+          <img
+            src="./qet-logo-transparent.png"
+            alt="QET Logo"
+            className="h-12 w-auto object-contain"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">Physical Asset Audit</h1>
+            <p className="text-slate-500">Conduct physical verification and update condition status.</p>
+          </div>
+        </div>
       </div>
 
       {notification && (
@@ -212,7 +216,7 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
               </p>
               <button
                 onClick={handleStartAudit}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-md"
+                className="px-6 py-3 bg-qet-600 text-white rounded-lg font-bold hover:bg-qet-700 transition-colors flex items-center gap-2 shadow-md"
               >
                 <Activity size={20} />
                 Start Audit Session
@@ -223,7 +227,7 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
       ) : (
         /* AUDIT IN PROGRESS */
         <div className="space-y-6">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white p-6 rounded-xl shadow-lg">
+          <div className="bg-gradient-to-r from-qet-600 to-qet-500 text-white p-6 rounded-xl shadow-lg">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-xl font-bold flex items-center gap-2">
@@ -273,7 +277,7 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
                 <button
                   onClick={handleCompleteAudit}
                   disabled={isCompletingAudit}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-bold flex items-center gap-2"
+                  className="px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 text-sm font-bold flex items-center gap-2"
                 >
                   {isCompletingAudit && <Loader2 size={16} className="animate-spin" />}
                   Complete Audit

@@ -10,7 +10,7 @@ const testInput = {
     method: DepreciationMethod.REDUCING_BALANCE
 };
 
-console.log("--- ABDC Depreciation Test ---");
+console.log("--- QET Depreciation Test ---");
 const schedule = calculateDepreciationSchedule(testInput);
 
 console.log("\nSchedule Results:");

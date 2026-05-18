@@ -201,7 +201,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
 
   const loadLogoAsBase64 = async (): Promise<string | null> => {
     try {
-      const res = await fetch('/abdc-logo.png');
+      const res = await fetch('/qet-logo-circular.png');
       const blob = await res.blob();
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -228,7 +228,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
       }
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text('ABDC', logoData ? 44 : 14, 16);
+      doc.text('QET', logoData ? 44 : 14, 16);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.text('Asset Management | assurance - tax - advisory', logoData ? 44 : 14, 23);
@@ -377,7 +377,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
 
       let periodSuffix = '';
       if (reportType === 'Fixed Asset Schedule' || reportType === 'Depreciation Schedule') periodSuffix = `_Period_${reportPeriodYear}`;
-      doc.save(`ABDC_Report_${reportType.replace(/\s+/g, '_')}${periodSuffix}_${dateStr}.pdf`);
+      doc.save(`QET_Report_${reportType.replace(/\s+/g, '_')}${periodSuffix}_${dateStr}.pdf`);
     } catch (err) {
       console.error('PDF export error:', err);
       alert('PDF export failed. Please try again.');
@@ -533,7 +533,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
 
       // Build sheet with professional header
       const headerRows = [
-        ['ABDC Asset Management'],
+        ['QET Asset Management'],
         ['assurance - tax - advisory'],
         [reportType],
         [`Generated: ${dateStr} | Filters: ${getFiltersSummary() || 'All'}`],
@@ -548,7 +548,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, reportType.slice(0, 31));
       const periodSuffix = (reportType === 'Fixed Asset Schedule' || reportType === 'Depreciation Schedule') ? `_Period_${reportPeriodYear}` : '';
-      XLSX.writeFile(wb, `ABDC_Report_${reportTitle}${periodSuffix}_${dateStr}.xlsx`);
+      XLSX.writeFile(wb, `QET_Report_${reportTitle}${periodSuffix}_${dateStr}.xlsx`);
     } catch (err) {
       console.error('Export error:', err);
       alert('Export failed. Please try again.');
@@ -621,7 +621,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
 
                   return (
                     <tr key={asset.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => onNavigateToAsset && onNavigateToAsset(asset.id)}>
-                      <td className="p-4 text-sm font-mono text-slate-600 group-hover:text-abdc-600 font-bold">{asset.productId}</td>
+                      <td className="p-4 text-sm font-mono text-slate-600 group-hover:text-qet-600 font-bold">{asset.productId}</td>
                       <td className="p-4 text-sm font-medium text-slate-800">{asset.name}</td>
                       <td className="p-4 text-sm text-slate-600">{asset.category}</td>
                       <td className="p-4 text-sm text-slate-600 text-right">₦{asset.acquisitionCost.toLocaleString()}</td>
@@ -686,7 +686,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
 
                   return (
                     <tr key={asset.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => onNavigateToAsset && onNavigateToAsset(asset.id)}>
-                      <td className="p-4 text-sm font-mono text-slate-600 group-hover:text-abdc-600 font-bold">{asset.productId}</td>
+                      <td className="p-4 text-sm font-mono text-slate-600 group-hover:text-qet-600 font-bold">{asset.productId}</td>
                       <td className="p-4 text-sm font-medium text-slate-800">{asset.name}</td>
                       <td className="p-4 text-sm text-slate-600">{asset.category}</td>
                       <td className="p-4 text-sm text-slate-600">{asset.subCategory || '-'}</td>
@@ -828,7 +828,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
                       <td className="p-4 text-sm text-right">₦{row.deprCharge.toLocaleString()}</td>
                       <td className="p-4 text-sm text-right text-red-600">₦{row.deprDisposed.toLocaleString()}</td>
                       <td className="p-4 text-sm text-right font-medium">₦{row.deprClosing.toLocaleString()}</td>
-                      <td className="p-4 text-sm font-bold text-abdc-700 text-right">₦{row.nbvCurrent.toLocaleString()}</td>
+                      <td className="p-4 text-sm font-bold text-qet-700 text-right">₦{row.nbvCurrent.toLocaleString()}</td>
                     </tr>
                   ))
                 ) : (
@@ -945,7 +945,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
                       <td className="p-4 text-sm text-right">₦{row.deprCharge.toLocaleString()}</td>
                       <td className="p-4 text-sm text-right text-red-600">₦{row.deprDisposed.toLocaleString()}</td>
                       <td className="p-4 text-sm text-right font-medium">₦{row.deprClosing.toLocaleString()}</td>
-                      <td className="p-4 text-sm font-bold text-abdc-700 text-right">₦{row.nbvCurrent.toLocaleString()}</td>
+                      <td className="p-4 text-sm font-bold text-qet-700 text-right">₦{row.nbvCurrent.toLocaleString()}</td>
                     </tr>
                   ))
                 ) : (
@@ -1023,7 +1023,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
                       <td className="p-4 text-sm text-slate-600">{h.date}</td>
                       <td className="p-4 text-sm font-mono font-medium text-slate-800">{asset ? asset.productId : 'Unknown'}</td>
                       <td className="p-4 text-sm text-slate-600">{h.fromLocation || '-'}</td>
-                      <td className="p-4 text-sm text-abdc-700 font-medium flex items-center gap-1"><ArrowRightLeft size={12} /> {h.toLocation || '-'}</td>
+                      <td className="p-4 text-sm text-qet-700 font-medium flex items-center gap-1"><ArrowRightLeft size={12} /> {h.toLocation || '-'}</td>
                       <td className="p-4 text-sm text-slate-600">{h.toCustodian || '-'}</td>
                       <td className="p-4 text-sm text-slate-500">{h.user}</td>
                     </tr>
@@ -1054,7 +1054,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
               {filteredAssets.length > 0 ? (
                 filteredAssets.map((asset) => (
                   <tr key={asset.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => onNavigateToAsset && onNavigateToAsset(asset.id)}>
-                    <td className="p-4 text-sm font-mono text-slate-600 group-hover:text-abdc-600 font-bold">{asset.productId}</td>
+                    <td className="p-4 text-sm font-mono text-slate-600 group-hover:text-qet-600 font-bold">{asset.productId}</td>
                     <td className="p-4 text-sm font-medium text-slate-800">{asset.name}</td>
                     <td className="p-4 text-sm text-slate-600">{asset.category}</td>
                     <td className="p-4 text-sm text-slate-600 text-right">₦{asset.acquisitionCost.toLocaleString()}</td>
@@ -1097,7 +1097,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
         {onBack && (
           <button
             onClick={onBack}
-            className="flex items-center text-sm text-slate-500 hover:text-abdc-600 transition-colors group self-start"
+            className="flex items-center text-sm text-slate-500 hover:text-qet-600 transition-colors group self-start"
           >
             <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" />
             Back to Dashboard
@@ -1106,7 +1106,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-fit overflow-y-auto">
           <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-            <Filter size={20} className="mr-2 text-abdc-600" /> Report Filters
+            <Filter size={20} className="mr-2 text-qet-600" /> Report Filters
           </h2>
 
           <div className="space-y-6">
@@ -1115,7 +1115,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
               <select
                 value={reportType}
                 onChange={(e) => setReportType(e.target.value)}
-                className="w-full p-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-abdc-500 outline-none"
+                className="w-full p-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-qet-500 outline-none"
               >
                 <option value="Asset Register Summary">Asset Register Summary</option>
                 <option value="Full Asset Register">Full Asset Register</option>
@@ -1133,7 +1133,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
               <select
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
-                className="w-full p-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-abdc-500 outline-none"
+                className="w-full p-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-qet-500 outline-none"
               >
                 <option value="All">All Categories</option>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -1146,7 +1146,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
               <select
                 value={filterLocation}
                 onChange={(e) => setFilterLocation(e.target.value)}
-                className="w-full p-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-abdc-500 outline-none"
+                className="w-full p-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-qet-500 outline-none"
               >
                 <option value="All">All Locations</option>
                 {availableLocations.map(l => <option key={l} value={l}>{l}</option>)}
@@ -1162,7 +1162,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
                     type="date"
                     value={dateRange.from}
                     onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-                    className="w-full p-2 bg-white border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-abdc-500 outline-none"
+                    className="w-full p-2 bg-white border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-qet-500 outline-none"
                   />
                 </div>
                 <div className="flex-1">
@@ -1171,7 +1171,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
                     type="date"
                     value={dateRange.to}
                     onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-                    className="w-full p-2 bg-white border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-abdc-500 outline-none"
+                    className="w-full p-2 bg-white border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-qet-500 outline-none"
                   />
                 </div>
               </div>
@@ -1187,7 +1187,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
 
               {/* Quick Groups */}
               <div className="flex gap-2 mb-3">
-                <button onClick={() => selectGroup('All')} className={`flex-1 py-1 text-xs rounded border ${filterStatusGroup === 'All' ? 'bg-abdc-50 border-abdc-500 text-abdc-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>All</button>
+                <button onClick={() => selectGroup('All')} className={`flex-1 py-1 text-xs rounded border ${filterStatusGroup === 'All' ? 'bg-qet-50 border-qet-500 text-qet-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>All</button>
                 <button onClick={() => selectGroup('Operational')} className={`flex-1 py-1 text-xs rounded border ${filterStatusGroup === 'Operational' ? 'bg-green-50 border-green-500 text-green-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>Active</button>
                 <button onClick={() => selectGroup('Maintenance')} className={`flex-1 py-1 text-xs rounded border ${filterStatusGroup === 'Maintenance' ? 'bg-amber-50 border-amber-500 text-amber-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>Issue</button>
                 <button onClick={() => selectGroup('Disposed')} className={`flex-1 py-1 text-xs rounded border ${filterStatusGroup === 'Disposed' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>Disp</button>
@@ -1198,7 +1198,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
                 <p className="text-[10px] uppercase text-slate-400 font-bold mb-1">Operational (Active)</p>
                 {OPERATIONAL_CODES.map(code => (
                   <label key={code} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-100 p-1 rounded">
-                    <input type="checkbox" checked={selectedConditions.includes(code)} onChange={() => toggleCondition(code)} className="rounded text-abdc-600 focus:ring-abdc-500" />
+                    <input type="checkbox" checked={selectedConditions.includes(code)} onChange={() => toggleCondition(code)} className="rounded text-qet-600 focus:ring-qet-500" />
                     <span className="text-xs text-slate-700 font-medium w-6">{code}</span>
                     <span className="text-xs text-slate-500 truncate">{CONDITION_DESCRIPTIONS[code]}</span>
                   </label>
@@ -1228,7 +1228,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
               <button
                 onClick={handleGenerateReport}
                 disabled={isGenerating}
-                className="w-full py-2 bg-abdc-600 text-white rounded-lg font-medium hover:bg-abdc-700 transition-colors flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full py-2 bg-qet-600 text-white rounded-lg font-medium hover:bg-qet-700 transition-colors flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isGenerating ? (
                   <>
@@ -1245,15 +1245,22 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
 
       {/* Report Preview Column */}
       <div className="flex-1 bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col relative overflow-hidden">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">{reportType}</h2>
-            <p className="text-sm text-slate-500">
-              {reportType === 'Fully Depreciated Assets' ? fullyDepreciated.length : reportType === 'Fixed Asset Schedule' || reportType === 'Depreciation Schedule' ? periodScheduleByCategory.length : filteredAssets.length} Records • Status: <span className="font-semibold text-abdc-600">{filterStatusGroup}</span>
-              {(dateRange.from || dateRange.to) ? <span className="ml-2 font-medium text-slate-600">• Report period: {dateRange.from || '…'} to {dateRange.to || '…'}</span> : ''}
-              {filterCategory !== 'All' ? <span className="ml-2 font-medium text-slate-600">• {filterCategory}</span> : ''}
-              {filterLocation !== 'All' ? <span className="ml-2 font-medium text-slate-600">• {filterLocation}</span> : ''}
-            </p>
+        <div className="flex justify-between items-start mb-8">
+          <div className="flex items-start gap-4">
+            <img
+              src="./qet-logo-transparent.png"
+              alt="QET Logo"
+              className="h-12 w-auto object-contain"
+            />
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">Analytics & Reports</h1>
+              <p className="text-sm text-slate-500">
+                {reportType === 'Fully Depreciated Assets' ? fullyDepreciated.length : reportType === 'Fixed Asset Schedule' || reportType === 'Depreciation Schedule' ? periodScheduleByCategory.length : filteredAssets.length} Records • Status: <span className="font-semibold text-qet-600">{filterStatusGroup}</span>
+                {(dateRange.from || dateRange.to) ? <span className="ml-2 font-medium text-slate-600">• Report period: {dateRange.from || '…'} to {dateRange.to || '…'}</span> : ''}
+                {filterCategory !== 'All' ? <span className="ml-2 font-medium text-slate-600">• {filterCategory}</span> : ''}
+                {filterLocation !== 'All' ? <span className="ml-2 font-medium text-slate-600">• {filterLocation}</span> : ''}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <select
@@ -1278,7 +1285,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
         <div className="flex-1 overflow-auto border rounded-lg relative mb-4">
           {isGenerating ? (
             <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
-              <Loader2 size={48} className="text-abdc-600 animate-spin mb-4" />
+              <Loader2 size={48} className="text-qet-600 animate-spin mb-4" />
               <p className="text-slate-600 font-medium">Generating report data...</p>
             </div>
           ) : null}

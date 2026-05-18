@@ -3,7 +3,7 @@
 cd /d "%~dp0"
 
 echo ========================================
-echo  ABDC Asset Manager - Network Mode
+echo  QET Asset Manager - Network Mode
 echo ========================================
 echo.
 

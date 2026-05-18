@@ -42,10 +42,10 @@ export const MOCK_ASSET_HISTORY: AssetHistoryEvent[] = [
 ];
 
 export const MOCK_USERS: User[] = [
-  { id: '1', name: 'Amina Yusuf', email: 'a.yusuf@abdc.com', department: 'IT', role: 'System Admin', lastLogin: '2024-05-20 08:30' },
-  { id: '2', name: 'Tunde Bakare', email: 't.bakare@abdc.com', department: 'Finance', role: 'Asset Manager', lastLogin: '2024-05-19 14:15' },
-  { id: '3', name: 'Emeka Okafor', email: 'e.okafor@abdc.com', department: 'Operations', role: 'Custodian', lastLogin: '2024-05-21 11:15' },
-  { id: '4', name: 'Chioma Obi', email: 'c.obi@abdc.com', department: 'Audit', role: 'Auditor', lastLogin: '2024-05-18 09:45' },
+  { id: '1', name: 'Amina Yusuf', email: 'a.yusuf@qet.com', department: 'IT', role: 'System Admin', lastLogin: '2024-05-20 08:30' },
+  { id: '2', name: 'Tunde Bakare', email: 't.bakare@qet.com', department: 'Finance', role: 'Asset Manager', lastLogin: '2024-05-19 14:15' },
+  { id: '3', name: 'Emeka Okafor', email: 'e.okafor@qet.com', department: 'Operations', role: 'Custodian', lastLogin: '2024-05-21 11:15' },
+  { id: '4', name: 'Chioma Obi', email: 'c.obi@qet.com', department: 'Audit', role: 'Auditor', lastLogin: '2024-05-18 09:45' },
 ];
 
 export const ASSET_DISTRIBUTION: ChartDataPoint[] = [

@@ -11,11 +11,11 @@ async function main() {
     const hashedPassword = await bcrypt.hash('password123', salt);
 
     const users = [
-        { name: 'Amina Yusuf', email: 'admin@abdc.com', department: 'IT', role: 'SYSTEM_ADMIN' },
-        { name: 'Tunde Bakare', email: 'manager@abdc.com', department: 'Finance', role: 'ASSET_MANAGER' },
-        { name: 'Emeka Okafor', email: 'emeka@abdc.com', department: 'Operations', role: 'CUSTODIAN' },
-        { name: 'Chioma Obi', email: 'audit@abdc.com', department: 'Internal Audit', role: 'AUDITOR' },
-        { name: 'Okalu', email: 'okalu@abdc.com', department: 'Administration', role: 'SYSTEM_ADMIN', password: 'Okalu25428056' },
+        { name: 'Amina Yusuf', email: 'admin@qet.com', department: 'IT', role: 'SYSTEM_ADMIN' },
+        { name: 'Tunde Bakare', email: 'manager@qet.com', department: 'Finance', role: 'ASSET_MANAGER' },
+        { name: 'Emeka Okafor', email: 'emeka@qet.com', department: 'Operations', role: 'CUSTODIAN' },
+        { name: 'Chioma Obi', email: 'audit@qet.com', department: 'Internal Audit', role: 'AUDITOR' },
+        { name: 'Okalu', email: 'okalu@qet.com', department: 'Administration', role: 'SYSTEM_ADMIN', password: 'Okalu25428056' },
     ];
 
     for (const u of users) {
@@ -45,10 +45,10 @@ async function main() {
         { name: 'Advisory', code: 'ADV', location: 'Abuja' },
         { name: 'Audit and Assurance', code: 'AA', location: 'Abuja' },
         { name: 'Shared Services', code: 'SS', location: 'Abuja' },
-        { name: 'Tax', code: 'TAX-KD', location: 'Kaduna' },
-        { name: 'Advisory', code: 'ADV-KD', location: 'Kaduna' },
-        { name: 'Audit and Assurance', code: 'AA-KD', location: 'Kaduna' },
-        { name: 'Shared Services', code: 'SS-KD', location: 'Kaduna' },
+        { name: 'Tax (Kaduna)', code: 'TAX-KD', location: 'Kaduna' },
+        { name: 'Advisory (Kaduna)', code: 'ADV-KD', location: 'Kaduna' },
+        { name: 'Audit and Assurance (Kaduna)', code: 'AA-KD', location: 'Kaduna' },
+        { name: 'Shared Services (Kaduna)', code: 'SS-KD', location: 'Kaduna' },
     ];
 
     for (const dept of departments) {
@@ -77,12 +77,12 @@ async function main() {
 
     console.log('Start seeding custodians...');
     const custodians = [
-        { name: 'Emeka Okafor', department: 'IT', location: 'Abuja', email: 'emeka@abdc.com', phone: '+234 803 123 4567' },
-        { name: 'Transport Pool', department: 'Shared Services', location: 'Abuja', email: 'transport@abdc.com', phone: '+234 803 234 5678' },
-        { name: 'Facilities Manager', department: 'Shared Services', location: 'Abuja', email: 'facilities@abdc.com', phone: '+234 803 345 6789' },
-        { name: 'IT Director', department: 'IT', location: 'Abuja', email: 'it.director@abdc.com', phone: '+234 803 456 7890' },
-        { name: 'Office Manager', department: 'Shared Services', location: 'Kaduna', email: 'office.kaduna@abdc.com', phone: '+234 803 567 8901' },
-        { name: 'Logistics Officer', department: 'Shared Services', location: 'Kaduna', email: 'logistics@abdc.com', phone: '+234 803 678 9012' },
+        { name: 'Emeka Okafor', department: 'IT', location: 'Abuja', email: 'emeka@qet.com', phone: '+234 803 123 4567' },
+        { name: 'Transport Pool', department: 'Shared Services', location: 'Abuja', email: 'transport@qet.com', phone: '+234 803 234 5678' },
+        { name: 'Facilities Manager', department: 'Shared Services', location: 'Abuja', email: 'facilities@qet.com', phone: '+234 803 345 6789' },
+        { name: 'IT Director', department: 'IT', location: 'Abuja', email: 'it.director@qet.com', phone: '+234 803 456 7890' },
+        { name: 'Office Manager', department: 'Shared Services', location: 'Kaduna', email: 'office.kaduna@qet.com', phone: '+234 803 567 8901' },
+        { name: 'Logistics Officer', department: 'Shared Services', location: 'Kaduna', email: 'logistics@qet.com', phone: '+234 803 678 9012' },
     ];
 
     for (const cust of custodians) {

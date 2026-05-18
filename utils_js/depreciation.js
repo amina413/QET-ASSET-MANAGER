@@ -1,5 +1,5 @@
 /**
- * ABDC Asset Management - high-precision depreciation service
+ * QET Asset Management - high-precision depreciation service
  */
 export var DepreciationMethod;
 (function (DepreciationMethod) {
@@ -22,7 +22,7 @@ const getDaysBetween = (start, end) => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 /**
- * ABDC Backend Calculation Engine
+ * QET Backend Calculation Engine
  */
 export const calculateDepreciationSchedule = (input) => {
     const { acquisition_cost, acquisition_date, useful_life, salvage_value, method } = input;

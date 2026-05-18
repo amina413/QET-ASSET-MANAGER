@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 echo ========================================
-echo  ABDC Asset Management System
+echo  QET Asset Management System
 echo ========================================
 echo.
 echo Local:   http://localhost:3000

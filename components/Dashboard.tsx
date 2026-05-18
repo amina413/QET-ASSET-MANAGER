@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { ASSET_DISTRIBUTION } from '../constants';
+import { ASSET_DISTRIBUTION, CATEGORY_CODES } from '../constants';
 import { ArrowUpRight, AlertCircle, DollarSign, Package, Search, Bell, ChevronDown, LogOut, User as UserIcon, X, MapPin, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { User, View, Asset } from '../types';
 
@@ -16,8 +16,8 @@ export interface DashboardNotification {
   assetId?: string;
 }
 
-// Palette: Brand Greens + Gold Accent
-const COLORS = ['#006B3E', '#005532', '#FFCC00', '#22c55e', '#bbf7d0'];
+// Palette: Brand Blues
+const COLORS = ['#1e3a8a', '#2563eb', '#0ea5e9', '#60a5fa', '#bfdbfe'];
 
 function formatRelativeTime(dateStr: string | undefined): string {
   if (!dateStr) return 'Recently';
@@ -60,7 +60,7 @@ const MetricCard: React.FC<{ title: string; value: string; icon: React.ReactNode
       </div>
     </div>
     {trend && (
-      <div className="flex items-center text-xs text-abdc-600 font-medium">
+      <div className="flex items-center text-xs text-qet-600 font-medium">
         <ArrowUpRight size={14} className="mr-1" />
         {trend}
       </div>
@@ -252,15 +252,22 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-6 pb-20 md:pb-0">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">
-            {isCustodian ? 'Jurisdiction Dashboard' : 'Executive Dashboard'}
-          </h1>
-          <p className="text-slate-500 text-sm">
-            Welcome back, <span className="font-semibold text-abdc-600">{currentUser.name}</span>.
-            {isCustodian && <span className="ml-2 inline-flex items-center text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600"><MapPin size={10} className="mr-1" /> Abuja HQ Zone</span>}
-          </p>
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
+        <div className="flex items-start gap-4">
+          <img
+            src="./qet-logo-transparent.png"
+            alt="QET Logo"
+            className="h-12 w-auto object-contain"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">
+              {isCustodian ? 'Jurisdiction Dashboard' : 'Executive Dashboard'}
+            </h1>
+            <p className="text-slate-500 text-sm">
+              Welcome back, <span className="font-semibold text-qet-600">{currentUser.name}</span>.
+              {isCustodian && <span className="ml-2 inline-flex items-center text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600"><MapPin size={10} className="mr-1" /> Abuja HQ Zone</span>}
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center space-x-4 relative">
@@ -271,7 +278,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Quick search assets..."
-              className="pl-10 pr-4 py-2 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-abdc-500 w-64 bg-white"
+              className="pl-10 pr-4 py-2 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-qet-500 w-64 bg-white"
             />
           </form>
 
@@ -293,7 +300,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   {unreadCount > 0 && (
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-xs text-abdc-600 hover:underline"
+                      className="text-xs text-qet-600 hover:underline"
                     >
                       Mark all read
                     </button>
@@ -325,7 +332,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="p-3 text-center border-t border-slate-50">
                   <button
                     onClick={handleViewAllNotifications}
-                    className="text-xs font-medium text-abdc-600 hover:text-abdc-800"
+                    className="text-xs font-medium text-qet-600 hover:text-qet-800"
                   >
                     View All Notifications
                   </button>
@@ -339,7 +346,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center space-x-2 pl-4 border-l border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
             >
-              <div className="w-8 h-8 rounded-full bg-abdc-100 flex items-center justify-center text-abdc-700 font-bold text-xs border border-abdc-200">
+              <div className="w-8 h-8 rounded-full bg-qet-100 flex items-center justify-center text-qet-700 font-bold text-xs border border-qet-200">
                 {currentUser.name.charAt(0)}
               </div>
               <div className="hidden md:block text-left">
@@ -380,9 +387,9 @@ const Dashboard: React.FC<DashboardProps> = ({
         <MetricCard
           title="Total Assets"
           value={totalAssets.toLocaleString()}
-          icon={<Package className="text-abdc-600" size={24} />}
+          icon={<Package className="text-qet-600" size={24} />}
           trend={isCustodian ? "+2 this month" : "+12 this month"}
-          color="bg-abdc-600"
+          color="bg-qet-600"
         />
         <MetricCard
           title="Acquisition Value"
@@ -394,8 +401,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         <MetricCard
           title="Net Book Value"
           value={formatCurrency(netBookValue)}
-          icon={<div className="font-bold text-abdc-800">NBV</div>}
-          color="bg-abdc-800"
+          icon={<div className="font-bold text-qet-800">NBV</div>}
+          color="bg-qet-800"
         />
         <MetricCard
           title="Pending Approval"
@@ -427,7 +434,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                     fill="#8884d8"
                     paddingAngle={5}
                     dataKey="value"
-                    label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+                    label={({ name, percent }: { name?: string; percent?: number }) => {
+                      if (!name) return '';
+                      // Case-insensitive lookup
+                      const match = Object.keys(CATEGORY_CODES).find(k => k.toLowerCase() === name.toLowerCase());
+                      const abbrev = match ? CATEGORY_CODES[match] : name;
+                      return `${abbrev}: ${((percent ?? 0) * 100).toFixed(0)}%`;
+                    }}
                   >
                     {assetByCategoryData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -442,6 +455,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <Legend
                     verticalAlign="bottom"
                     height={36}
+                    wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
                     formatter={(value, entry: any) => `${entry.payload.name} (${entry.payload.value})`}
                   />
                 </PieChart>
@@ -475,22 +489,31 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="flex-1 flex flex-col">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-semibold text-abdc-700 animate-fadeIn">
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="text-sm font-semibold text-qet-700 animate-fadeIn">
                 {valuationView === 'location' ? 'Total Asset Value by Location' : 'Total Asset Value by Category'}
               </h4>
               <span className="text-[10px] text-slate-400 uppercase tracking-widest">{valuationView === 'location' ? '1 of 2' : '2 of 2'}</span>
             </div>
-            <div className="h-48 w-full">
+            <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={valuationView === 'location' ? valueByLocationData : valueByCategoryData}>
+                <BarChart data={valuationView === 'location' ? valueByLocationData : valueByCategoryData} margin={{ bottom: 30 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} interval={0} />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9 }} 
+                    interval={0} 
+                    angle={-45} 
+                    textAnchor="end"
+                    height={60}
+                  />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} tickFormatter={(val) => `₦${val / 1000000}M`} />
                   <Tooltip formatter={(value) => formatCurrency(Number(value))} cursor={{ fill: 'transparent' }} />
                   <Bar
                     dataKey="value"
-                    fill={valuationView === 'location' ? '#006B3E' : '#FFCC00'}
+                    fill={valuationView === 'location' ? '#2563eb' : '#0ea5e9'}
                     radius={[4, 4, 0, 0]}
                     barSize={40}
                   />
@@ -507,7 +530,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           {pendingApproval > 0 && (
             <button
               onClick={handlePendingAction}
-              className="text-sm text-abdc-600 hover:text-abdc-800 font-medium"
+              className="text-sm text-qet-600 hover:text-qet-800 font-medium"
             >
               View All
             </button>
@@ -524,7 +547,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 rounded-full bg-abdc-50 flex items-center justify-center text-abdc-700 font-bold text-sm border border-abdc-100">
+                  <div className="w-10 h-10 rounded-full bg-qet-50 flex items-center justify-center text-qet-700 font-bold text-sm border border-qet-100">
                     {(asset.name || asset.productId).slice(0, 2).toUpperCase()}
                   </div>
                   <div>
@@ -534,7 +557,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <button
                   onClick={() => onNavigateToAsset ? onNavigateToAsset(asset.id) : handlePendingAction()}
-                  className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 hover:border-abdc-300 transition-all"
+                  className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 hover:border-qet-300 transition-all"
                 >
                   Review
                 </button>

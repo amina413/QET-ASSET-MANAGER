@@ -309,9 +309,16 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
 
     return (
         <div className="p-8 max-w-7xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-slate-800 mb-2">System Admin Settings</h1>
-                <p className="text-slate-600">Manage Departments/Units, Asset Classes, Asset Types, Categories, and Locations.</p>
+            <div className="mb-8 flex items-start gap-4">
+                <img
+                    src="./qet-logo-transparent.png"
+                    alt="QET Logo"
+                    className="h-12 w-auto object-contain"
+                />
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-800 mb-2">System Admin Settings</h1>
+                    <p className="text-slate-600">Manage Departments/Units, Asset Classes, Asset Types, Categories, and Locations.</p>
+                </div>
             </div>
 
             <div className="flex gap-2 mb-6 border-b border-slate-200 flex-wrap">
@@ -319,7 +326,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-6 py-3 font-medium transition-colors relative ${activeTab === tab ? 'text-abdc-600' : 'text-slate-600 hover:text-slate-800'}`}
+                        className={`px-6 py-3 font-medium transition-colors relative ${activeTab === tab ? 'text-qet-600' : 'text-slate-600 hover:text-slate-800'}`}
                     >
                         <div className="flex items-center gap-2">
                             {tab === 'departments' && <Building2 size={18} />}
@@ -330,7 +337,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                             {tab === 'assetClasses' && <FolderTree size={18} />}
                             {tabLabels[tab]}
                         </div>
-                        {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-abdc-600" />}
+                        {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-qet-600" />}
                     </button>
                 ))}
             </div>
@@ -348,7 +355,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                 <Plus size={18} /> Add Assigned Custodian
                             </button>
                         )}
-                        <button onClick={handleAdd} className="flex items-center gap-2 px-4 py-2 bg-abdc-600 text-white rounded-lg hover:bg-abdc-700 transition-colors">
+                        <button onClick={handleAdd} className="flex items-center gap-2 px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 transition-colors">
                             <Plus size={18} /> Add New
                         </button>
                     </div>
@@ -356,7 +363,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
 
                 {loading ? (
                     <div className="p-12 flex justify-center">
-                        <Loader2 className="animate-spin text-abdc-600" size={32} />
+                        <Loader2 className="animate-spin text-qet-600" size={32} />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -385,7 +392,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                                     <td className="p-4"><span className="px-2 py-1 bg-slate-100 rounded text-xs font-mono text-slate-700">{dept.code}</span></td>
                                                     <td className="p-4 text-slate-600">{dept.location}</td>
                                                     <td className="p-4 text-right">
-                                                        <button type="button" onClick={() => handleEdit(dept)} className="p-1.5 text-slate-500 hover:text-abdc-600 hover:bg-abdc-50 rounded transition-colors" title="Edit"><Edit2 size={16} /></button>
+                                                        <button type="button" onClick={() => handleEdit(dept)} className="p-1.5 text-slate-500 hover:text-qet-600 hover:bg-qet-50 rounded transition-colors" title="Edit"><Edit2 size={16} /></button>
                                                         <button type="button" onClick={() => setDeleteConfirm(dept.id)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors ml-1" title="Delete"><Trash2 size={16} /></button>
                                                     </td>
                                                 </tr>
@@ -398,7 +405,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                         type="button"
                                         onClick={handleSyncDepartmentsToDatabase}
                                         disabled={isSyncingDepts}
-                                        className="text-sm text-slate-600 hover:text-abdc-600 flex items-center gap-2 disabled:opacity-50"
+                                        className="text-sm text-slate-600 hover:text-qet-600 flex items-center gap-2 disabled:opacity-50"
                                     >
                                         <Database size={14} />
                                         {isSyncingDepts ? 'Importing…' : 'Import default departments from reference'}
@@ -433,7 +440,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                                 <td className="p-4 text-slate-600">{cust.location}</td>
                                                 <td className="p-4 text-sm text-slate-500">{cust.email || '-'}</td>
                                                 <td className="p-4 text-right">
-                                                    <button onClick={() => handleEdit(cust)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors mr-1"><Edit2 size={16} /></button>
+                                                    <button onClick={() => handleEdit(cust)} className="p-1.5 text-slate-500 hover:text-qet-600 hover:bg-qet-50 rounded transition-colors mr-1"><Edit2 size={16} /></button>
                                                     <button onClick={() => setDeleteConfirm(cust.id)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button>
                                                 </td>
                                             </tr>
@@ -456,7 +463,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                         <tr key={loc.id} className="hover:bg-slate-50">
                                             <td className="p-4">{loc.name}</td>
                                             <td className="p-4 text-right">
-                                                <button onClick={() => handleEdit(loc)} className="text-blue-600 hover:text-blue-800 mr-3"><Edit2 size={16} /></button>
+                                                <button onClick={() => handleEdit(loc)} className="text-qet-600 hover:text-qet-800 mr-3"><Edit2 size={16} /></button>
                                                 <button onClick={() => setDeleteConfirm(loc.id)} className="text-red-600 hover:text-red-800"><Trash2 size={16} /></button>
                                             </td>
                                         </tr>
@@ -478,7 +485,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                         <tr key={cat.id} className="hover:bg-slate-50">
                                             <td className="p-4">{cat.name}</td>
                                             <td className="p-4 text-right">
-                                                <button onClick={() => handleEdit(cat)} className="text-blue-600 hover:text-blue-800 mr-3"><Edit2 size={16} /></button>
+                                                <button onClick={() => handleEdit(cat)} className="text-qet-600 hover:text-qet-800 mr-3"><Edit2 size={16} /></button>
                                                 <button onClick={() => setDeleteConfirm(cat.id)} className="text-red-600 hover:text-red-800"><Trash2 size={16} /></button>
                                             </td>
                                         </tr>
@@ -502,7 +509,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                             <td className="p-4">{at.category?.name ?? at.categoryId}</td>
                                             <td className="p-4">{at.name}</td>
                                             <td className="p-4 text-right">
-                                                <button onClick={() => handleEdit(at)} className="text-blue-600 hover:text-blue-800 mr-3"><Edit2 size={16} /></button>
+                                                <button onClick={() => handleEdit(at)} className="text-qet-600 hover:text-qet-800 mr-3"><Edit2 size={16} /></button>
                                                 <button onClick={() => setDeleteConfirm(at.id)} className="text-red-600 hover:text-red-800"><Trash2 size={16} /></button>
                                             </td>
                                         </tr>
@@ -530,18 +537,18 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                                         <li key={opt.id} className="flex items-center justify-between gap-2">
                                                             <span>{opt.name}</span>
                                                             <span>
-                                                                <button onClick={() => { setFormData({ id: opt.id, assetClassId: ac.id, name: opt.name }); setShowCustodianOptionModal(true); }} className="text-blue-600 hover:text-blue-800"><Edit2 size={14} /></button>
+                                                                <button onClick={() => { setFormData({ id: opt.id, assetClassId: ac.id, name: opt.name }); setShowCustodianOptionModal(true); }} className="text-qet-600 hover:text-qet-800"><Edit2 size={14} /></button>
                                                                 <button onClick={() => setCustodianOptionDeleteId(opt.id)} className="text-red-600 hover:text-red-800 ml-1"><Trash2 size={14} /></button>
                                                             </span>
                                                         </li>
                                                     ))}
                                                 </ul>
-                                                <button type="button" onClick={() => handleAddCustodianOption(ac.id)} className="mt-2 text-sm text-abdc-600 hover:text-abdc-700 flex items-center gap-1">
+                                                <button type="button" onClick={() => handleAddCustodianOption(ac.id)} className="mt-2 text-sm text-qet-600 hover:text-qet-700 flex items-center gap-1">
                                                     <Plus size={14} /> Add custodian
                                                 </button>
                                             </td>
                                             <td className="p-4 text-right align-top">
-                                                <button onClick={() => handleEdit(ac)} className="text-blue-600 hover:text-blue-800 mr-3"><Edit2 size={16} /></button>
+                                                <button onClick={() => handleEdit(ac)} className="text-qet-600 hover:text-qet-800 mr-3"><Edit2 size={16} /></button>
                                                 <button onClick={() => setDeleteConfirm(ac.id)} className="text-red-600 hover:text-red-800"><Trash2 size={16} /></button>
                                             </td>
                                         </tr>
@@ -566,15 +573,15 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                 <>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Name <span className="text-red-500">*</span></label>
-                                        <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" placeholder="e.g. Tax, Advisory" required />
+                                        <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" placeholder="e.g. Tax, Advisory" required />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Code <span className="text-red-500">*</span></label>
-                                        <input type="text" value={formData.code || ''} onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" maxLength={5} placeholder="e.g. TAX, ADV" required />
+                                        <input type="text" value={formData.code || ''} onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" maxLength={5} placeholder="e.g. TAX, ADV" required />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Location <span className="text-red-500">*</span></label>
-                                        <select value={formData.location || ''} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" required>
+                                        <select value={formData.location || ''} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" required>
                                             <option value="">Select location</option>
                                             {locations.map((loc) => (
                                                 <option key={loc.id} value={loc.name}>{loc.name}</option>
@@ -588,15 +595,15 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                 <>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Name <span className="text-red-500">*</span></label>
-                                        <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" required />
+                                        <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" required />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Department <span className="text-red-500">*</span></label>
-                                        <input type="text" value={formData.department || ''} onChange={(e) => setFormData({ ...formData, department: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" required />
+                                        <input type="text" value={formData.department || ''} onChange={(e) => setFormData({ ...formData, department: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" required />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Location <span className="text-red-500">*</span></label>
-                                        <select value={formData.location || ''} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" required>
+                                        <select value={formData.location || ''} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" required>
                                             <option value="">Select location</option>
                                             {locations.map((loc) => (
                                                 <option key={loc.id} value={loc.name}>{loc.name}</option>
@@ -616,20 +623,20 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                             {activeTab === 'locations' && (
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Name <span className="text-red-500">*</span></label>
-                                    <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" required />
+                                    <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" required />
                                 </div>
                             )}
                             {activeTab === 'categories' && (
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Name <span className="text-red-500">*</span></label>
-                                    <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" required />
+                                    <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" required />
                                 </div>
                             )}
                             {activeTab === 'assetTypes' && (
                                 <>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Category <span className="text-red-500">*</span></label>
-                                        <select value={formData.categoryId || ''} onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" required>
+                                        <select value={formData.categoryId || ''} onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" required>
                                             <option value="">Select category</option>
                                             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
@@ -637,7 +644,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Asset Type Name <span className="text-red-500">*</span></label>
-                                        <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" required />
+                                        <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" required />
                                     </div>
                                 </>
                             )}
@@ -645,17 +652,17 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                                 <>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Asset Class Name <span className="text-red-500">*</span></label>
-                                        <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" placeholder="e.g. General Purpose, Cluster" required />
+                                        <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" placeholder="e.g. General Purpose, Cluster" required />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Code (optional)</label>
-                                        <input type="text" value={formData.code || ''} onChange={(e) => setFormData({ ...formData, code: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" />
+                                        <input type="text" value={formData.code || ''} onChange={(e) => setFormData({ ...formData, code: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" />
                                     </div>
                                 </>
                             )}
                         </div>
                         <div className="flex gap-3 mt-6">
-                            <button onClick={handleSave} className="flex-1 bg-abdc-600 text-white py-2 rounded-lg hover:bg-abdc-700 flex items-center justify-center gap-2"><Save size={18} /> Save</button>
+                            <button onClick={handleSave} className="flex-1 bg-qet-600 text-white py-2 rounded-lg hover:bg-qet-700 flex items-center justify-center gap-2"><Save size={18} /> Save</button>
                             <button onClick={() => setShowAddModal(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
                         </div>
                     </div>
@@ -674,7 +681,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                             {custodianOptionMode === 'global' && !formData.id ? (
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Asset Class <span className="text-red-500">*</span></label>
-                                    <select value={formData.assetClassId || ''} onChange={(e) => setFormData({ ...formData, assetClassId: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" required>
+                                    <select value={formData.assetClassId || ''} onChange={(e) => setFormData({ ...formData, assetClassId: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" required>
                                         <option value="">Select Asset Class</option>
                                         {assetClasses.map((ac) => <option key={ac.id} value={ac.id}>{ac.name}</option>)}
                                     </select>
@@ -690,11 +697,11 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                             )}
                             <div>
                                 <label className="block text-sm font-medium mb-1">Name <span className="text-red-500">*</span></label>
-                                <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-abdc-500" placeholder="e.g. HR/Admin" />
+                                <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500" placeholder="e.g. HR/Admin" />
                             </div>
                         </div>
                         <div className="flex gap-3 mt-6">
-                            <button onClick={handleSaveCustodianOption} className="flex-1 bg-abdc-600 text-white py-2 rounded-lg hover:bg-abdc-700 flex items-center justify-center gap-2"><Save size={18} /> Save</button>
+                            <button onClick={handleSaveCustodianOption} className="flex-1 bg-qet-600 text-white py-2 rounded-lg hover:bg-qet-700 flex items-center justify-center gap-2"><Save size={18} /> Save</button>
                             <button onClick={() => { setShowCustodianOptionModal(false); setFormData({}); setCustodianOptionMode('perClass'); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
                         </div>
                     </div>

@@ -20,7 +20,7 @@ export async function generateAiResponse(
         const genAI = new GoogleGenAI({ apiKey });
 
         const context = `
-            You are an AI assistant for the ABDC (Abdulkadeer and Co.) Asset Management System.
+            You are an AI assistant for the QET (Quantum Edge Technologies) Asset Management System.
             Current System Data Snapshot:
             - Total Assets in view: ${assetsSnapshot.length} items.
             - Sample Assets: ${assetsSnapshot.slice(0, 10).map(a => a.name).join(', ')}.
