@@ -447,9 +447,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number, name: string, props: any) => [
+                    formatter={(value, name, props: any) => [
                       `${value} assets (${((props.payload?.percent ?? 0) * 100).toFixed(0)}%)`,
-                      props.payload?.name ?? name
+                      props.payload?.name ?? name ?? ''
                     ]}
                   />
                   <Legend

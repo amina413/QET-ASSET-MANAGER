@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Download, Filter, FileText, CheckCircle, Loader2, Calendar, ArrowLeft, ArrowRightLeft, Trash2 } from 'lucide-react';
-import { CATEGORIES, CONDITION_DESCRIPTIONS, MOCK_ASSET_HISTORY } from '../constants';
+import { CATEGORIES, CONDITION_DESCRIPTIONS } from '../constants';
 import { ConditionCode, Asset } from '../types';
 import { calculateDepreciationSchedule } from '../utils/depreciation';
 import { getFullyDepreciatedAssets, generatePeriodScheduleByCategory, generateCustomPeriodScheduleByCategory, clearAssetCache } from '../utils/reportData';
@@ -186,11 +186,11 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
     });
   }, [assetsForFullyDepreciated, dateRange]);
 
-  // Filter Transfers for Transfer Report
-  const transferHistory = MOCK_ASSET_HISTORY.filter(h =>
+  // Transfer history derived from live asset history
+  const transferHistory = assets.flatMap(a => (a.history || []).filter(h =>
     h.type === 'Transfer' &&
-    (filterCategory === 'All' || assets.find(a => a.id === h.assetId)?.category === filterCategory)
-  );
+    (filterCategory === 'All' || a.category === filterCategory)
+  ));
 
   const handleGenerateReport = () => {
     setIsGenerating(true);

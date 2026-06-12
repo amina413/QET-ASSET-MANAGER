@@ -1,5 +1,5 @@
 
-import { Asset, User, ChartDataPoint, DepreciationPoint, AssetHistoryEvent, ConditionCode, WipAsset, AuditSession, AuditVerification } from './types';
+import { ChartDataPoint, DepreciationPoint, ConditionCode } from './types';
 
 export const CONDITION_DESCRIPTIONS: Record<ConditionCode, string> = {
   'A1': 'New - Perfect Condition',
@@ -12,41 +12,6 @@ export const CONDITION_DESCRIPTIONS: Record<ConditionCode, string> = {
   'F4': 'Disposed / Written Off'
 };
 
-// Fresh start: no seed data. Assets come from the database; WIP list starts empty.
-export const MOCK_ASSETS: Asset[] = [];
-
-export const MOCK_WIP_ASSETS: WipAsset[] = [];
-
-export const MOCK_ASSET_HISTORY: AssetHistoryEvent[] = [
-  // History for HP EliteBook (ID 1)
-  { id: '1', assetId: '1', date: '2023-01-15 09:30', action: 'Asset Registered', user: 'System Admin', details: 'Initial system entry via Bulk Import from PO-2023-001.', type: 'Registration' },
-  { id: '2', assetId: '1', date: '2023-01-20 14:15', action: 'Custodian Assigned', user: 'Tunde Bakare', details: 'Assigned to Emeka Okafor (IT Dept). Handover form signed.', type: 'Transfer', fromLocation: 'Central Stores', toLocation: 'Abuja HQ', toCustodian: 'Emeka Okafor' },
-  { id: '3', assetId: '1', date: '2023-06-15 10:00', action: 'Maintenance Scheduled', user: 'System', details: 'Routine 6-month checkup alert generated automatically.', type: 'Maintenance' },
-  { id: '4', assetId: '1', date: '2023-06-18 11:30', action: 'Maintenance Completed', user: 'Ext. Vendor (TechFix)', details: 'Fan cleaning and thermal paste replacement. System performance verified.', type: 'Maintenance' },
-  { id: '5', assetId: '1', date: '2023-11-05 09:45', action: 'Audit Verification', user: 'Chioma Obi', details: 'Asset physically verified during Q3 Audit. Condition: Good. Label intact.', type: 'Audit' },
-
-  // History for Toyota Hilux (ID 2)
-  { id: '6', assetId: '2', date: '2022-06-10 10:00', action: 'Asset Registered', user: 'System Admin', details: 'Direct Purchase entry from Toyota Nigeria.', type: 'Registration' },
-  { id: '7', assetId: '2', date: '2022-06-12 15:00', action: 'Custodian Assigned', user: 'Transport Manager', details: 'Assigned to Transport Pool for general logistics.', type: 'Transfer', fromLocation: 'Dealer Yard', toLocation: 'Lagos Office', toCustodian: 'Transport Pool' },
-  { id: '8', assetId: '2', date: '2023-02-14 08:30', action: 'Maintenance Completed', user: 'Workshop Supervisor', details: '10,000km Service. Oil change and filter replacement.', type: 'Maintenance' },
-  { id: '9', assetId: '2', date: '2023-12-01 11:00', action: 'Audit Verification', user: 'Chioma Obi', details: 'Verified at Lagos Office. Odometer: 15,400km.', type: 'Audit' },
-
-  // History for Conference Table (ID 3)
-  { id: '10', assetId: '3', date: '2021-11-05 13:00', action: 'Asset Registered', user: 'Procurement Officer', details: 'Delivered to Abuja HQ.', type: 'Registration' },
-  { id: '11', assetId: '3', date: '2024-01-10 09:00', action: 'Condition Issue Reported', user: 'Facilities Mgr', details: 'Deep scratch observed on surface. Requesting refinishing.', type: 'Issue' },
-  { id: '12', assetId: '3', date: '2024-01-12 10:00', action: 'Status Changed', user: 'Asset Manager', details: 'Status updated to Maintenance pending repairs.', type: 'Maintenance' },
-
-  // Additional mock transfer for ID 1 to show history depth
-  { id: '13', assetId: '1', date: '2023-05-10 11:00', action: 'Temporary Transfer', user: 'System Admin', details: 'Loaned to Kaduna Training Center for 2 weeks.', type: 'Transfer', fromLocation: 'Abuja HQ', toLocation: 'Kaduna Training Center', toCustodian: 'Training Lead' },
-  { id: '14', assetId: '1', date: '2023-05-25 09:00', action: 'Return Transfer', user: 'System Admin', details: 'Returned from Training Center.', type: 'Transfer', fromLocation: 'Kaduna Training Center', toLocation: 'Abuja HQ', toCustodian: 'Emeka Okafor' },
-];
-
-export const MOCK_USERS: User[] = [
-  { id: '1', name: 'Amina Yusuf', email: 'a.yusuf@qet.com', department: 'IT', role: 'System Admin', lastLogin: '2024-05-20 08:30' },
-  { id: '2', name: 'Tunde Bakare', email: 't.bakare@qet.com', department: 'Finance', role: 'Asset Manager', lastLogin: '2024-05-19 14:15' },
-  { id: '3', name: 'Emeka Okafor', email: 'e.okafor@qet.com', department: 'Operations', role: 'Custodian', lastLogin: '2024-05-21 11:15' },
-  { id: '4', name: 'Chioma Obi', email: 'c.obi@qet.com', department: 'Audit', role: 'Auditor', lastLogin: '2024-05-18 09:45' },
-];
 
 export const ASSET_DISTRIBUTION: ChartDataPoint[] = [
   { name: 'IT Equipment', value: 25 },
@@ -230,7 +195,4 @@ export const DEPARTMENT_CODES: Record<string, string> = {
   'Tax': 'TAX'
 };
 
-export const MOCK_AUDIT_SESSIONS: AuditSession[] = [];
-
-export const MOCK_AUDIT_VERIFICATIONS: AuditVerification[] = [];
 

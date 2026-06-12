@@ -18,6 +18,7 @@ import Login from './Login';
 import { Menu, Loader2 } from 'lucide-react';
 import { authService } from '../services/auth';
 import { assetService } from '../services/assets';
+import type { DbUser } from '../services/users';
 import { userService } from '../services/users';
 
 const GeminiAssistant = dynamic(() => import('./GeminiAssistant'), { ssr: false });
@@ -32,7 +33,7 @@ export default function AppClient() {
 
   // Live data state
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [users, setUsers] = useState<unknown[]>([]);
+  const [users, setUsers] = useState<DbUser[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(false);
 
   const refreshAssets = useCallback(async () => {

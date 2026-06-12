@@ -881,8 +881,6 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
 
   const handleSuccessEdit = (id: string, field: keyof Asset, value: string) => {
     setImportedAssets(prev => prev.map(asset => asset.id === id ? { ...asset, [field]: value } : asset));
-    const assetIndex = [].findIndex(a => a.id === id);
-    if (assetIndex > -1) ([][assetIndex] as any)[field] = value;
   };
 
   const handleBulkImport = async () => {
@@ -914,7 +912,12 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
 
     setIsSubmitting(false);
 
-    if (result.success && result.data.createdIds && result.data.createdIds.length > 0) {
+    if (!result.success) {
+      alert(result.error || "Failed to save imported assets. Please try again.");
+      return;
+    }
+
+    if (result.data.createdIds && result.data.createdIds.length > 0) {
       const productIds = result.data.createdProductIds || [];
       const createdAssets: Asset[] = validRows.map((row, i) => ({
         id: result.data.createdIds![i] || (Date.now() + i).toString(),
@@ -941,8 +944,6 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
       setImportedAssets(createdAssets);
       const invalidRows = parsedData.filter(d => !d.isValid);
       setParsedData(invalidRows);
-    } else {
-      alert(result.error || "Failed to save imported assets. Please try again.");
     }
   };
 

@@ -8,7 +8,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import QRCode from 'qrcode';
 import JsBarcode from 'jsbarcode';
 import { Scan, Search, MapPin, User, Calendar, AlertTriangle, ArrowRightLeft, FileText, Camera, X, Loader2, Image as ImageIcon, ChevronRight, ScanLine, Calculator, RefreshCw, Table, Printer, History, Briefcase, Activity, Filter, CheckCircle2, BoxSelect, TrendingUp, TrendingDown, Truck, ArrowLeft, LocateFixed, FileSpreadsheet, Download, QrCode } from 'lucide-react';
-import { CONDITION_DESCRIPTIONS, LOCATIONS, LOCATION_BRANCHES, MOCK_AUDIT_SESSIONS, MOCK_AUDIT_VERIFICATIONS } from '../constants';
+import { CONDITION_DESCRIPTIONS, LOCATIONS, LOCATION_BRANCHES } from '../constants';
 import { Asset, ConditionCode, AuditSession, AuditVerification, User as UserType, AssetImprovement } from '../types';
 import { calculateDepreciationSchedule, calculateMonthlyDepreciationSchedule } from '../utils/depreciation';
 import { GoogleGenAI } from "@google/genai";
@@ -607,6 +607,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   // Audit State
   const [isAuditMode, setIsAuditMode] = useState(false);
   const [currentAuditSession, setCurrentAuditSession] = useState<AuditSession | null>(null);
+  const [sessionCount, setSessionCount] = useState(0);
   const [auditVerifications, setAuditVerifications] = useState<Map<string, AuditVerification>>(new Map());
   const [isCompletingAudit, setIsCompletingAudit] = useState(false);
 
@@ -814,7 +815,9 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     }
 
     const safeAssets = Array.isArray(assets) ? assets : [];
-    const sessionId = `AUD-${new Date().getFullYear()}-${String(MOCK_AUDIT_SESSIONS.length + 1).padStart(3, '0')}`;
+    const nextCount = sessionCount + 1;
+    setSessionCount(nextCount);
+    const sessionId = `AUD-${new Date().getFullYear()}-${String(nextCount).padStart(3, '0')}`;
     const newSession: AuditSession = {
       id: sessionId,
       auditor: currentUser.name,
@@ -827,7 +830,6 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
       notFoundAssets: 0,
     };
 
-    MOCK_AUDIT_SESSIONS.push(newSession);
     setCurrentAuditSession(newSession);
     setIsAuditMode(true);
     setAuditVerifications(new Map());
@@ -854,7 +856,6 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
       conditionMatch: true,
     };
 
-    MOCK_AUDIT_VERIFICATIONS.push(verification);
     const newMap = new Map(auditVerifications);
     newMap.set(asset.id, verification);
     setAuditVerifications(newMap);
@@ -874,9 +875,6 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
       notFoundAssets: status === 'Not Found' ? currentAuditSession.notFoundAssets + 1 : currentAuditSession.notFoundAssets,
     };
     setCurrentAuditSession(updatedSession);
-
-    const sessionIndex = MOCK_AUDIT_SESSIONS.findIndex(s => s.id === currentAuditSession.id);
-    if (sessionIndex > -1) MOCK_AUDIT_SESSIONS[sessionIndex] = updatedSession;
   };
 
   const handleCompleteAudit = () => {
@@ -889,9 +887,6 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
         endDate: new Date().toISOString(),
         status: 'Completed'
       };
-
-      const sessionIndex = MOCK_AUDIT_SESSIONS.findIndex(s => s.id === currentAuditSession.id);
-      if (sessionIndex > -1) MOCK_AUDIT_SESSIONS[sessionIndex] = completedSession;
 
       const verifiedCount = completedSession.verifiedAssets;
       const notFoundCount = completedSession.notFoundAssets;

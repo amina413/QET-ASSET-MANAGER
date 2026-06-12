@@ -11,7 +11,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Asset, AuditSession, AuditVerification, User } from "../types";
-import { MOCK_AUDIT_SESSIONS, MOCK_AUDIT_VERIFICATIONS } from "../constants";
 import { canStartAudit } from "../lib/permissions";
 
 interface AuditProps {
@@ -23,6 +22,7 @@ interface AuditProps {
 const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
   const [currentAuditSession, setCurrentAuditSession] = useState<AuditSession | null>(null);
   const [auditVerifications, setAuditVerifications] = useState<Map<string, AuditVerification>>(new Map());
+  const [sessionCount, setSessionCount] = useState(0);
   const [isCompletingAudit, setIsCompletingAudit] = useState(false);
   const [auditLocationFilter, setAuditLocationFilter] = useState<string>("All");
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -49,7 +49,9 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
     const filteredByLocation =
       auditLocationFilter === "All" ? safeAssets : safeAssets.filter((a) => a.location === auditLocationFilter);
 
-    const sessionId = `AUD-${new Date().getFullYear()}-${String(MOCK_AUDIT_SESSIONS.length + 1).padStart(3, "0")}`;
+    const nextCount = sessionCount + 1;
+    setSessionCount(nextCount);
+    const sessionId = `AUD-${new Date().getFullYear()}-${String(nextCount).padStart(3, "0")}`;
     const newSession: AuditSession = {
       id: sessionId,
       auditor: currentUser.name,
@@ -62,7 +64,6 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
       notFoundAssets: 0,
     };
 
-    MOCK_AUDIT_SESSIONS.push(newSession);
     setCurrentAuditSession(newSession);
     setAuditVerifications(new Map());
     setNotification({ message: `Audit session ${sessionId} started.`, type: "success" });
@@ -85,19 +86,15 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
       conditionMatch: true,
     };
 
-    MOCK_AUDIT_VERIFICATIONS.push(verification);
     const newMap = new Map(auditVerifications);
     newMap.set(asset.id, verification);
     setAuditVerifications(newMap);
 
-    const updatedSession: AuditSession = {
+    setCurrentAuditSession({
       ...currentAuditSession,
       verifiedAssets: status === "Verified" ? currentAuditSession.verifiedAssets + 1 : currentAuditSession.verifiedAssets,
       notFoundAssets: status === "Not Found" ? currentAuditSession.notFoundAssets + 1 : currentAuditSession.notFoundAssets,
-    };
-    setCurrentAuditSession(updatedSession);
-    const idx = MOCK_AUDIT_SESSIONS.findIndex((s) => s.id === currentAuditSession.id);
-    if (idx > -1) MOCK_AUDIT_SESSIONS[idx] = updatedSession;
+    });
   };
 
   const handleCompleteAudit = () => {
@@ -109,8 +106,6 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
       endDate: new Date().toISOString(),
       status: "Completed",
     };
-    const idx = MOCK_AUDIT_SESSIONS.findIndex((s) => s.id === currentAuditSession.id);
-    if (idx > -1) MOCK_AUDIT_SESSIONS[idx] = completedSession;
 
     setNotification({
       message: `Audit ${completedSession.id} completed! Verified: ${completedSession.verifiedAssets}, Not Found: ${completedSession.notFoundAssets}`,

@@ -2,16 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { Construction, Plus, Search, ChevronRight, Calculator, FileText, CheckCircle2, AlertTriangle, ArrowRight, Loader2, DollarSign, Calendar, User, Save, Trash2, X, ArrowLeft, ArrowRightLeft } from 'lucide-react';
-import { MOCK_WIP_ASSETS, MOCK_ASSETS, MOCK_USERS, CATEGORIES, LOCATION_BRANCHES, MOCK_ASSET_HISTORY, LOCATION_CODES, CATEGORY_CODES } from '../constants';
+import { CATEGORIES, LOCATION_CODES, LOCATION_BRANCHES, CATEGORY_CODES } from '../constants';
 import { settingsService } from '../services/settings';
-import { WipAsset, CostLineItem, Asset } from '../types';
+import { WipAsset, CostLineItem } from '../types';
 
 interface WipManagementProps {
     onBack?: () => void;
 }
 
 const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
-    const [wipProjects, setWipProjects] = useState<WipAsset[]>(MOCK_WIP_ASSETS);
+    const [wipProjects, setWipProjects] = useState<WipAsset[]>([]);
     const [selectedProject, setSelectedProject] = useState<WipAsset | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'detail' | 'create'>('list');
     const [searchTerm, setSearchTerm] = useState('');
@@ -124,39 +124,18 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
         setIsProcessingCap(true);
 
         setTimeout(() => {
-            // Create new Asset in Register
-            const totalCost = calculateTotalCost(selectedProject);
-            const newAsset: Asset = {
-                id: (MOCK_ASSETS.length + 500).toString(),
-                // Generate Asset Tag: QET/LOC/CAT/RANDOM
-                productId: `QET/${selectedProject.location ? LOCATION_CODES[selectedProject.location] : 'ABJ'}/${CATEGORY_CODES[selectedProject.assetType] || 'GEN'}/${Math.floor(1000 + Math.random() * 9000)}`,
-                name: selectedProject.projectName,
-                category: selectedProject.assetType,
-                acquisitionCost: totalCost,
-                acquisitionDate: new Date().toISOString().split('T')[0], // Date Placed in Service
-                netBookValue: totalCost, // Initial NBV
-                location: 'Unassigned',
-                custodian: selectedProject.projectManager,
-                status: 'Active',
-                conditionCode: 'A1',
-                image: 'https://picsum.photos/200/200'
-            };
+            const generatedProductId = `QET/${selectedProject.location ? LOCATION_CODES[selectedProject.location] : 'ABJ'}/${CATEGORY_CODES[selectedProject.assetType] || 'GEN'}/${Math.floor(1000 + Math.random() * 9000)}`;
 
-            // Add to main mock db (simulated)
-            MOCK_ASSETS.push(newAsset);
-
-            // Update WIP status so it shows "Complete Transfer" and link to asset
             const finalizedProject: WipAsset = {
                 ...selectedProject,
                 status: 'Capitalized' as any,
-                relatedAssetId: newAsset.id,
-                relatedAssetProductId: newAsset.productId
+                relatedAssetProductId: generatedProductId
             };
             updateProjectState(finalizedProject);
 
             setIsProcessingCap(false);
-            setNotificationMessage('Asset Capitalized Successfully!');
-            setNotificationAssetId(newAsset.productId);
+            setNotificationMessage('Asset Capitalized. Create the asset in Asset Management to complete registration.');
+            setNotificationAssetId(generatedProductId);
             setShowNotification(true);
         }, 2000);
     };
@@ -166,41 +145,10 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
         setIsSubmittingTransfer(true);
 
         setTimeout(() => {
-            // Find the asset using the robust link
-            let asset: Asset | undefined;
-            if (selectedProject.relatedAssetId) {
-                asset = MOCK_ASSETS.find(a => a.id === selectedProject.relatedAssetId);
-            } else {
-                // Fallback for older data
-                const assetProductId = `QET-${selectedProject.id.split('-')[1]}-`;
-                asset = MOCK_ASSETS.find(a => a.productId.startsWith(assetProductId) && a.name === selectedProject.projectName);
-            }
-
-            if (asset) {
-                const oldLocation = asset.location;
-                asset.location = transferLocation;
-                asset.subLocation = transferSubLocation;
-                asset.custodian = transferCustodian;
-
-                // Add to History
-                MOCK_ASSET_HISTORY.unshift({
-                    id: Math.random().toString(36).substr(2, 9),
-                    assetId: asset.id,
-                    date: new Date().toISOString().replace('T', ' ').substr(0, 16),
-                    action: 'Asset Transferred',
-                    user: 'Amina Yusuf', // Simulated current user
-                    details: `Transferred from ${oldLocation} to ${transferLocation}${transferSubLocation ? ' (' + transferSubLocation + ')' : ''}. Custodian: ${transferCustodian}`,
-                    type: 'Transfer',
-                    fromLocation: oldLocation,
-                    toLocation: transferLocation,
-                    toCustodian: transferCustodian
-                });
-            }
-
             setIsSubmittingTransfer(false);
             setIsTransferOpen(false);
-            setNotificationMessage('Asset Transferred Successfully!');
-            setNotificationAssetId(asset?.productId || '');
+            setNotificationMessage('Transfer request submitted. Approve it from Asset Management.');
+            setNotificationAssetId(selectedProject?.relatedAssetProductId || '');
             setShowNotification(true);
         }, 1500);
     };
@@ -252,10 +200,8 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Project Manager</label>
-                            <select className="w-full p-2 bg-white border border-slate-300 rounded-lg" onChange={e => setNewProject({ ...newProject, projectManager: e.target.value })}>
-                                <option value="">Select User</option>
-                                {MOCK_USERS.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                            </select>
+                            <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg" placeholder="Enter name"
+                                onChange={e => setNewProject({ ...newProject, projectManager: e.target.value })} />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Total Budget (₦)</label>
@@ -635,7 +581,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
                                 <h3 className="text-xl font-bold flex items-center gap-2">
                                     <ArrowRightLeft /> Transfer Physical Asset
                                 </h3>
-                                <p className="text-amber-100 text-xs mt-1">Movement for: {selectedProject.projectName}</p>
+                                <p className="text-amber-100 text-xs mt-1">Movement for: {selectedProject?.projectName}</p>
                             </div>
                             <button onClick={() => setIsTransferOpen(false)} className="p-2 hover:bg-amber-500 rounded-full transition-colors">
                                 <X size={20} />
