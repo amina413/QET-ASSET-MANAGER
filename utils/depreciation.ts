@@ -236,8 +236,8 @@ export const calculateMonthlyDepreciationSchedule = (input: DepreciationInput): 
         if (currentBookValue <= salvage_value) monthlyExpense = 0;
 
         monthlyExpense = roundHalfUp(monthlyExpense);
-        accumulatedDepreciation += monthlyExpense;
-        currentBookValue -= monthlyExpense;
+        accumulatedDepreciation = roundHalfUp(accumulatedDepreciation + monthlyExpense);
+        currentBookValue = roundHalfUp(currentBookValue - monthlyExpense);
 
         schedule.push({
             month: currentDate.getMonth() + 1,

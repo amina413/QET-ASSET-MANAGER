@@ -12,7 +12,7 @@ model User {
   id         String         @id @default(cuid())
   name       String
   email      String         @unique
-  password   String         @default("$2a$10$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+  password   String
   department String
   role       Role           @default(CUSTODIAN)
   lastLogin  DateTime       @default(now())
@@ -20,6 +20,8 @@ model User {
   updatedAt  DateTime       @updatedAt
   assets     Asset[]        @relation("AssetCustodian")
   history    AssetHistory[]
+
+  @@index([role])
 }
 
 model Asset {
@@ -28,16 +30,16 @@ model Asset {
   name             String
   category         String
   subCategory      String?
-  acquisitionCost  Decimal
+  acquisitionCost  Decimal                @db.Decimal(18, 2)
   acquisitionDate  DateTime
-  salvageValue     Decimal                @default(0)
+  salvageValue     Decimal                @default(0) @db.Decimal(18, 2)
   usefulLife       Int
   method           DepreciationMethod     @default(STRAIGHT_LINE)
   location         String
   subLocation      String?
   status           AssetStatus            @default(ACTIVE)
   conditionCode    String?
-  image            String?
+  imageUrl         String?
   registrationDate DateTime               @default(now())
   custodianId      String
   createdAt        DateTime               @default(now())
@@ -47,6 +49,12 @@ model Asset {
   improvements     AssetImprovement[]
   schedules        DepreciationSchedule[]
   transferRequests TransferRequest[]
+
+  @@index([category])
+  @@index([location])
+  @@index([status])
+  @@index([custodianId])
+  @@index([registrationDate])
 }
 
 model DepreciationSchedule {
@@ -54,15 +62,17 @@ model DepreciationSchedule {
   assetId             String
   year                Int
   fiscalYear          Int
-  depreciationExpense Decimal
-  accumulatedDepr     Decimal
-  netBookValue        Decimal
+  depreciationExpense Decimal  @db.Decimal(18, 2)
+  accumulatedDepr     Decimal  @db.Decimal(18, 2)
+  netBookValue        Decimal  @db.Decimal(18, 2)
   createdAt           DateTime @default(now())
   asset               Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, fiscalYear])
 }
 
 model TransferRequest {
-  id            String    @id @default(cuid())
+  id            String         @id @default(cuid())
   assetId       String
   fromLocation  String
   toLocation    String
@@ -70,37 +80,44 @@ model TransferRequest {
   toCustodianId String?
   requestedById String
   approvedById  String?
-  status        String    @default("PENDING")
-  requestedAt   DateTime  @default(now())
+  status        TransferStatus @default(PENDING)
+  requestedAt   DateTime       @default(now())
   resolvedAt    DateTime?
   notes         String?
-  asset         Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset         Asset          @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([assetId])
 }
 
 model AssetHistory {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   assetId      String
-  date         DateTime @default(now())
+  date         DateTime     @default(now())
   action       String
   details      String
-  type         String
+  type         HistoryType
   userId       String
   fromLocation String?
   toCustodian  String?
   toLocation   String?
-  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  user         User     @relation(fields: [userId], references: [id])
+  asset        Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([assetId])
 }
 
 model AssetImprovement {
-  id                 String   @id @default(cuid())
+  id                 String          @id @default(cuid())
   assetId            String
-  date               DateTime @default(now())
-  type               String
-  amount             Decimal
+  date               DateTime        @default(now())
+  type               ImprovementType
+  amount             Decimal         @db.Decimal(18, 2)
   description        String
-  newAcquisitionCost Decimal
-  asset              Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  newAcquisitionCost Decimal         @db.Decimal(18, 2)
+  asset              Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
 }
 
 model Department {
@@ -155,6 +172,8 @@ model AssetType {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
 }
 
 model AssetClass {
@@ -177,6 +196,8 @@ model CustodianOption {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   assetClass   AssetClass @relation(fields: [assetClassId], references: [id], onDelete: Cascade)
+
+  @@index([assetClassId])
 }
 
 enum Role {
@@ -197,4 +218,25 @@ enum DepreciationMethod {
   STRAIGHT_LINE
   REDUCING_BALANCE
   SUM_OF_YEARS
+}
+
+enum TransferStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum HistoryType {
+  Registration
+  Transfer
+  Maintenance
+  Audit
+  Issue
+  Update
+}
+
+enum ImprovementType {
+  Addition
+  Reduction
+  Revaluation
 }

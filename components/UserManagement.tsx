@@ -1,18 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
-import { MOCK_USERS } from '../constants';
 import { User, UserRole } from '../types';
 import { Plus, Edit2, Trash2, Shield, X, Loader2, ArrowLeft } from 'lucide-react';
 import { canEditUsers, canDeleteUsers } from '../lib/permissions';
+import { userService, DbUser } from '../services/users';
 
 interface UserManagementProps {
   currentUser: User;
   onBack?: () => void;
+  onDataChange?: () => void;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack, onDataChange }) => {
+  const [users, setUsers] = useState<DbUser[]>([]);
+  const [editingUser, setEditingUser] = useState<DbUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -22,64 +23,75 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
     name: '',
     email: '',
     department: '',
-    role: 'Custodian' as UserRole
+    role: 'Custodian' as UserRole,
+    password: ''
   });
 
   // Permissions: Auditor read-only; Custodian read-only; Asset Manager can edit but not delete users
   const canModifyUsers = canEditUsers(currentUser.role);
   const canRemoveUsers = canDeleteUsers(currentUser.role);
 
-  // Simulate initial data fetch
+  const loadUsers = async () => {
+    setIsLoading(true);
+    const result = await userService.getAll();
+    if (result.success) {
+      setUsers(result.data);
+    }
+    setIsLoading(false);
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setUsers(MOCK_USERS);
-      setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
+    loadUsers();
   }, []);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to remove this user?')) {
       setIsLoading(true);
-      // Simulate API call
-      setTimeout(() => {
+      const result = await userService.delete(id);
+      if (result.success) {
         setUsers(users.filter(u => u.id !== id));
-        setIsLoading(false);
-      }, 800);
+        onDataChange?.();
+      } else {
+        alert(result.error || 'Failed to delete user.');
+      }
+      setIsLoading(false);
     }
   };
 
-  const handleSaveRole = (newRole: string) => {
-    if (editingUser) {
-      setIsSaving(true);
-      // Simulate API call
-      setTimeout(() => {
-        setUsers(users.map(u => u.id === editingUser.id ? { ...u, role: newRole as any } : u));
-        setIsSaving(false);
-        setEditingUser(null);
-      }, 1000);
+  const handleSaveRole = async (newRole: string) => {
+    if (!editingUser) return;
+    setIsSaving(true);
+    const result = await userService.update(editingUser.id, { role: newRole });
+    if (result.success) {
+      setUsers(users.map(u => u.id === editingUser.id ? { ...u, role: newRole } : u));
+      onDataChange?.();
+      setEditingUser(null);
+    } else {
+      alert(result.error || 'Failed to update user.');
     }
+    setIsSaving(false);
   };
 
-  const handleAddUser = () => {
-    if (!newUser.name || !newUser.email) return;
+  const handleAddUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.password) return;
 
     setIsSaving(true);
-    setTimeout(() => {
-      const userToAdd: User = {
-        id: (users.length + 10).toString(), // Mock ID
-        name: newUser.name,
-        email: newUser.email,
-        department: newUser.department || 'General',
-        role: newUser.role,
-        lastLogin: 'Never'
-      };
-
-      setUsers([...users, userToAdd]);
-      setIsSaving(false);
+    const result = await userService.create({
+      name: newUser.name,
+      email: newUser.email,
+      password: newUser.password,
+      department: newUser.department || 'General',
+      role: newUser.role
+    });
+    if (result.success) {
+      await loadUsers();
+      onDataChange?.();
       setIsAddUserOpen(false);
-      setNewUser({ name: '', email: '', department: '', role: 'Custodian' }); // Reset form
-    }, 1000);
+      setNewUser({ name: '', email: '', department: '', role: 'Custodian', password: '' });
+    } else {
+      alert(result.error || 'Failed to create user.');
+    }
+    setIsSaving(false);
   };
 
   return (
@@ -160,7 +172,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
                       {user.role}
                     </span>
                   </td>
-                  <td className="p-5 text-sm text-slate-500">{user.lastLogin}</td>
+                  <td className="p-5 text-sm text-slate-500">{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}</td>
 
                   {canModifyUsers && (
                     <td className="p-5 text-right">
@@ -200,7 +212,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
               <label className="block text-sm font-medium text-slate-500 mb-1">Role</label>
               <select
                 value={editingUser.role}
-                onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as UserRole })}
+                onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
                 className="w-full p-2 bg-white border border-slate-300 rounded focus:ring-2 focus:ring-qet-500 outline-none"
               >
                 <option value="System Admin">System Admin</option>
@@ -282,6 +294,18 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
                   <option value="Auditor">Auditor</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Temporary Password <span className="text-red-500">*</span></label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-qet-500 outline-none"
+                  placeholder="Min. 8 characters"
+                  minLength={8}
+                />
+                <p className="text-xs text-slate-500 mt-1">The user should change this password after first login.</p>
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-8">
@@ -293,7 +317,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack }) 
               </button>
               <button
                 onClick={handleAddUser}
-                disabled={isSaving || !newUser.name || !newUser.email}
+                disabled={isSaving || !newUser.name || !newUser.email || !newUser.password}
                 className="px-6 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? <Loader2 size={16} className="animate-spin mr-2" /> : <Plus size={18} className="mr-2" />}

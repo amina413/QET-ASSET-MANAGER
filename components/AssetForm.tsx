@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { CATEGORIES, LOCATIONS, MOCK_USERS, LOCATION_BRANCHES, LOCATION_CODES, DEPARTMENT_CODES, SUB_CATEGORIES } from '../constants';
+import { CATEGORIES, LOCATIONS, LOCATION_BRANCHES, LOCATION_CODES, DEPARTMENT_CODES, SUB_CATEGORIES } from '../constants';
 import { Asset, ConditionCode, User } from '../types';
-import { createAsset, getNextSerialForPrefix, createAssetsBulk } from '../app/actions/assets';
-import { getDepartments, getLocations, getCategories, getAssetTypes, getAssetClasses } from '../app/actions/settings';
+import { assetService } from '../services/assets';
+import { settingsService } from '../services/settings';
 import { canRegisterAsset } from '../lib/permissions';
 import { CheckCircle, ChevronRight, Save, UploadCloud, FileSpreadsheet, Download, AlertCircle, Table, Printer, Plus, ArrowLeft, QrCode, ImagePlus, X } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -60,9 +60,10 @@ interface RegisteredAsset {
 interface AssetFormProps {
   onBack?: () => void;
   currentUser: User;
+  onSuccess?: () => void;
 }
 
-const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
+const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess }) => {
   const [mode, setMode] = useState<'single' | 'bulk'>('single');
 
   // Single Entry State
@@ -150,13 +151,13 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
   useEffect(() => {
     (async () => {
       const [locRes, deptRes, catRes, typesRes, classRes] = await Promise.all([
-        getLocations(), getDepartments(), getCategories(), getAssetTypes(), getAssetClasses()
+        settingsService.getLocations(), settingsService.getDepartments(), settingsService.getCategories(), settingsService.getAssetTypes(), settingsService.getAssetClasses()
       ]);
-      if (locRes.success && locRes.locations) setLocationsList(locRes.locations);
-      if (deptRes.success && deptRes.departments) setDepartmentsList(deptRes.departments);
-      if (catRes.success && catRes.categories) setCategoriesList(catRes.categories);
-      if (typesRes.success && typesRes.assetTypes) setAssetTypesList(typesRes.assetTypes);
-      if (classRes.success && classRes.assetClasses) setAssetClassesList(classRes.assetClasses);
+      if (locRes.success) setLocationsList(locRes.data as { id: string; name: string; code: string }[]);
+      if (deptRes.success) setDepartmentsList(deptRes.data as { id: string; name: string; code: string; location: string }[]);
+      if (catRes.success) setCategoriesList(catRes.data as { id: string; name: string; code?: string | null }[]);
+      if (typesRes.success) setAssetTypesList(typesRes.data as { id: string; name: string; categoryId: string; category?: { name: string } }[]);
+      if (classRes.success) setAssetClassesList(classRes.data as { id: string; name: string; custodianOptions: { id: string; name: string }[] }[]);
     })();
   }, []);
 
@@ -305,7 +306,8 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
     setIsSubmitting(true);
 
     const prefix = generateBarcodePrefix(formData.category, formData.name, formData.location);
-    const serial = await getNextSerialForPrefix(prefix);
+    const serialRes = await assetService.getNextSerial(prefix);
+    const serial = serialRes.success ? serialRes.data.next : '0001';
     const newId = prefix + serial;
     const assetName = formData.name || "New Asset";
 
@@ -327,12 +329,13 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       assignmentType: formData.assetClass,
       assignedUser: formData.assignedUser,
       custodian: formData.custodian,
-      image: formData.image || undefined,
+      imageUrl: formData.image || undefined,
     };
 
-    const result = await createAsset(serverData, currentUser.id, currentUser.role);
+    const result = await assetService.create(serverData);
 
     if (result.success) {
+      onSuccess?.();
       setRegisteredAsset({
         name: assetName,
         productId: newId,
@@ -907,14 +910,14 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
       assignedUser: row.assignedUser,
     }));
 
-    const result = await createAssetsBulk(rows, currentUser.id, currentUser.role);
+    const result = await assetService.bulkCreate(rows);
 
     setIsSubmitting(false);
 
-    if (result.success && result.createdIds && result.createdIds.length > 0) {
-      const productIds = result.createdProductIds || [];
+    if (result.success && result.data.createdIds && result.data.createdIds.length > 0) {
+      const productIds = result.data.createdProductIds || [];
       const createdAssets: Asset[] = validRows.map((row, i) => ({
-        id: result.createdIds![i] || (Date.now() + i).toString(),
+        id: result.data.createdIds![i] || (Date.now() + i).toString(),
         productId: productIds[i] || '',
         name: row.name,
         category: row.category,
@@ -927,7 +930,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser }) => {
         assignedUser: row.assignedUser,
         status: 'Active',
         conditionCode: mapConditionToCode(row.condition || 'New'),
-        image: `https://picsum.photos/200/200?random=${Math.random()}`,
+        imageUrl: undefined,
         usefulLife: Number(row.life),
         salvageValue: Number(row.salvageValue),
         previousId: row.previousId,

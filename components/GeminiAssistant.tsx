@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, Sparkles, Loader2, Mic, MicOff, Image as ImageIcon, FileText, Volume2, VolumeX } from 'lucide-react';
-import { generateAiResponse } from '../app/actions/ai';
+import { aiService } from '../services/ai';
 import { ASSET_DISTRIBUTION } from '../constants';
 import { Asset } from '../types';
 
@@ -105,10 +105,12 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
     setIsLoading(true);
 
     try {
-      const text = await generateAiResponse(userMsg, assets, userImages, userDocs);
+      const result = await aiService.query({ message: userMsg, assetsSnapshot: assets, images: userImages, documents: userDocs });
+      if (!result.success) throw new Error(result.error);
+      const text = result.data.text;
       const newMessage: Message = { role: 'model', text: text || "I couldn't generate a response at this time." };
       setMessages(prev => [...prev, newMessage]);
-      
+
       // Auto-play voice response if enabled
       if (isSpeaking && synthRef.current) {
         speakText(text);

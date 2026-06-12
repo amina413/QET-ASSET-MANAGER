@@ -20,6 +20,7 @@
     "clsx": "^2.1.1",
     "decimal.js": "^10.6.0",
     "html2canvas": "^1.4.1",
+    "iron-session": "^8.0.4",
     "jsbarcode": "^3.12.3",
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
@@ -33,7 +34,9 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "recharts": "^3.6.0",
-    "tailwind-merge": "^3.4.0"
+    "swr": "^2.3.3",
+    "tailwind-merge": "^3.4.0",
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

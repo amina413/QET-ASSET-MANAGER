@@ -32,7 +32,7 @@ export interface Asset {
   assignedUser?: string;
   status: 'Active' | 'Disposed' | 'Maintenance' | 'Pending Transfer';
   conditionCode?: ConditionCode;
-  image?: string;
+  imageUrl?: string;
   previousId?: string;
   registrationDate?: string;
   subCategory?: string; // For IT and Office Equipment "Asset Type"

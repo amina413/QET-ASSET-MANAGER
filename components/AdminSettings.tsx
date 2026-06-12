@@ -3,17 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, Save, MapPin, Loader2, FolderTree, Layers, Building2, Database, Users as UsersIcon, AlertTriangle } from 'lucide-react';
 import { LOCATION_BRANCHES, DEPARTMENT_CODES, LOCATIONS } from '../constants';
-import {
-    getDepartments, createDepartment, updateDepartment, deleteDepartment,
-    getCustodians, createCustodian, updateCustodian, deleteCustodian,
-    syncDepartmentsFromReference,
-    getLocations, createLocation, updateLocation, deleteLocation,
-    getCategories, createCategory, updateCategory, deleteCategory,
-    getAssetTypes, createAssetType, updateAssetType, deleteAssetType,
-    getAssetClasses, createAssetClass, updateAssetClass, deleteAssetClass,
-    createCustodianOption, updateCustodianOption, deleteCustodianOption
-} from '../app/actions/settings';
-import { clearAllAssets } from '../app/actions/assets';
+import { settingsService } from '../services/settings';
+import { assetService } from '../services/assets';
 import { User } from '../types';
 
 type Tab = 'departments' | 'custodians' | 'locations' | 'categories' | 'assetTypes' | 'assetClasses';
@@ -96,7 +87,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
     const handleSyncDepartmentsToDatabase = async () => {
         setIsSyncingDepts(true);
         try {
-            const result = await syncDepartmentsFromReference(LOCATION_BRANCHES, DEPARTMENT_CODES);
+            const result = await settingsService.syncDepartments(LOCATION_BRANCHES, DEPARTMENT_CODES);
             if (result?.success) {
                 const added = (result as { added?: number }).added ?? 0;
                 alert(added > 0 ? `Added ${added} department(s) to the database.` : 'All reference values are already in the database.');
@@ -117,25 +108,25 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
     const loadData = async () => {
         setLoading(true);
         if (activeTab === 'departments') {
-            const [deptRes, locRes] = await Promise.all([getDepartments(), getLocations()]);
-            if (deptRes.success) setDepartments(deptRes.departments || []);
-            if (locRes.success) setLocations(locRes.locations || []);
+            const [deptRes, locRes] = await Promise.all([settingsService.getDepartments(), settingsService.getLocations()]);
+            if (deptRes.success) setDepartments(deptRes.data as Department[]);
+            if (locRes.success) setLocations(locRes.data as Location[]);
         } else if (activeTab === 'custodians') {
-            const result = await getCustodians();
-            if (result.success) setCustodians(result.custodians || []);
+            const result = await settingsService.getCustodians();
+            if (result.success) setCustodians(result.data as Custodian[]);
         } else if (activeTab === 'locations') {
-            const result = await getLocations();
-            if (result.success) setLocations(result.locations || []);
+            const result = await settingsService.getLocations();
+            if (result.success) setLocations(result.data as Location[]);
         } else if (activeTab === 'categories') {
-            const result = await getCategories();
-            if (result.success) setCategories(result.categories || []);
+            const result = await settingsService.getCategories();
+            if (result.success) setCategories(result.data as Category[]);
         } else if (activeTab === 'assetTypes') {
-            const [typesRes, catRes] = await Promise.all([getAssetTypes(), getCategories()]);
-            if (typesRes.success) setAssetTypes(typesRes.assetTypes || []);
-            if (catRes.success) setCategories(catRes.categories || []);
+            const [typesRes, catRes] = await Promise.all([settingsService.getAssetTypes(), settingsService.getCategories()]);
+            if (typesRes.success) setAssetTypes(typesRes.data as AssetType[]);
+            if (catRes.success) setCategories(catRes.data as Category[]);
         } else if (activeTab === 'assetClasses') {
-            const result = await getAssetClasses();
-            if (result.success) setAssetClasses(result.assetClasses || []);
+            const result = await settingsService.getAssetClasses();
+            if (result.success) setAssetClasses(result.data as AssetClass[]);
         }
         setLoading(false);
     };
@@ -189,17 +180,17 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
         let result: any;
         try {
             if (activeTab === 'departments') {
-                result = editingId ? await updateDepartment(editingId, formData) : await createDepartment(formData);
+                result = editingId ? await settingsService.updateDepartment(editingId, formData) : await settingsService.createDepartment(formData);
             } else if (activeTab === 'custodians') {
-                result = editingId ? await updateCustodian(editingId, formData) : await createCustodian(formData);
+                result = editingId ? await settingsService.updateCustodian(editingId, formData) : await settingsService.createCustodian(formData);
             } else if (activeTab === 'locations') {
-                result = editingId ? await updateLocation(editingId, formData) : await createLocation(formData);
+                result = editingId ? await settingsService.updateLocation(editingId, formData) : await settingsService.createLocation(formData);
             } else if (activeTab === 'categories') {
-                result = editingId ? await updateCategory(editingId, formData) : await createCategory(formData);
+                result = editingId ? await settingsService.updateCategory(editingId, formData) : await settingsService.createCategory(formData);
             } else if (activeTab === 'assetTypes') {
-                result = editingId ? await updateAssetType(editingId, formData) : await createAssetType(formData);
+                result = editingId ? await settingsService.updateAssetType(editingId, formData) : await settingsService.createAssetType(formData);
             } else if (activeTab === 'assetClasses') {
-                result = editingId ? await updateAssetClass(editingId, formData) : await createAssetClass(formData);
+                result = editingId ? await settingsService.updateAssetClass(editingId, formData) : await settingsService.createAssetClass(formData);
             }
             if (result?.success) {
                 setShowAddModal(false);
@@ -220,12 +211,12 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
     const handleDelete = async (id: string) => {
         setLoading(true);
         let result: any;
-        if (activeTab === 'departments') result = await deleteDepartment(id);
-        else if (activeTab === 'custodians') result = await deleteCustodian(id);
-        else if (activeTab === 'locations') result = await deleteLocation(id);
-        else if (activeTab === 'categories') result = await deleteCategory(id);
-        else if (activeTab === 'assetTypes') result = await deleteAssetType(id);
-        else if (activeTab === 'assetClasses') result = await deleteAssetClass(id);
+        if (activeTab === 'departments') result = await settingsService.deleteDepartment(id);
+        else if (activeTab === 'custodians') result = await settingsService.deleteCustodian(id);
+        else if (activeTab === 'locations') result = await settingsService.deleteLocation(id);
+        else if (activeTab === 'categories') result = await settingsService.deleteCategory(id);
+        else if (activeTab === 'assetTypes') result = await settingsService.deleteAssetType(id);
+        else if (activeTab === 'assetClasses') result = await settingsService.deleteAssetClass(id);
         if (result?.success) {
             setDeleteConfirm(null);
             loadData();
@@ -237,7 +228,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
 
     const handleDeleteCustodianOption = async (id: string) => {
         setLoading(true);
-        const result = await deleteCustodianOption(id);
+        const result = await settingsService.deleteCustodianOption(id);
         if (result?.success) {
             setCustodianOptionDeleteId(null);
             loadData();
@@ -265,8 +256,8 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
         }
         setLoading(true);
         const result = formData.id
-            ? await updateCustodianOption(formData.id, { name: formData.name })
-            : await createCustodianOption({ assetClassId: formData.assetClassId, name: formData.name });
+            ? await settingsService.updateCustodianOption(formData.id, { name: formData.name })
+            : await settingsService.createCustodianOption({ assetClassId: formData.assetClassId, name: formData.name });
         if (result?.success) {
             setShowCustodianOptionModal(false);
             setFormData({});
@@ -763,7 +754,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                             <button
                                 onClick={async () => {
                                     setIsClearingAll(true);
-                                    const result = await clearAllAssets();
+                                    const result = await assetService.clearAll();
                                     setIsClearingAll(false);
                                     setShowClearAllConfirm(false);
                                     if (result?.success) {

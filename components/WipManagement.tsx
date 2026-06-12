@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Construction, Plus, Search, ChevronRight, Calculator, FileText, CheckCircle2, AlertTriangle, ArrowRight, Loader2, DollarSign, Calendar, User, Save, Trash2, X, ArrowLeft, ArrowRightLeft } from 'lucide-react';
 import { MOCK_WIP_ASSETS, MOCK_ASSETS, MOCK_USERS, CATEGORIES, LOCATION_BRANCHES, MOCK_ASSET_HISTORY, LOCATION_CODES, CATEGORY_CODES } from '../constants';
-import { getLocations } from '../app/actions/settings';
+import { settingsService } from '../services/settings';
 import { WipAsset, CostLineItem, Asset } from '../types';
 
 interface WipManagementProps {
@@ -47,8 +47,8 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
     // Locations from database (System Admin) – only these are shown
     const [locationsList, setLocationsList] = useState<{ id: string; name: string; code: string }[]>([]);
     useEffect(() => {
-        getLocations().then((res) => {
-            if (res.success && res.locations) setLocationsList(res.locations);
+        settingsService.getLocations().then((res) => {
+            if (res.success) setLocationsList(res.data as { id: string; name: string; code: string }[]);
         });
     }, []);
 

@@ -8,12 +8,12 @@ import { QRCodeSVG } from 'qrcode.react';
 import QRCode from 'qrcode';
 import JsBarcode from 'jsbarcode';
 import { Scan, Search, MapPin, User, Calendar, AlertTriangle, ArrowRightLeft, FileText, Camera, X, Loader2, Image as ImageIcon, ChevronRight, ScanLine, Calculator, RefreshCw, Table, Printer, History, Briefcase, Activity, Filter, CheckCircle2, BoxSelect, TrendingUp, TrendingDown, Truck, ArrowLeft, LocateFixed, FileSpreadsheet, Download, QrCode } from 'lucide-react';
-import { MOCK_ASSET_HISTORY, CONDITION_DESCRIPTIONS, LOCATIONS, MOCK_USERS, LOCATION_BRANCHES, MOCK_AUDIT_SESSIONS, MOCK_AUDIT_VERIFICATIONS } from '../constants';
+import { CONDITION_DESCRIPTIONS, LOCATIONS, LOCATION_BRANCHES, MOCK_AUDIT_SESSIONS, MOCK_AUDIT_VERIFICATIONS } from '../constants';
 import { Asset, ConditionCode, AuditSession, AuditVerification, User as UserType, AssetImprovement } from '../types';
 import { calculateDepreciationSchedule, calculateMonthlyDepreciationSchedule } from '../utils/depreciation';
 import { GoogleGenAI } from "@google/genai";
-import { updateAssetImage, transferAsset, updateAssetCondition, addAssetImprovement, addAssetHistory } from '../app/actions/assets';
-import { initiateTransfer } from '../app/actions/transfers';
+import { assetService } from '../services/assets';
+import { transferService } from '../services/transfers';
 import { canInitiateTransfer, canApproveTransfer, canStartAudit } from '../lib/permissions';
 
 const DepreciationView = ({ activeAsset }: { activeAsset: Asset }) => {
@@ -430,6 +430,7 @@ interface AssetLookupProps {
   onBack?: () => void;
   assets?: Asset[];
   users?: { id: string; name: string; email?: string; role?: string }[];
+  onDataChange?: () => void;
 }
 
 const AssetLookup: React.FC<AssetLookupProps> = ({
@@ -439,7 +440,8 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   currentUser,
   onBack,
   assets = [],
-  users = []
+  users = [],
+  onDataChange
 }) => {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
@@ -522,39 +524,29 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     reader.onload = async (event) => {
       const imageDataUrl = event.target?.result as string;
       try {
-        const result = await updateAssetImage(imageUploadAssetId, imageDataUrl, currentUser.id);
+        const result = await assetService.updateImage(imageUploadAssetId, imageDataUrl);
         if (result.success) {
-          // Update the asset in the assets array (mutable update for immediate UI feedback)
-          const assetIndex = assets.findIndex(a => a.id === imageUploadAssetId);
-          if (assetIndex > -1) {
-            assets[assetIndex] = { ...assets[assetIndex], image: imageDataUrl };
-          }
-
           // Update search results if the asset is there
           setSearchResults(prev => prev.map(asset =>
             asset.id === imageUploadAssetId
-              ? { ...asset, image: imageDataUrl }
+              ? { ...asset, imageUrl: imageDataUrl }
               : asset
           ));
 
           // Update active asset if it's the one being updated
           if (activeAsset?.id === imageUploadAssetId) {
-            setActiveAsset({ ...activeAsset, image: imageDataUrl });
+            setActiveAsset({ ...activeAsset, imageUrl: imageDataUrl });
           }
 
           // Update tracked asset if it's the one being updated
           if (trackedAsset?.id === imageUploadAssetId) {
-            setTrackedAsset({ ...trackedAsset, image: imageDataUrl });
+            setTrackedAsset({ ...trackedAsset, imageUrl: imageDataUrl });
           }
 
           setNotificationMessage('Image uploaded successfully!');
           setNotificationType('success');
           setShowNotification(true);
-
-          // Refresh the page to get updated assets from server
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500);
+          onDataChange?.();
         } else {
           alert(result.error || 'Failed to upload image');
         }
@@ -592,7 +584,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   const [transferCustodianId, setTransferCustodianId] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
 
-  const custodianOptions = users.length > 0 ? users : MOCK_USERS;
+  const custodianOptions = users;
   const canInitiate = currentUser && canInitiateTransfer(currentUser.role);
   const canApprove = currentUser && canApproveTransfer(currentUser.role);
 
@@ -693,20 +685,19 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     setIsSubmittingReport(true);
     try {
       const updateStatus = ['Damage', 'Malfunction'].includes(reportType) ? 'Maintenance' : undefined;
-      const result = await addAssetHistory(
+      const result = await assetService.addHistory(
         activeAsset.id,
         {
           action: `Issue Reported: ${reportType}`,
           details: reportDesc,
           type: 'Issue',
           updateStatus
-        },
-        currentUser.id
+        }
       );
       if (result.success) {
         setIsReportOpen(false);
         setReportDesc('');
-        router.refresh();
+        onDataChange?.();
         alert(`Issue reported successfully.${updateStatus ? ` Asset status updated to ${updateStatus}.` : ''}`);
       } else {
         alert(result.error || 'Failed to save report.');
@@ -731,47 +722,40 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     setIsTransferring(true);
     try {
       if (canApprove) {
-        // Asset Manager: direct transfer
+        // Asset Manager: direct transfer via approve (or initiate+approve in one step)
         if (!transferCustodianId) {
           alert('Please select a custodian.');
           setIsTransferring(false);
           return;
         }
-        const result = await transferAsset(
-          target.id,
-          {
-            location: transferLocation,
-            subLocation: transferSubLocation,
-            custodianId: transferCustodianId
-          },
-          currentUser.id,
-          currentUser.role
-        );
-        if (result.success) {
+        const initResult = await transferService.initiate({
+          assetId: target.id,
+          toLocation: transferLocation,
+          subLocation: transferSubLocation || undefined,
+          toCustodian: transferCustodian,
+          toCustodianId: transferCustodianId
+        });
+        if (initResult.success) {
           setIsTransferOpen(false);
           setTransferLocation('');
           setTransferSubLocation('');
           setTransferCustodian('');
           setTransferCustodianId('');
           setTransferAssetTarget(null);
+          onDataChange?.();
           alert(`Asset ${target.productId} successfully transferred to ${transferLocation}.`);
-          window.location.reload();
         } else {
-          alert(result.error || 'Transfer failed.');
+          alert(initResult.error || 'Transfer failed.');
         }
       } else if (canInitiate) {
         // Custodian: initiate transfer request
-        const result = await initiateTransfer(
-          target.id,
-          {
-            toLocation: transferLocation,
-            subLocation: transferSubLocation,
-            toCustodian: transferCustodian,
-            toCustodianId: transferCustodianId || undefined
-          },
-          currentUser.id,
-          currentUser.role
-        );
+        const result = await transferService.initiate({
+          assetId: target.id,
+          toLocation: transferLocation,
+          subLocation: transferSubLocation || undefined,
+          toCustodian: transferCustodian,
+          toCustodianId: transferCustodianId || undefined
+        });
         if (result.success) {
           setIsTransferOpen(false);
           setTransferLocation('');
@@ -779,8 +763,8 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
           setTransferCustodian('');
           setTransferCustodianId('');
           setTransferAssetTarget(null);
+          onDataChange?.();
           alert(`Transfer request submitted for ${target.productId}. Awaiting Asset Manager approval.`);
-          window.location.reload();
         } else {
           alert(result.error || 'Failed to initiate transfer.');
         }
@@ -799,10 +783,10 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     if (!activeAsset || !currentUser) return;
     setIsUpdatingCondition(true);
     try {
-      const result = await updateAssetCondition(activeAsset.id, newConditionCode, currentUser.id);
+      const result = await assetService.updateCondition(activeAsset.id, newConditionCode);
       if (result.success) {
         setIsConditionOpen(false);
-        router.refresh();
+        onDataChange?.();
         alert(`Condition updated to ${newConditionCode}.`);
       } else {
         alert(result.error || 'Failed to update condition.');
@@ -876,12 +860,12 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     setAuditVerifications(newMap);
 
     // Persist to DB
-    await addAssetHistory(asset.id, {
+    await assetService.addHistory(asset.id, {
       action: `Audit Verification: ${status}`,
       details: `Asset verified during audit ${currentAuditSession.id}${notes ? `. Notes: ${notes}` : ''}`,
       type: 'Audit'
-    }, currentUser.id);
-    router.refresh();
+    });
+    onDataChange?.();
 
     // Update session counts
     const updatedSession = {
@@ -1781,21 +1765,20 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     setIsSubmittingAdjustment(true);
     try {
       const amount = Number(adjustmentAmount);
-      const result = await addAssetImprovement(
+      const result = await assetService.addImprovement(
         activeAsset.id,
         {
           type: adjustmentType,
           amount,
           description: adjustmentDesc || `${adjustmentType} of ₦${amount.toLocaleString()}`,
           date: adjustmentDate
-        },
-        currentUser.id
+        }
       );
       if (result.success) {
         setIsAdjustmentOpen(false);
         setAdjustmentAmount('');
         setAdjustmentDesc('');
-        router.refresh();
+        onDataChange?.();
         setNotificationMessage(`Asset value updated successfully.`);
         setNotificationType('success');
         setShowNotification(true);
@@ -1996,7 +1979,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   );
 
   const assetHistory = activeAsset
-    ? (activeAsset.history || MOCK_ASSET_HISTORY.filter(h => h.assetId === activeAsset.id)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    ? (activeAsset.history || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     : [];
 
   return (
@@ -2361,9 +2344,9 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                           }`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4 flex-1">
-                              {asset.image ? (
-                                <button type="button" onClick={(e) => { e.stopPropagation(); setImageLightboxUrl(asset.image!); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 focus:ring-2 focus:ring-qet-500" title="Click to open image">
-                                  <img src={asset.image} alt={asset.name} className="w-12 h-12 object-cover hover:opacity-90 transition-opacity" />
+                              {asset.imageUrl ? (
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setImageLightboxUrl(asset.imageUrl!); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 focus:ring-2 focus:ring-qet-500" title="Click to open image">
+                                  <img src={asset.imageUrl} alt={asset.name} className="w-12 h-12 object-cover hover:opacity-90 transition-opacity" />
                                 </button>
                               ) : (
                                 <button
@@ -2451,9 +2434,9 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
               {searchResults.map((asset) => (
                 <div key={asset.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between hover:border-qet-300 cursor-pointer transition-all">
                   <div className="flex items-center space-x-4 flex-1" onClick={() => selectAsset(asset)}>
-                    {asset.image ? (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); setImageLightboxUrl(asset.image!); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 focus:ring-2 focus:ring-qet-500" title="Click to open image">
-                        <img src={asset.image} alt={asset.name} className="w-12 h-12 object-cover hover:opacity-90 transition-opacity" />
+                    {asset.imageUrl ? (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setImageLightboxUrl(asset.imageUrl!); }} className="flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 focus:ring-2 focus:ring-qet-500" title="Click to open image">
+                        <img src={asset.imageUrl} alt={asset.name} className="w-12 h-12 object-cover hover:opacity-90 transition-opacity" />
                       </button>
                     ) : (
                       <button
@@ -2521,9 +2504,9 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                       <p><span className="font-semibold">Custodian:</span> {activeAsset.custodian}</p>
                     </div>
                   </div>
-                  {activeAsset.image ? (
-                    <button type="button" onClick={() => setImageLightboxUrl(activeAsset.image!)} className="block rounded-lg overflow-hidden border border-slate-200 bg-slate-200 focus:ring-2 focus:ring-qet-500 focus:ring-offset-2" title="Click to open image">
-                      <img src={activeAsset.image} alt={activeAsset.name} className="w-24 h-24 object-cover hover:opacity-90 transition-opacity" />
+                  {activeAsset.imageUrl ? (
+                    <button type="button" onClick={() => setImageLightboxUrl(activeAsset.imageUrl!)} className="block rounded-lg overflow-hidden border border-slate-200 bg-slate-200 focus:ring-2 focus:ring-qet-500 focus:ring-offset-2" title="Click to open image">
+                      <img src={activeAsset.imageUrl} alt={activeAsset.name} className="w-24 h-24 object-cover hover:opacity-90 transition-opacity" />
                     </button>
                   ) : (
                     <button
