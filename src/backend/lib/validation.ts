@@ -115,6 +115,8 @@ export const CreateLocationSchema = z.object({
   code: z.string().max(20).trim().toUpperCase().optional(),
 });
 
+export const UpdateLocationSchema = CreateLocationSchema.partial();
+
 export const CreateCategorySchema = z.object({
   name: z.string().min(1).max(100).trim(),
   code: z.string().max(20).trim().optional(),
@@ -136,10 +138,26 @@ export const CreateCustodianOptionSchema = z.object({
   name: z.string().min(1).max(100).trim(),
 });
 
+const AssetSnapshotSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  category: z.string().optional(),
+  status: z.string().optional(),
+  location: z.string().optional(),
+  acquisitionCost: z.union([z.number(), z.string()]).optional(),
+});
+
+const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
+
 export const AiQuerySchema = z.object({
   message: z.string().min(1).max(2000).trim(),
-  assetsSnapshot: z.array(z.any()).max(100).optional().default([]),
-  images: z.array(z.string()).max(5).optional(),
+  assetsSnapshot: z.array(AssetSnapshotSchema).max(100).optional().default([]),
+  images: z.array(
+    z.string().refine(
+      img => ALLOWED_IMAGE_MIME_TYPES.some(mime => img.startsWith(`data:${mime};base64,`)),
+      { message: 'Only JPEG, PNG, GIF, and WebP images are allowed' },
+    ),
+  ).max(5).optional(),
   documents: z.array(z.object({
     name: z.string().max(200),
     content: z.string().max(50000),

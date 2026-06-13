@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { ok, handleError, notFound } from '@/backend/lib/api';
-import { requireAuth } from '@/backend/lib/auth-helpers';
+import { requireAuth, requirePermission } from '@/backend/lib/auth-helpers';
 import prisma from '@/backend/lib/prisma';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { error } = await requireAuth();
+    const { error } = await requirePermission('delete_asset');
     if (error) return error;
 
     const { id } = await params;

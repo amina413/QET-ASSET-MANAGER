@@ -29,6 +29,7 @@ Answer professionally. Use formal Nigerian enterprise tone for policy/letter dra
 
     if (images?.length) {
       for (const img of images) {
+        // Format validated by AiQuerySchema (whitelist: jpeg/png/gif/webp)
         const match = img.match(/^data:([^;]+);base64,(.+)$/);
         if (match) {
           parts.push({ inlineData: { data: match[2], mimeType: match[1] } });

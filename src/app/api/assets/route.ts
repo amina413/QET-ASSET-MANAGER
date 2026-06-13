@@ -5,6 +5,14 @@ import { CreateAssetSchema } from '@/backend/lib/validation';
 import { calculateDepreciationSchedule } from '@/shared/utils/depreciation';
 import prisma from '@/backend/lib/prisma';
 
+type DisplayStatus = 'active' | 'disposed' | 'maintenance' | 'pending transfer';
+const STATUS_MAP: Record<string, DisplayStatus> = {
+  ACTIVE: 'active',
+  DISPOSED: 'disposed',
+  MAINTENANCE: 'maintenance',
+  PENDING_TRANSFER: 'pending transfer',
+};
+
 export async function GET() {
   try {
     const { error } = await requireAuth();
@@ -39,7 +47,7 @@ export async function GET() {
         subLocation: a.subLocation ?? undefined,
         custodian: a.custodian.name,
         custodianId: a.custodian.id,
-        status: a.status.toLowerCase().replace('_', ' ') as 'active' | 'disposed' | 'maintenance' | 'pending transfer',
+        status: STATUS_MAP[a.status] ?? 'active',
         conditionCode: a.conditionCode ?? undefined,
         imageUrl: a.imageUrl ?? undefined,
         registrationDate: a.registrationDate.toISOString().split('T')[0],

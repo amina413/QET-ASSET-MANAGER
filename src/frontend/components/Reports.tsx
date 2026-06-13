@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { Download, Filter, FileText, CheckCircle, Loader2, Calendar, ArrowLeft, ArrowRightLeft, Trash2 } from 'lucide-react';
 import { CATEGORIES, CONDITION_DESCRIPTIONS } from '@/frontend/constants';
 import { ConditionCode, Asset } from '@/shared/types';
@@ -398,11 +399,6 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
   const handleExport = async () => {
     if (exportFormat === 'pdf') {
       await handleExportPDF();
-      return;
-    }
-    const XLSX = (window as any).XLSX;
-    if (!XLSX) {
-      alert('Excel export is not loaded. Please refresh the page and try again.');
       return;
     }
     setIsExporting(true);

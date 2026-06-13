@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server';
-import { ok, handleError, notFound } from '@/backend/lib/api';
-import { requireAuth } from '@/backend/lib/auth-helpers';
+import { ok, err, handleError, notFound } from '@/backend/lib/api';
+import { requirePermission } from '@/backend/lib/auth-helpers';
 import { AddImprovementSchema } from '@/backend/lib/validation';
 import { calculateDepreciationSchedule } from '@/shared/utils/depreciation';
 import prisma from '@/backend/lib/prisma';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { user, error } = await requireAuth();
+    const { user, error } = await requirePermission('edit_asset');
     if (error) return error;
 
     const { id } = await params;
@@ -18,9 +18,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!asset) return notFound('Asset');
 
     const currentCost = Number(asset.acquisitionCost);
+
+    if (data.type === 'Reduction' && data.amount > currentCost) {
+      return err(`Reduction amount (${data.amount}) exceeds current asset cost (${currentCost})`, 422);
+    }
+
     const newCost = data.type === 'Addition'
       ? currentCost + data.amount
-      : Math.max(0, currentCost - data.amount);
+      : currentCost - data.amount;
 
     const scheduleData = calculateDepreciationSchedule({
       acquisition_cost: newCost,

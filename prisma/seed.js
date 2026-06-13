@@ -10,16 +10,21 @@ async function main() {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash('password123', salt);
 
+    // Passwords come from environment variables; fall back to a placeholder that must be changed.
+    // Set SEED_ADMIN_PASSWORD, SEED_OKALU_PASSWORD etc. in .env before seeding in production.
+    const defaultPassword = process.env.SEED_DEFAULT_PASSWORD || 'ChangeMe123!';
+    const okaluPassword = process.env.SEED_OKALU_PASSWORD || defaultPassword;
+
     const users = [
         { name: 'Amina Yusuf', email: 'admin@qet.com', department: 'IT', role: 'SYSTEM_ADMIN' },
         { name: 'Tunde Bakare', email: 'manager@qet.com', department: 'Finance', role: 'ASSET_MANAGER' },
         { name: 'Emeka Okafor', email: 'emeka@qet.com', department: 'Operations', role: 'CUSTODIAN' },
         { name: 'Chioma Obi', email: 'audit@qet.com', department: 'Internal Audit', role: 'AUDITOR' },
-        { name: 'Okalu', email: 'okalu@qet.com', department: 'Administration', role: 'SYSTEM_ADMIN', password: 'Okalu25428056' },
+        { name: 'Okalu', email: 'okalu@qet.com', department: 'Administration', role: 'SYSTEM_ADMIN', customPassword: okaluPassword },
     ];
 
     for (const u of users) {
-        const passwordToHash = u.password || 'password123';
+        const passwordToHash = u.customPassword || defaultPassword;
         const userPassword = await bcrypt.hash(passwordToHash, salt);
 
         const user = await prisma.user.upsert({

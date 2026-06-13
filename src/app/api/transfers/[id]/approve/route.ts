@@ -17,6 +17,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!req_) return notFound('Transfer request');
     if (req_.status !== 'PENDING') return err('Transfer request is no longer pending', 409);
 
+    const custodian = await prisma.user.findUnique({ where: { id: custodianId }, select: { id: true } });
+    if (!custodian) return notFound('Custodian user');
+
     await prisma.$transaction([
       prisma.asset.update({
         where: { id: req_.assetId },

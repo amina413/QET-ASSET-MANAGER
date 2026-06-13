@@ -17,13 +17,11 @@ export type AppSession = {
 const SESSION_SECRET = process.env.SESSION_SECRET;
 
 if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('SESSION_SECRET must be at least 32 characters in production');
-  }
+  throw new Error('SESSION_SECRET env var must be set to at least 32 characters. Add it to your .env file.');
 }
 
 export const sessionOptions: SessionOptions = {
-  password: SESSION_SECRET || 'dev-secret-do-not-use-in-production-32chars',
+  password: SESSION_SECRET,
   cookieName: 'qet_session',
   cookieOptions: {
     secure: process.env.NODE_ENV === 'production',

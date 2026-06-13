@@ -4,7 +4,7 @@ import prisma from '@/backend/lib/prisma';
 
 export async function DELETE() {
   try {
-    const { error } = await requirePermission('delete_asset');
+    const { error } = await requirePermission('system_settings');
     if (error) return error;
 
     await prisma.$transaction([

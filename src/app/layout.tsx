@@ -24,7 +24,6 @@ export default function RootLayout({
         <html lang="en" suppressHydrationWarning>
             <body className={`${inter.variable} ${outfit.variable} font-sans antialiased text-slate-900 bg-slate-50`} suppressHydrationWarning>
                 {children}
-                <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" async />
             </body>
         </html>
     );

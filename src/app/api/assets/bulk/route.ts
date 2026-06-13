@@ -23,12 +23,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { rows } = BulkCreateSchema.parse(body);
 
-    // Compute next serial per prefix atomically inside the transaction
     const uniquePrefixes = [...new Set(rows.map(r => r.prefix.endsWith('/') ? r.prefix : r.prefix + '/'))];
 
-    const existingSerials = await Promise.all(
-      uniquePrefixes.map(async prefix => {
-        const existing = await prisma.asset.findMany({
+    const createdIds: string[] = [];
+    const createdProductIds: string[] = [];
+    const warnings: string[] = [];
+
+    await prisma.$transaction(async tx => {
+      // Serial computation happens INSIDE the transaction to prevent race conditions
+      const serialMap = new Map<string, number>();
+      for (const prefix of uniquePrefixes) {
+        const existing = await tx.asset.findMany({
           where: { productId: { startsWith: prefix } },
           select: { productId: true },
         });
@@ -37,20 +42,13 @@ export async function POST(req: NextRequest) {
           const num = parseInt(a.productId.slice(prefix.length).split('-')[0], 10);
           if (!isNaN(num) && num > max) max = num;
         }
-        return [prefix, max] as [string, number];
-      }),
-    );
+        serialMap.set(prefix, max + 1);
+      }
 
-    const nextSerial = new Map(existingSerials.map(([p, max]) => [p, max + 1]));
-
-    const createdIds: string[] = [];
-    const createdProductIds: string[] = [];
-
-    await prisma.$transaction(async tx => {
       for (const row of rows) {
         const prefix = row.prefix.endsWith('/') ? row.prefix : row.prefix + '/';
-        const serial = (nextSerial.get(prefix) ?? 1).toString().padStart(4, '0');
-        nextSerial.set(prefix, (nextSerial.get(prefix) ?? 1) + 1);
+        const serial = (serialMap.get(prefix) ?? 1).toString().padStart(4, '0');
+        serialMap.set(prefix, (serialMap.get(prefix) ?? 1) + 1);
         const productId = prefix + serial;
 
         let acquisitionDate = new Date(row.date);
@@ -64,6 +62,9 @@ export async function POST(req: NextRequest) {
         const custodianId = row.custodianId ?? user.id;
         const custodianExists = await tx.user.findUnique({ where: { id: custodianId }, select: { id: true } });
         const resolvedCustodianId = custodianExists ? custodianId : user.id;
+        if (!custodianExists && row.custodianId) {
+          warnings.push(`Row "${row.name}": custodian ID "${row.custodianId}" not found — assigned to uploader.`);
+        }
 
         const asset = await tx.asset.create({
           data: {
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    return ok({ createdIds, createdProductIds }, 201);
+    return ok({ createdIds, createdProductIds, warnings }, 201);
   } catch (error) {
     return handleError(error);
   }

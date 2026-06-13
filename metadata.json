@@ -1,7 +1,0 @@
-{
-  "name": "QET ASSET MANAGER",
-  "description": "A comprehensive fixed asset management dashboard for Quantum Edge Technologies (QET), featuring asset tracking, reporting, depreciation calculation, and AI-powered insights.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}

@@ -87,6 +87,7 @@ model TransferRequest {
 
   @@index([status])
   @@index([assetId])
+  @@index([requestedById])
 }
 
 model AssetHistory {
@@ -104,6 +105,7 @@ model AssetHistory {
   user         User         @relation(fields: [userId], references: [id])
 
   @@index([assetId])
+  @@index([userId])
 }
 
 model AssetImprovement {

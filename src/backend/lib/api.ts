@@ -30,9 +30,9 @@ export function handleError(error: unknown): NextResponse<ApiError> {
     return err('Validation failed', 422, error.flatten());
   }
   if (error instanceof Error) {
-    if (process.env.NODE_ENV !== 'production') {
-      return err(error.message, 500);
-    }
+    console.error('[API Error]', error.message, error.stack);
+  } else {
+    console.error('[API Error]', error);
   }
   return err('Internal server error', 500);
 }

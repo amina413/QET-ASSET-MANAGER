@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import { CATEGORIES, LOCATIONS, LOCATION_BRANCHES, LOCATION_CODES, DEPARTMENT_CODES, SUB_CATEGORIES } from '@/frontend/constants';
 import { Asset, ConditionCode, User } from '@/shared/types';
 import { assetService } from '@/frontend/services/assets';
@@ -750,14 +751,6 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
-        const XLSX = (window as any).XLSX;
-
-        if (!XLSX) {
-          alert("Excel parser not loaded. Please refresh the page.");
-          setIsProcessingFile(false);
-          return;
-        }
-
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
@@ -948,8 +941,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
   };
 
   const downloadImportedTags = () => {
-    const XLSX = (window as any).XLSX;
-    if (!XLSX || importedAssets.length === 0) return;
+    if (importedAssets.length === 0) return;
     const data = importedAssets.map(a => ({ "Asset Name": a.name, "Generated Tag ID": a.productId, "Category": a.category, "Location": a.location }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -981,8 +973,6 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
   };
 
   const downloadTemplate = () => {
-    const XLSX = (window as any).XLSX;
-    if (!XLSX) return;
 
     const instructions = [
       { ...TEMPLATE_COLUMNS, "Asset Name*": "INSTRUCTIONS:", "Category*": "Do not delete this row." },

@@ -19,6 +19,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         where: { id },
         data: { status: 'REJECTED', approvedById: user.id, resolvedAt: new Date() },
       }),
+      prisma.assetHistory.create({
+        data: {
+          assetId: req_.assetId,
+          userId: user.id,
+          action: 'Transfer Rejected',
+          details: `Transfer request from ${req_.fromLocation} to ${req_.toLocation} was rejected.`,
+          type: 'Transfer',
+          fromLocation: req_.fromLocation,
+          toLocation: req_.toLocation,
+        },
+      }),
     ]);
 
     return ok({ rejected: true });

@@ -1,8 +1,3 @@
-/**
- * Role-based permissions for QET Asset Management System
- * B. Asset Manager, C. Custodian, D. Audit User (+ System Admin)
- */
-
 import { UserRole } from "@/shared/types";
 
 export type Permission =
@@ -82,6 +77,7 @@ export function hasPermission(role: UserRole, permission: Permission): boolean {
   return perms ? perms.includes(permission) : false;
 }
 
+// Convenience wrappers used by frontend components
 export function canApproveTransfer(role: UserRole): boolean {
   return hasPermission(role, "approve_transfer");
 }
@@ -94,14 +90,6 @@ export function canRegisterAsset(role: UserRole): boolean {
   return hasPermission(role, "register_asset");
 }
 
-export function canEditAsset(role: UserRole): boolean {
-  return hasPermission(role, "edit_asset");
-}
-
-export function canDeleteAsset(role: UserRole): boolean {
-  return hasPermission(role, "delete_asset");
-}
-
 export function canEditUsers(role: UserRole): boolean {
   return hasPermission(role, "edit_users");
 }
@@ -110,30 +98,6 @@ export function canDeleteUsers(role: UserRole): boolean {
   return hasPermission(role, "delete_users");
 }
 
-export function canAccessSystemSettings(role: UserRole): boolean {
-  return hasPermission(role, "system_settings");
-}
-
-export function canAccessScopedReports(role: UserRole): boolean {
-  return hasPermission(role, "view_scoped_reports");
-}
-
-export function canAccessAllReports(role: UserRole): boolean {
-  return hasPermission(role, "view_all_reports");
-}
-
-export function canStartWip(role: UserRole): boolean {
-  return hasPermission(role, "start_wip");
-}
-
-export function canAssignProjectManager(role: UserRole): boolean {
-  return hasPermission(role, "assign_project_manager");
-}
-
 export function canStartAudit(role: UserRole): boolean {
   return hasPermission(role, "start_audit");
-}
-
-export function canRecordAudit(role: UserRole): boolean {
-  return hasPermission(role, "record_audit");
 }

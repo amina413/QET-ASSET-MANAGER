@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
+import * as XLSX from 'xlsx';
 import { useRouter } from 'next/navigation';
 import jsQR from 'jsqr';
 import { QRCodeSVG } from 'qrcode.react';
@@ -1823,14 +1824,6 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   }, [setNotificationMessage, setNotificationType, setShowNotification, setShowExportOptions]);
 
   const exportToExcel = useCallback(() => {
-    const XLSX = (window as any).XLSX;
-    if (!XLSX) {
-      setNotificationMessage("Excel exporter not loaded");
-      setNotificationType('error');
-      setShowNotification(true);
-      return;
-    }
-
     const data = assets.map(asset => ({
       "Asset Tag": asset.productId,
       "Asset Name": asset.name,

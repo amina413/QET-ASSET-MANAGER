@@ -31,3 +31,6 @@ dist-ssr
 
 # Claude Code internal directories
 .claude/
+
+# TypeScript build cache
+tsconfig.tsbuildinfo
