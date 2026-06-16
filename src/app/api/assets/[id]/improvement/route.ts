@@ -1,31 +1,56 @@
 import { NextRequest } from 'next/server';
-import { ok, err, handleError, notFound } from '@/backend/lib/api';
-import { requirePermission } from '@/backend/lib/auth-helpers';
+import { ok, err, handleError } from '@/backend/lib/api';
+import { requireAssetAccess, requirePermission } from '@/backend/lib/auth-helpers';
 import { AddImprovementSchema } from '@/backend/lib/validation';
 import { calculateDepreciationSchedule } from '@/shared/utils/depreciation';
 import prisma from '@/backend/lib/prisma';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { user, error } = await requirePermission('edit_asset');
+    const { user, error } = await requirePermission('adjust_asset_value');
     if (error) return error;
 
     const { id } = await params;
     const body = await req.json();
     const data = AddImprovementSchema.parse(body);
 
-    const asset = await prisma.asset.findUnique({ where: { id } });
-    if (!asset) return notFound('Asset');
+    const { asset, error: assetError } = await requireAssetAccess<{
+      id: string;
+      custodianId: string;
+      isActive: boolean;
+      acquisitionCost: unknown;
+      registrationDate: Date;
+      usefulLife: number;
+      salvageValue: unknown;
+      method: string;
+    }>(user, id, {
+      id: true,
+      custodianId: true,
+      isActive: true,
+      acquisitionCost: true,
+      registrationDate: true,
+      usefulLife: true,
+      salvageValue: true,
+      method: true,
+    });
+    if (assetError) return assetError;
 
     const currentCost = Number(asset.acquisitionCost);
 
     if (data.type === 'Reduction' && data.amount > currentCost) {
       return err(`Reduction amount (${data.amount}) exceeds current asset cost (${currentCost})`, 422);
     }
+    if (data.type === 'Revaluation' && data.amount <= 0) {
+      return err('Revaluation amount must be a positive value (the new total cost)', 422);
+    }
 
+    // Addition/Reduction are deltas applied to the current cost; Revaluation
+    // sets the cost to an absolute new value.
     const newCost = data.type === 'Addition'
       ? currentCost + data.amount
-      : currentCost - data.amount;
+      : data.type === 'Reduction'
+        ? currentCost - data.amount
+        : data.amount;
 
     const scheduleData = calculateDepreciationSchedule({
       acquisition_cost: newCost,

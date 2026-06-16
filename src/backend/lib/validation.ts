@@ -5,6 +5,11 @@ export const LoginSchema = z.object({
   password: z.string().min(1, 'Password is required').max(128),
 });
 
+export const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required').max(128),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters').max(128),
+});
+
 export const CreateUserSchema = z.object({
   name: z.string().min(1).max(100).trim(),
   email: z.string().email().max(255).trim().toLowerCase(),
@@ -43,8 +48,8 @@ export const BulkAssetRowSchema = z.object({
   category: z.string().min(1).max(100).trim(),
   subCategory: z.string().max(100).trim().optional(),
   cost: z.number().positive(),
-  date: z.string(),
-  registrationDate: z.string(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+  registrationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
   salvageValue: z.number().min(0).default(0),
   life: z.number().int().min(1).max(100),
   depreciationMethod: z.string().default('Straight Line'),
@@ -77,7 +82,7 @@ export const AddHistorySchema = z.object({
 });
 
 export const UpdateAssetImageSchema = z.object({
-  imageUrl: z.string().min(1).max(5_000_000),
+  imageUrl: z.string().url().max(2048),
 });
 
 export const InitiateTransferSchema = z.object({
@@ -85,7 +90,7 @@ export const InitiateTransferSchema = z.object({
   toLocation: z.string().min(1).max(200).trim(),
   subLocation: z.string().max(200).trim().optional(),
   toCustodian: z.string().min(1).max(200).trim(),
-  toCustodianId: z.string().optional(),
+  toCustodianId: z.string().min(1),
 });
 
 export const ApproveTransferSchema = z.object({

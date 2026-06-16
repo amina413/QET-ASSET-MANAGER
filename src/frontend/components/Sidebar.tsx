@@ -1,6 +1,9 @@
+"use client";
+
 import React from 'react';
 import { View, User } from '@/shared/types';
 import { LayoutDashboard, PlusCircle, ScanLine, FileBarChart, Users, Menu, X, LogOut, Briefcase, Construction, Settings, ClipboardCheck } from 'lucide-react';
+import { canAccessView } from '@/shared/view-access';
 
 interface SidebarProps {
   currentView: View;
@@ -13,18 +16,18 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isMobileOpen, setIsMobileOpen, currentUser, onLogout }) => {
   const allMenuItems = [
-    { view: View.DASHBOARD, label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian', 'Auditor'] },
-    { view: View.AUDIT, label: 'Start Audit', icon: <ClipboardCheck size={20} />, roles: ['Auditor'] },
-    { view: View.ASSET_REGISTRATION, label: 'Register Asset', icon: <PlusCircle size={20} />, roles: ['System Admin', 'Asset Manager'] },
-    { view: View.WIP_MANAGEMENT, label: 'Work in Progress', icon: <Construction size={20} />, roles: ['System Admin', 'Asset Manager'] },
-    { view: View.ASSET_LOOKUP, label: 'Scan & Lookup', icon: <ScanLine size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian', 'Auditor'] },
-    { view: View.ASSET_MANAGEMENT, label: 'Asset Management', icon: <Briefcase size={20} />, roles: ['System Admin', 'Asset Manager', 'Custodian'] },
-    { view: View.REPORTS, label: 'Reports', icon: <FileBarChart size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor', 'Custodian'] },
-    { view: View.USER_MANAGEMENT, label: 'User Admin', icon: <Users size={20} />, roles: ['System Admin', 'Asset Manager', 'Auditor', 'Custodian'] },
-    { view: View.SETTINGS, label: 'System Admin Settings', icon: <Settings size={20} />, roles: ['System Admin'] },
+    { view: View.DASHBOARD, label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+    { view: View.AUDIT, label: 'Start Audit', icon: <ClipboardCheck size={20} /> },
+    { view: View.ASSET_REGISTRATION, label: 'Register Asset', icon: <PlusCircle size={20} /> },
+    { view: View.WIP_MANAGEMENT, label: 'Work in Progress', icon: <Construction size={20} /> },
+    { view: View.ASSET_LOOKUP, label: 'Scan & Lookup', icon: <ScanLine size={20} /> },
+    { view: View.ASSET_MANAGEMENT, label: 'Asset Management', icon: <Briefcase size={20} /> },
+    { view: View.REPORTS, label: 'Reports', icon: <FileBarChart size={20} /> },
+    { view: View.USER_MANAGEMENT, label: 'User Admin', icon: <Users size={20} /> },
+    { view: View.SETTINGS, label: 'System Admin Settings', icon: <Settings size={20} /> },
   ];
 
-  const menuItems = allMenuItems.filter(item => item.roles.includes(currentUser.role));
+  const menuItems = allMenuItems.filter(item => canAccessView(currentUser.role, item.view));
 
   return (
     <>
@@ -34,11 +37,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isMobile
 
         <div className="p-6 flex items-center justify-center border-b border-slate-800/60 relative">
           <img
-            src="./qet-logo-sidebar.png"
+            src="/qet-logo-sidebar.svg"
             alt="Quantum Edge Technologies Ltd. Logo"
             className="h-20 w-auto object-contain"
           />
-          <button onClick={() => setIsMobileOpen(false)} className="md:hidden absolute right-6 text-slate-400 hover:text-white">
+          <button onClick={() => setIsMobileOpen(false)} className="md:hidden absolute right-6 text-slate-400 hover:text-white" aria-label="Close menu">
             <X size={24} />
           </button>
         </div>

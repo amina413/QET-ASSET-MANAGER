@@ -1,8 +1,8 @@
-import { ok, unauthorized } from '@/backend/lib/api';
-import { getSession } from '@/backend/lib/session';
+import { ok } from '@/backend/lib/api';
+import { requireAuth } from '@/backend/lib/auth-helpers';
 
 export async function GET() {
-  const session = await getSession();
-  if (!session.user) return unauthorized();
-  return ok(session.user);
+  const { user, error } = await requireAuth();
+  if (error) return error;
+  return ok(user);
 }

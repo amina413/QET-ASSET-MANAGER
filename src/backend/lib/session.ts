@@ -8,39 +8,49 @@ export type SessionUser = {
   email: string;
   department: string;
   role: 'System Admin' | 'Asset Manager' | 'Custodian' | 'Auditor';
+  lastLogin: string | null;
 };
 
 export type AppSession = {
   user?: SessionUser;
+  csrfToken?: string;
 };
 
-const SESSION_SECRET = process.env.SESSION_SECRET;
+let cachedOptions: SessionOptions | null = null;
 
-if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
-  throw new Error('SESSION_SECRET env var must be set to at least 32 characters. Add it to your .env file.');
+// Validated lazily (not at module load) so `next build` doesn't fail when
+// SESSION_SECRET isn't present in the build environment.
+export function getSessionOptions(): SessionOptions {
+  if (cachedOptions) return cachedOptions;
+
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('SESSION_SECRET env var must be set to at least 32 characters. Add it to your .env file.');
+  }
+
+  cachedOptions = {
+    password: secret,
+    cookieName: 'qet_session',
+    cookieOptions: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 8, // 8 hours
+    },
+  };
+  return cachedOptions;
 }
-
-export const sessionOptions: SessionOptions = {
-  password: SESSION_SECRET,
-  cookieName: 'qet_session',
-  cookieOptions: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 8, // 8 hours
-  },
-};
 
 export async function getSession(): Promise<IronSession<AppSession>> {
   const cookieStore = await cookies();
-  return getIronSession<AppSession>(cookieStore, sessionOptions);
+  return getIronSession<AppSession>(cookieStore, getSessionOptions());
 }
 
 export async function getSessionFromRequest(
   req: NextRequest,
   res: NextResponse,
 ): Promise<IronSession<AppSession>> {
-  return getIronSession<AppSession>(req, res, sessionOptions);
+  return getIronSession<AppSession>(req, res, getSessionOptions());
 }
 
 const ROLE_MAP: Record<string, SessionUser['role']> = {
@@ -51,5 +61,9 @@ const ROLE_MAP: Record<string, SessionUser['role']> = {
 };
 
 export function dbRoleToDisplay(dbRole: string): SessionUser['role'] {
-  return ROLE_MAP[dbRole] ?? 'Custodian';
+  const role = ROLE_MAP[dbRole];
+  if (!role) {
+    throw new Error(`Unknown role "${dbRole}" — refusing to grant a fallback role.`);
+  }
+  return role;
 }

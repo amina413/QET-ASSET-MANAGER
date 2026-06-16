@@ -1,6 +1,9 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { User, Asset, AssetHistoryEvent } from '@/shared/types';
-import { User as UserIcon, Mail, Building, Shield, Clock, Calendar, ArrowLeft, Moon } from 'lucide-react';
+import { Mail, Building, Shield, Clock, Calendar, ArrowLeft, Moon } from 'lucide-react';
+import { authService } from '@/frontend/services/auth';
 
 interface ProfileProps {
    currentUser: User;
@@ -10,6 +13,10 @@ interface ProfileProps {
 
 const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, assets = [] }) => {
    const [isDark, setIsDark] = useState(false);
+   const [currentPassword, setCurrentPassword] = useState('');
+   const [newPassword, setNewPassword] = useState('');
+   const [isChangingPassword, setIsChangingPassword] = useState(false);
+   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
    useEffect(() => {
       // Check initial theme state on client side
@@ -22,13 +29,28 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, assets = [] }) =
       if (typeof window !== 'undefined') {
          const isNowDark = document.documentElement.classList.toggle('dark');
          setIsDark(isNowDark);
-         localStorage.theme = isNowDark ? 'dark' : 'light';
+         localStorage.setItem('qet_theme', isNowDark ? 'dark' : 'light');
       }
    };
 
    const myActivity = assets
-      .flatMap(a => (a.history || []).filter(h => h.user === currentUser.name))
+      .flatMap(a => (a.history || []).filter(h => h.userId === currentUser.id))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+   const handleChangePassword = async (event: React.FormEvent) => {
+      event.preventDefault();
+      setIsChangingPassword(true);
+      setPasswordMessage(null);
+      const result = await authService.changePassword(currentPassword, newPassword);
+      setIsChangingPassword(false);
+      if (result.success) {
+         setCurrentPassword('');
+         setNewPassword('');
+         setPasswordMessage({ type: 'success', text: 'Password changed successfully.' });
+      } else {
+         setPasswordMessage({ type: 'error', text: result.error || 'Failed to change password.' });
+      }
+   };
 
    return (
       <div className="max-w-4xl mx-auto pb-20 animate-fadeIn">
@@ -68,10 +90,6 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, assets = [] }) =
                         <Building size={16} className="text-slate-400" />
                         <span>{currentUser.department} Department</span>
                      </div>
-                     <div className="flex items-center gap-3 text-sm text-slate-600 p-3 bg-slate-50 rounded-lg border border-transparent">
-                        <Shield size={16} className="text-slate-400" />
-                        <span>ID: {currentUser.id}</span>
-                     </div>
                   </div>
                </div>
 
@@ -85,12 +103,52 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, assets = [] }) =
                      <span className="text-sm text-slate-600 font-medium">Dark Mode</span>
                      <button 
                         onClick={toggleTheme}
+                        aria-pressed={isDark}
+                        aria-label="Toggle dark mode"
                         className={`w-12 h-6 rounded-full transition-colors relative ${isDark ? 'bg-qet-500' : 'bg-slate-200'}`}
                      >
                         <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${isDark ? 'translate-x-6' : 'translate-x-0'}`}></div>
                      </button>
                   </div>
                </div>
+
+               <form onSubmit={handleChangePassword} className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                  <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center">
+                     <Shield size={16} className="mr-2 text-slate-400" />
+                     Change Password
+                  </h3>
+                  <div className="space-y-3">
+                     <input
+                        type="password"
+                        value={currentPassword}
+                        onChange={e => setCurrentPassword(e.target.value)}
+                        placeholder="Current password"
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                        required
+                     />
+                     <input
+                        type="password"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="New password"
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                        minLength={8}
+                        required
+                     />
+                     {passwordMessage && (
+                        <p className={`text-xs ${passwordMessage.type === 'success' ? 'text-green-700' : 'text-red-700'}`} role="status">
+                           {passwordMessage.text}
+                        </p>
+                     )}
+                     <button
+                        type="submit"
+                        disabled={isChangingPassword}
+                        className="w-full bg-qet-600 text-white rounded-lg px-3 py-2 text-sm font-semibold hover:bg-qet-700 disabled:opacity-50"
+                     >
+                        {isChangingPassword ? 'Changing...' : 'Update password'}
+                     </button>
+                  </div>
+               </form>
 
             </div>
 

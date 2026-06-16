@@ -474,7 +474,7 @@ const WipManagement: React.FC<WipManagementProps> = ({ onBack }) => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div className="flex items-start gap-4">
                     <img
-                        src="./qet-logo-transparent.png"
+                        src="/qet-logo-transparent.svg"
                         alt="QET Logo"
                         className="h-12 w-auto object-contain"
                     />

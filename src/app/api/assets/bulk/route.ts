@@ -51,19 +51,17 @@ export async function POST(req: NextRequest) {
         serialMap.set(prefix, (serialMap.get(prefix) ?? 1) + 1);
         const productId = prefix + serial;
 
-        let acquisitionDate = new Date(row.date);
-        if (isNaN(acquisitionDate.getTime())) acquisitionDate = new Date();
-        let registrationDate = new Date(row.registrationDate);
-        if (isNaN(registrationDate.getTime())) registrationDate = new Date();
+        const acquisitionDate = new Date(row.date);
+        const registrationDate = new Date(row.registrationDate);
 
         const method = METHOD_MAP[row.depreciationMethod] ?? 'STRAIGHT_LINE';
         const condition = COND_MAP[row.condition ?? ''] ?? 'A2';
 
         const custodianId = row.custodianId ?? user.id;
-        const custodianExists = await tx.user.findUnique({ where: { id: custodianId }, select: { id: true } });
-        const resolvedCustodianId = custodianExists ? custodianId : user.id;
-        if (!custodianExists && row.custodianId) {
-          warnings.push(`Row "${row.name}": custodian ID "${row.custodianId}" not found — assigned to uploader.`);
+        const custodianExists = await tx.user.findUnique({ where: { id: custodianId }, select: { id: true, isActive: true } });
+        const resolvedCustodianId = custodianExists?.isActive ? custodianId : user.id;
+        if ((!custodianExists || !custodianExists.isActive) && row.custodianId) {
+          warnings.push(`Row "${row.name}": custodian ID "${row.custodianId}" not found or inactive — assigned to uploader.`);
         }
 
         const asset = await tx.asset.create({

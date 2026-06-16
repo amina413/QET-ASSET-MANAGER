@@ -9,9 +9,11 @@ import {
   Loader2,
   ClipboardCheck,
   AlertCircle,
+  X,
 } from "lucide-react";
 import { Asset, AuditSession, AuditVerification, User } from "@/shared/types";
-import { canStartAudit } from "@/backend/lib/permissions";
+import { canStartAudit } from "@/shared/permissions";
+import { assetService } from "@/frontend/services/assets";
 
 interface AuditProps {
   onBack?: () => void;
@@ -26,6 +28,8 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
   const [isCompletingAudit, setIsCompletingAudit] = useState(false);
   const [auditLocationFilter, setAuditLocationFilter] = useState<string>("All");
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [pendingVerification, setPendingVerification] = useState<{ asset: Asset; status: "Not Found" | "Damaged" } | null>(null);
+  const [pendingNotes, setPendingNotes] = useState("");
 
   const availableLocations = useMemo(() => {
     const locs = new Set<string>();
@@ -69,7 +73,7 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
     setNotification({ message: `Audit session ${sessionId} started.`, type: "success" });
   };
 
-  const handleVerifyAsset = (asset: Asset, status: "Verified" | "Not Found" | "Damaged", notes?: string) => {
+  const handleVerifyAsset = async (asset: Asset, status: "Verified" | "Not Found" | "Damaged", notes?: string) => {
     if (!currentAuditSession || !currentUser) return;
 
     const verification: AuditVerification = {
@@ -86,14 +90,24 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
       conditionMatch: true,
     };
 
+    const result = await assetService.addHistory(asset.id, {
+      action: `Audit Verification: ${status}`,
+      details: `${currentAuditSession.id}: ${notes || `Asset marked ${status}.`}`,
+      type: "Audit",
+    });
+
+    if (!result.success) {
+      setNotification({ message: result.error || "Failed to persist audit verification.", type: "error" });
+      return;
+    }
+
     const newMap = new Map(auditVerifications);
     newMap.set(asset.id, verification);
     setAuditVerifications(newMap);
-
     setCurrentAuditSession({
       ...currentAuditSession,
-      verifiedAssets: status === "Verified" ? currentAuditSession.verifiedAssets + 1 : currentAuditSession.verifiedAssets,
-      notFoundAssets: status === "Not Found" ? currentAuditSession.notFoundAssets + 1 : currentAuditSession.notFoundAssets,
+      verifiedAssets: Array.from(newMap.values()).filter(v => v.status === "Verified").length,
+      notFoundAssets: Array.from(newMap.values()).filter(v => v.status === "Not Found" || v.status === "Damaged").length,
     });
   };
 
@@ -114,6 +128,13 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
     setCurrentAuditSession(null);
     setAuditVerifications(new Map());
     setIsCompletingAudit(false);
+  };
+
+  const confirmPendingVerification = async () => {
+    if (!pendingVerification) return;
+    await handleVerifyAsset(pendingVerification.asset, pendingVerification.status, pendingNotes || undefined);
+    setPendingVerification(null);
+    setPendingNotes("");
   };
 
   const handleCancelAudit = () => {
@@ -144,7 +165,7 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
       <div className="flex justify-between items-start mb-8">
         <div className="flex items-start gap-4">
           <img
-            src="./qet-logo-transparent.png"
+            src="/qet-logo-transparent.svg"
             alt="QET Logo"
             className="h-12 w-auto object-contain"
           />
@@ -332,19 +353,13 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
                                 ✓ Verified
                               </button>
                               <button
-                                onClick={() => {
-                                  const notes = prompt("Notes (optional):");
-                                  handleVerifyAsset(asset, "Not Found", notes || undefined);
-                                }}
+                                onClick={() => setPendingVerification({ asset, status: "Not Found" })}
                                 className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs font-bold"
                               >
                                 ✗ Not Found
                               </button>
                               <button
-                                onClick={() => {
-                                  const notes = prompt("Describe the damage:");
-                                  if (notes) handleVerifyAsset(asset, "Damaged", notes);
-                                }}
+                                onClick={() => setPendingVerification({ asset, status: "Damaged" })}
                                 className="px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-xs font-bold"
                               >
                                 ⚠ Damaged
@@ -362,6 +377,46 @@ const Audit: React.FC<AuditProps> = ({ onBack, currentUser, assets }) => {
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verification Notes Modal (replaces prompt()) */}
+      {pendingVerification && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-xl p-6 w-96 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-800">
+                {pendingVerification.status === "Not Found" ? "Mark as Not Found" : "Describe the Damage"}
+              </h3>
+              <button onClick={() => { setPendingVerification(null); setPendingNotes(""); }} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-3">{pendingVerification.asset.name}</p>
+            <textarea
+              value={pendingNotes}
+              onChange={(e) => setPendingNotes(e.target.value)}
+              placeholder={pendingVerification.status === "Not Found" ? "Notes (optional)" : "Describe the damage"}
+              className="w-full p-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 text-sm"
+              rows={3}
+              autoFocus
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => { setPendingVerification(null); setPendingNotes(""); }}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmPendingVerification}
+                disabled={pendingVerification.status === "Damaged" && !pendingNotes.trim()}
+                className="px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>

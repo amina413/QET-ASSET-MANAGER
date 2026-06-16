@@ -121,7 +121,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const isCustodian = currentUser.role === 'Custodian';
   const relevantAssets = isCustodian
-    ? (assets || []).filter(a => a.location.includes("Abuja"))
+    ? (assets || []).filter(a => a.custodianId === currentUser.id)
     : (assets || []);
 
   // Build notifications from real asset data
@@ -255,7 +255,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
         <div className="flex items-start gap-4">
           <img
-            src="./qet-logo-transparent.png"
+            src="/qet-logo-transparent.svg"
             alt="QET Logo"
             className="h-12 w-auto object-contain"
           />
@@ -265,7 +265,11 @@ const Dashboard: React.FC<DashboardProps> = ({
             </h1>
             <p className="text-slate-500 text-sm">
               Welcome back, <span className="font-semibold text-qet-600">{currentUser.name}</span>.
-              {isCustodian && <span className="ml-2 inline-flex items-center text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600"><MapPin size={10} className="mr-1" /> Abuja HQ Zone</span>}
+              {isCustodian && relevantAssets.length > 0 && (
+                <span className="ml-2 inline-flex items-center text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600">
+                  <MapPin size={10} className="mr-1" /> {relevantAssets[0].location}
+                </span>
+              )}
             </p>
           </div>
         </div>

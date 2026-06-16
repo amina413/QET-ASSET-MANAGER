@@ -6,6 +6,7 @@ import { LOCATION_BRANCHES, DEPARTMENT_CODES, LOCATIONS } from '@/frontend/const
 import { settingsService } from '@/frontend/services/settings';
 import { assetService } from '@/frontend/services/assets';
 import { User } from '@/shared/types';
+import { useToast } from './Toast';
 
 type Tab = 'departments' | 'custodians' | 'locations' | 'categories' | 'assetTypes' | 'assetClasses';
 
@@ -60,9 +61,11 @@ interface AssetClass {
 
 interface AdminSettingsProps {
     currentUser: User | null;
+    onBack?: () => void;
 }
 
-const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
+const AdminSettings = ({ currentUser, onBack }: AdminSettingsProps) => {
+    const { toast } = useToast();
     const [activeTab, setActiveTab] = useState<Tab>('departments');
     const [departments, setDepartments] = useState<Department[]>([]);
     const [custodians, setCustodians] = useState<Custodian[]>([]);
@@ -81,6 +84,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
     const [isSyncingDepts, setIsSyncingDepts] = useState(false);
     const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
     const [isClearingAll, setIsClearingAll] = useState(false);
+    const [clearAllConfirmation, setClearAllConfirmation] = useState('');
 
     const isSystemAdmin = currentUser?.role === 'System Admin';
 
@@ -90,13 +94,13 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
             const result = await settingsService.syncDepartments(LOCATION_BRANCHES, DEPARTMENT_CODES);
             if (result?.success) {
                 const added = (result as { added?: number }).added ?? 0;
-                alert(added > 0 ? `Added ${added} department(s) to the database.` : 'All reference values are already in the database.');
+                toast(added > 0 ? `Added ${added} department(s) to the database.` : 'All reference values are already in the database.', 'success');
                 loadData();
             } else {
-                alert((result as { error?: string }).error || 'Sync failed');
+                toast((result as { error?: string }).error || 'Sync failed', 'error');
             }
         } catch (e) {
-            alert('Sync failed');
+            toast('Sync failed', 'error');
         }
         setIsSyncingDepts(false);
     };
@@ -146,32 +150,32 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
     const handleSave = async () => {
         if (activeTab === 'departments') {
             if (!formData.name?.trim() || !formData.code?.trim() || !formData.location?.trim()) {
-                alert('Please fill in all required fields (Name, Code, Location)');
+                toast('Please fill in all required fields (Name, Code, Location)', 'warning');
                 return;
             }
         } else if (activeTab === 'custodians') {
             if (!formData.name?.trim() || !formData.department?.trim() || !formData.location?.trim()) {
-                alert('Please fill in all required fields (Name, Department, Location)');
+                toast('Please fill in all required fields (Name, Department, Location)', 'warning');
                 return;
             }
         } else if (activeTab === 'locations') {
             if (!formData.name?.trim()) {
-                alert('Name is required');
+                toast('Name is required', 'warning');
                 return;
             }
         } else if (activeTab === 'categories') {
             if (!formData.name?.trim()) {
-                alert('Name is required');
+                toast('Name is required', 'warning');
                 return;
             }
         } else if (activeTab === 'assetTypes') {
             if (!formData.categoryId || !formData.name?.trim()) {
-                alert('Category and Name are required');
+                toast('Category and Name are required', 'warning');
                 return;
             }
         } else if (activeTab === 'assetClasses') {
             if (!formData.name?.trim()) {
-                alert('Name is required');
+                toast('Name is required', 'warning');
                 return;
             }
         }
@@ -198,11 +202,11 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                 setEditingId(null);
                 loadData();
             } else {
-                alert(result?.error || 'Operation failed');
+                toast(result?.error || 'Operation failed', 'error');
             }
         } catch (error) {
             console.error('Error saving:', error);
-            alert('An unexpected error occurred.');
+            toast('An unexpected error occurred.', 'error');
         } finally {
             setLoading(false);
         }
@@ -221,7 +225,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
             setDeleteConfirm(null);
             loadData();
         } else {
-            alert(result?.error || 'Delete failed');
+            toast(result?.error || 'Delete failed', 'error');
         }
         setLoading(false);
     };
@@ -233,7 +237,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
             setCustodianOptionDeleteId(null);
             loadData();
         } else {
-            alert(result?.error || 'Delete failed');
+            toast(result?.error || 'Delete failed', 'error');
         }
         setLoading(false);
     };
@@ -247,11 +251,11 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
 
     const handleSaveCustodianOption = async () => {
         if (!formData.name?.trim()) {
-            alert('Name is required');
+            toast('Name is required', 'warning');
             return;
         }
         if (!formData.id && !formData.assetClassId) {
-            alert('Asset Class is required when adding an Assigned Custodian.');
+            toast('Asset Class is required when adding an Assigned Custodian.', 'warning');
             return;
         }
         setLoading(true);
@@ -264,7 +268,7 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
             setCustodianOptionMode('perClass');
             loadData();
         } else {
-            alert(result?.error || 'Operation failed');
+            toast(result?.error || 'Operation failed', 'error');
         }
         setLoading(false);
     };
@@ -300,9 +304,14 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
 
     return (
         <div className="p-8 max-w-7xl mx-auto">
+            {onBack && (
+                <button onClick={onBack} className="text-sm text-slate-500 hover:text-qet-600 mb-6 transition-colors">
+                    Back to Dashboard
+                </button>
+            )}
             <div className="mb-8 flex items-start gap-4">
                 <img
-                    src="./qet-logo-transparent.png"
+                    src="/qet-logo-transparent.svg"
                     alt="QET Logo"
                     className="h-12 w-auto object-contain"
                 />
@@ -750,26 +759,46 @@ const AdminSettings = ({ currentUser }: AdminSettingsProps) => {
                         <p className="text-slate-600 mb-6">
                             This will delete all assets from the database and the app will reload with empty assets and empty Work in Progress. This cannot be undone.
                         </p>
+                        <label className="block text-sm font-medium text-slate-700 mb-2" htmlFor="clear-all-confirmation">
+                            Type CLEAR ASSETS to confirm
+                        </label>
+                        <input
+                            id="clear-all-confirmation"
+                            value={clearAllConfirmation}
+                            onChange={e => setClearAllConfirmation(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4"
+                            disabled={isClearingAll}
+                        />
                         <div className="flex gap-3">
                             <button
                                 onClick={async () => {
                                     setIsClearingAll(true);
-                                    const result = await assetService.clearAll();
+                                    const result = await assetService.clearAll(clearAllConfirmation);
                                     setIsClearingAll(false);
                                     setShowClearAllConfirm(false);
+                                    setClearAllConfirmation('');
                                     if (result?.success) {
                                         window.location.href = '/';
                                     } else {
-                                        alert(result?.error || 'Failed to clear assets');
+                                        toast(result?.error || 'Failed to clear assets', 'error');
                                     }
                                 }}
-                                disabled={isClearingAll}
+                                disabled={isClearingAll || clearAllConfirmation !== 'CLEAR ASSETS'}
                                 className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                                 {isClearingAll ? <Loader2 size={18} className="animate-spin" /> : null}
                                 {isClearingAll ? 'Clearing…' : 'Yes, clear all'}
                             </button>
-                            <button onClick={() => setShowClearAllConfirm(false)} disabled={isClearingAll} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
+                            <button
+                                onClick={() => {
+                                    setShowClearAllConfirm(false);
+                                    setClearAllConfirmation('');
+                                }}
+                                disabled={isClearingAll}
+                                className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50"
+                            >
+                                Cancel
+                            </button>
                         </div>
                     </div>
                 </div>

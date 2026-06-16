@@ -1,24 +1,39 @@
 import { NextRequest } from 'next/server';
 import { ok, err, handleError } from '@/backend/lib/api';
 import { requireAuth, requirePermission } from '@/backend/lib/auth-helpers';
+import { hasPermission } from '@/backend/lib/permissions';
 import { CreateAssetSchema } from '@/backend/lib/validation';
 import { calculateDepreciationSchedule } from '@/shared/utils/depreciation';
 import prisma from '@/backend/lib/prisma';
+import type { Prisma } from '@prisma/client';
 
-type DisplayStatus = 'active' | 'disposed' | 'maintenance' | 'pending transfer';
+type DisplayStatus = 'Active' | 'Disposed' | 'Maintenance' | 'Pending Transfer';
 const STATUS_MAP: Record<string, DisplayStatus> = {
-  ACTIVE: 'active',
-  DISPOSED: 'disposed',
-  MAINTENANCE: 'maintenance',
-  PENDING_TRANSFER: 'pending transfer',
+  ACTIVE: 'Active',
+  DISPOSED: 'Disposed',
+  MAINTENANCE: 'Maintenance',
+  PENDING_TRANSFER: 'Pending Transfer',
 };
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireAuth();
+    const { user, error } = await requireAuth();
     if (error) return error;
 
+    const { searchParams } = new URL(req.url);
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '500', 10) || 500, 1), 500);
+    const skip = Math.max(parseInt(searchParams.get('skip') ?? '0', 10) || 0, 0);
+    const where: Prisma.AssetWhereInput = { isActive: true };
+    const canViewAuditLogs = hasPermission(user.role, 'view_audit_logs');
+
+    if (!hasPermission(user.role, 'view_all_reports')) {
+      where.custodianId = user.id;
+    }
+
     const assets = await prisma.asset.findMany({
+      where,
+      take: limit,
+      skip,
       include: {
         custodian: { select: { id: true, name: true, email: true, department: true } },
         history: { include: { user: { select: { id: true, name: true } } }, orderBy: { date: 'desc' } },
@@ -47,7 +62,7 @@ export async function GET() {
         subLocation: a.subLocation ?? undefined,
         custodian: a.custodian.name,
         custodianId: a.custodian.id,
-        status: STATUS_MAP[a.status] ?? 'active',
+        status: STATUS_MAP[a.status] ?? 'Active',
         conditionCode: a.conditionCode ?? undefined,
         imageUrl: a.imageUrl ?? undefined,
         registrationDate: a.registrationDate.toISOString().split('T')[0],
@@ -62,18 +77,19 @@ export async function GET() {
           description: imp.description,
           newAcquisitionCost: Number(imp.newAcquisitionCost),
         })),
-        history: a.history.map(h => ({
+        history: canViewAuditLogs ? a.history.map(h => ({
           id: h.id,
           assetId: h.assetId,
           date: h.date.toISOString().slice(0, 16).replace('T', ' '),
           action: h.action,
           user: h.user?.name ?? 'System',
+          userId: h.userId,
           details: h.details,
           type: h.type,
           fromLocation: h.fromLocation ?? undefined,
           toLocation: h.toLocation ?? undefined,
           toCustodian: h.toCustodian ?? undefined,
-        })),
+        })) : [],
       };
     });
 
@@ -92,8 +108,8 @@ export async function POST(req: NextRequest) {
     const data = CreateAssetSchema.parse(body);
 
     // Validate custodian exists
-    const custodian = await prisma.user.findUnique({ where: { id: data.custodianId }, select: { id: true } });
-    if (!custodian) return err('Custodian not found', 404);
+    const custodian = await prisma.user.findUnique({ where: { id: data.custodianId }, select: { id: true, isActive: true } });
+    if (!custodian || !custodian.isActive) return err('Custodian not found', 404);
 
     const acquisitionDate = new Date(data.acquisitionDate);
     const registrationDate = data.registrationDate ? new Date(data.registrationDate) : new Date();

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { ok, err, handleError } from '@/backend/lib/api';
-import { requireAuth } from '@/backend/lib/auth-helpers';
+import { requirePermission } from '@/backend/lib/auth-helpers';
+import { checkRateLimit } from '@/backend/lib/rate-limit';
 import { AiQuerySchema } from '@/backend/lib/validation';
 import { GoogleGenAI } from '@google/genai';
 
@@ -8,8 +9,17 @@ const apiKey = process.env.GEMINI_API_KEY ?? process.env.API_KEY;
 
 export async function POST(req: NextRequest) {
   try {
-    const { error } = await requireAuth();
+    const { user, error } = await requirePermission('view_all_reports');
     if (error) return error;
+
+    const quota = await checkRateLimit({
+      key: `ai:${user.id}`,
+      limit: 20,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!quota.allowed) {
+      return err('AI assistant quota exceeded. Please try again later.', 429);
+    }
 
     if (!apiKey || apiKey === 'your_gemini_api_key_here') {
       return err('AI assistant is not configured. Set GEMINI_API_KEY in your environment.', 503);

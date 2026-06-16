@@ -14,13 +14,17 @@ model User {
   password   String
   department String
   role       Role           @default(CUSTODIAN)
+  isActive   Boolean        @default(true)
   lastLogin  DateTime       @default(now())
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
   assets     Asset[]        @relation("AssetCustodian")
   history    AssetHistory[]
+  requestedTransfers TransferRequest[] @relation("TransferRequestedBy")
+  approvedTransfers  TransferRequest[] @relation("TransferApprovedBy")
 
   @@index([role])
+  @@index([isActive])
 }
 
 model Asset {
@@ -37,6 +41,7 @@ model Asset {
   location         String
   subLocation      String?
   status           AssetStatus            @default(ACTIVE)
+  isActive         Boolean                @default(true)
   conditionCode    String?
   imageUrl         String?
   registrationDate DateTime               @default(now())
@@ -52,6 +57,7 @@ model Asset {
   @@index([category])
   @@index([location])
   @@index([status])
+  @@index([isActive])
   @@index([custodianId])
   @@index([registrationDate])
 }
@@ -67,7 +73,7 @@ model DepreciationSchedule {
   createdAt           DateTime @default(now())
   asset               Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
-  @@index([assetId, fiscalYear])
+  @@unique([assetId, fiscalYear])
 }
 
 model TransferRequest {
@@ -84,9 +90,12 @@ model TransferRequest {
   resolvedAt    DateTime?
   notes         String?
   asset         Asset          @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  requestedBy   User           @relation("TransferRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  approvedBy    User?          @relation("TransferApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
 
   @@index([status])
   @@index([assetId])
+  @@index([assetId, status])
   @@index([requestedById])
 }
 
@@ -102,7 +111,7 @@ model AssetHistory {
   toCustodian  String?
   toLocation   String?
   asset        Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id])
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([assetId])
   @@index([userId])

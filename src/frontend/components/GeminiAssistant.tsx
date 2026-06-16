@@ -1,4 +1,6 @@
 
+"use client";
+
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, Sparkles, Loader2, Mic, MicOff, Image as ImageIcon, FileText, Volume2, VolumeX } from 'lucide-react';
 import { aiService } from '@/frontend/services/ai';
@@ -6,6 +8,7 @@ import { ASSET_DISTRIBUTION } from '@/frontend/constants';
 import { Asset } from '@/shared/types';
 
 interface Message {
+  id: string;
   role: 'user' | 'model';
   text: string;
   images?: string[]; // base64 image data URLs
@@ -15,12 +18,13 @@ interface Message {
 
 interface GeminiAssistantProps {
   assets?: Asset[];
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
-  const [isOpen, setIsOpen] = useState(false);
+const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [], isOpen, onClose }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Hello! I am your QET Asset Assistant. Ask me about asset values, disposal policies, or drafting reports. You can also upload images, documents, or use voice input.' }
+    { id: crypto.randomUUID(), role: 'model', text: 'Hello! I am your QET Asset Assistant. Ask me about asset values, disposal policies, or drafting reports. You can also upload images, documents, or use voice input.' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -28,6 +32,7 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [attachedDocuments, setAttachedDocuments] = useState<{ name: string; content: string; type: string }[]>([]);
+  const [inlineError, setInlineError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -38,6 +43,19 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const showInlineError = (message: string) => {
+    setInlineError(message);
+    setTimeout(() => setInlineError(null), 4000);
+  };
+
+  const MAX_MESSAGES = 50;
+  const appendMessage = (msg: Omit<Message, 'id'>) => {
+    setMessages(prev => {
+      const updated = [...prev, { ...msg, id: crypto.randomUUID() }];
+      return updated.length > MAX_MESSAGES ? updated.slice(-MAX_MESSAGES) : updated;
+    });
   };
 
   useEffect(() => {
@@ -62,7 +80,7 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
       recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
         setIsRecording(false);
-        alert('Speech recognition error. Please try again.');
+        showInlineError('Speech recognition error. Please try again.');
       };
 
       recognitionRef.current.onend = () => {
@@ -96,20 +114,32 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
     setAttachedImages([]);
     setAttachedDocuments([]);
     
-    setMessages(prev => [...prev, { 
-      role: 'user', 
+    appendMessage({
+      role: 'user',
       text: userMsg || (userImages.length > 0 ? 'Analyze this image' : 'Analyze this document'),
       images: userImages.length > 0 ? userImages : undefined,
       documents: userDocs.length > 0 ? userDocs : undefined
-    }]);
+    });
     setIsLoading(true);
 
     try {
-      const result = await aiService.query({ message: userMsg, assetsSnapshot: assets, images: userImages, documents: userDocs });
+      // Strip fields the assistant doesn't need (history/improvements can
+      // contain other users' names and internal notes).
+      const assetsSnapshot = assets.slice(0, 100).map(a => ({
+        productId: a.productId,
+        name: a.name,
+        category: a.category,
+        status: a.status,
+        location: a.location,
+        acquisitionCost: a.acquisitionCost,
+        netBookValue: a.netBookValue,
+        conditionCode: a.conditionCode,
+      }));
+
+      const result = await aiService.query({ message: userMsg, assetsSnapshot, images: userImages, documents: userDocs });
       if (!result.success) throw new Error(result.error);
       const text = result.data.text;
-      const newMessage: Message = { role: 'model', text: text || "I couldn't generate a response at this time." };
-      setMessages(prev => [...prev, newMessage]);
+      appendMessage({ role: 'model', text: text || "I couldn't generate a response at this time." });
 
       // Auto-play voice response if enabled
       if (isSpeaking && synthRef.current) {
@@ -118,7 +148,7 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
     } catch (error: any) {
       console.error("AI Error:", error);
       const errorMessage = error?.message || "Sorry, I encountered an error connecting to the AI service.";
-      setMessages(prev => [...prev, { role: 'model', text: `Error: ${errorMessage}` }]);
+      appendMessage({ role: 'model', text: `Error: ${errorMessage}` });
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +156,7 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
 
   const toggleRecording = () => {
     if (!recognitionRef.current) {
-      alert('Speech recognition is not supported in your browser.');
+      showInlineError('Speech recognition is not supported in your browser.');
       return;
     }
 
@@ -175,11 +205,11 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
 
     Array.from(files).forEach(file => {
       if (!file.type.startsWith('image/')) {
-        alert(`${file.name} is not an image file.`);
+        showInlineError(`${file.name} is not an image file.`);
         return;
       }
       if (file.size > 10 * 1024 * 1024) {
-        alert(`${file.name} is too large. Maximum size is 10MB.`);
+        showInlineError(`${file.name} is too large. Maximum size is 10MB.`);
         return;
       }
 
@@ -200,7 +230,7 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
 
     for (const file of Array.from(files)) {
       if (file.size > 5 * 1024 * 1024) {
-        alert(`${file.name} is too large. Maximum size is 5MB.`);
+        showInlineError(`${file.name} is too large. Maximum size is 5MB.`);
         continue;
       }
 
@@ -244,19 +274,10 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
     setAttachedDocuments(prev => prev.filter((_, i) => i !== index));
   };
 
+  if (!isOpen) return null;
+
   return (
     <>
-      {/* Floating Button */}
-      {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 p-4 bg-gradient-to-r from-qet-800 to-accent-500 text-white rounded-full shadow-lg hover:shadow-xl transition-transform hover:scale-105 z-50 flex items-center gap-2"
-        >
-          <Sparkles size={24} />
-          <span className="font-semibold hidden md:inline">Ask AI Assistant</span>
-        </button>
-      )}
-
       {/* Chat Interface */}
       {isOpen && (
         <div className="fixed bottom-6 right-6 w-96 h-[500px] bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 flex flex-col animate-slideIn overflow-hidden font-sans">
@@ -266,15 +287,22 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ assets = [] }) => {
               <Sparkles size={18} />
               <h3 className="font-bold">QET AI Assistant</h3>
             </div>
-            <button onClick={() => setIsOpen(false)} className="hover:bg-white/20 p-1 rounded">
+            <button onClick={onClose} className="hover:bg-white/20 p-1 rounded">
               <X size={18} />
             </button>
           </div>
 
+          {/* Inline error banner (replaces alert()) */}
+          {inlineError && (
+            <div className="px-4 py-2 bg-red-50 border-b border-red-200 text-red-700 text-xs font-medium">
+              {inlineError}
+            </div>
+          )}
+
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-4">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`max-w-[80%] p-3 rounded-lg text-sm ${msg.role === 'user'
                   ? 'bg-qet-600 text-white rounded-tr-none'
                   : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none shadow-sm'

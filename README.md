@@ -11,7 +11,7 @@ QET-ASSET-MANAGER/
 ├── src/
 │   ├── app/                        # Next.js App Router (routing layer)
 │   │   ├── api/                    # REST API routes
-│   │   │   ├── auth/               # login / logout / me
+│   │   │   ├── auth/               # login / logout / me / csrf
 │   │   │   ├── assets/             # CRUD + bulk import + clear
 │   │   │   ├── assets/[id]/        # GET, DELETE, improvement, history, condition, image
 │   │   │   ├── transfers/          # list / initiate / approve / reject
@@ -30,7 +30,7 @@ QET-ASSET-MANAGER/
 │   │   │   ├── AssetForm.tsx       # Register / bulk import
 │   │   │   ├── AssetLookup.tsx     # Browse, filter, export, print tags
 │   │   │   ├── Reports.tsx         # Depreciation & inventory reports
-│   │   │   ├── Settings.tsx        # Lookup tables CRUD
+│   │   │   ├── AdminSettings.tsx   # Lookup tables CRUD
 │   │   │   ├── UserManagement.tsx
 │   │   │   ├── WipManagement.tsx
 │   │   │   ├── Audit.tsx
@@ -48,6 +48,8 @@ QET-ASSET-MANAGER/
 │   │       ├── auth-helpers.ts     # requireAuth() / requirePermission()
 │   │       ├── permissions.ts      # RBAC permission map
 │   │       ├── api.ts              # ok() / err() / handleError() helpers
+│   │       ├── logger.ts           # Structured JSON logging
+│   │       ├── asset-image-storage.ts # S3-compatible image upload URLs
 │   │       ├── validation.ts       # Zod schemas for all API inputs
 │   │       └── env.ts              # Startup env-var validation
 │   │
@@ -58,7 +60,7 @@ QET-ASSET-MANAGER/
 │   │       ├── dates.ts            # formatDate, formatDateTime, fiscalYearLabel
 │   │       └── reportData.ts       # Report aggregation helpers
 │   │
-│   └── middleware.ts               # Session auth + rate limiting (60 req/60s per IP)
+│   └── middleware.ts               # API rate limiting, session auth, CSRF checks
 │
 ├── prisma/
 │   ├── schema.prisma               # PostgreSQL schema
@@ -95,10 +97,11 @@ Browser → Next.js App Router
 | approve_transfer      | ✓   | ✓   |     |     |
 | initiate_transfer     | ✓   | ✓   | ✓   |     |
 | system_settings       | ✓   |     |     |     |
-| manage_users          | ✓   | ✓   | ✓   | ✓   |
+| manage_users          | ✓   | ✓   |     |     |
 | edit_users            | ✓   | ✓   |     |     |
 | delete_users          | ✓   |     |     |     |
 | start_audit           |     |     |     | ✓   |
+| record_audit          |     |     |     | ✓   |
 | view_all_reports      | ✓   | ✓   |     | ✓   |
 | view_scoped_reports   |     |     | ✓   |     |
 
@@ -139,9 +142,33 @@ SESSION_SECRET="your-random-secret-at-least-32-chars"
 # Gemini AI assistant (optional)
 GEMINI_API_KEY="AIza..."
 
+# Asset image object storage (S3-compatible; required for image uploads)
+ASSET_IMAGE_S3_BUCKET="qet-asset-images"
+ASSET_IMAGE_S3_REGION="eu-west-1"
+ASSET_IMAGE_S3_ENDPOINT="https://<account>.r2.cloudflarestorage.com"
+ASSET_IMAGE_S3_FORCE_PATH_STYLE="true"
+ASSET_IMAGE_S3_ACCESS_KEY_ID="..."
+ASSET_IMAGE_S3_SECRET_ACCESS_KEY="..."
+ASSET_IMAGE_PUBLIC_BASE_URL="https://assets.example.com"
+REQUIRE_ASSET_IMAGES="true"
+
+# Distributed rate limiting and login lockout (recommended in production)
+UPSTASH_REDIS_REST_URL="https://your-redis.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="..."
+REQUIRE_DISTRIBUTED_RATE_LIMITS="true"
+TRUST_PROXY="true"
+
+# Internal readiness probe token
+HEALTH_CHECK_TOKEN="..."
+
+# Non-persistent WIP UI is hidden unless explicitly enabled
+NEXT_PUBLIC_ENABLE_WIP="false"
+
 # Seed passwords (optional — defaults to 'ChangeMe123!' if not set)
 SEED_DEFAULT_PASSWORD="YourDefaultPassword123!"
 SEED_OKALU_PASSWORD="YourOkaluSpecificPassword456!"
+ALLOW_PROD_SEED="false"
+ALLOW_ASSET_CLEAR="false"
 ```
 
 ### 3. Create the database
@@ -155,7 +182,7 @@ psql -U postgres -c "CREATE DATABASE qet_asset_manager;"
 ### 4. Run migrations
 
 ```bash
-npx prisma migrate deploy
+npm run db:deploy
 ```
 
 ### 5. Seed initial data
@@ -191,10 +218,14 @@ Open [http://localhost:3000](http://localhost:3000).
 | Script               | Description                                |
 |----------------------|--------------------------------------------|
 | `npm run dev`        | Start Next.js dev server (port 3000)       |
-| `npm run build`      | Production build                           |
+| `npm run build`      | Prisma generate + production build         |
 | `npm run start`      | Start production server                    |
 | `npm run lint`       | ESLint check                               |
+| `npm run typecheck`  | TypeScript typecheck without emitting files |
+| `npm test`           | Run automated tests                        |
+| `npm run db:generate`| Generate Prisma client                     |
 | `npm run db:migrate` | Create and apply a new Prisma migration    |
+| `npm run db:deploy`  | Apply committed migrations in production   |
 | `npm run db:seed`    | Seed the database with default data        |
 | `npm run db:studio`  | Open Prisma Studio (visual DB browser)     |
 
@@ -209,7 +240,7 @@ All responses follow this envelope:
 { "success": false, "error": "Human-readable message", "details": { ... } }
 ```
 
-Every `/api/*` route requires an authenticated session cookie **except** `POST /api/auth/login`.
+Every `/api/*` route is rate-limited. Most API routes require an authenticated session cookie; public exceptions are `POST /api/auth/login`, `GET /api/auth/csrf`, and `GET /api/health`.
 
 ### Authentication
 
@@ -218,6 +249,7 @@ Every `/api/*` route requires an authenticated session cookie **except** `POST /
 | POST   | `/api/auth/login`  | `{ email, password }` → sets cookie |
 | POST   | `/api/auth/logout` | Clears session                   |
 | GET    | `/api/auth/me`     | Returns session user             |
+| GET    | `/api/auth/csrf`   | Returns CSRF token for authenticated sessions |
 
 ### Assets
 
@@ -228,13 +260,18 @@ Every `/api/*` route requires an authenticated session cookie **except** `POST /
 | GET    | `/api/assets/[id]`                 | any auth          |
 | DELETE | `/api/assets/[id]`                 | delete_asset      |
 | POST   | `/api/assets/[id]/improvement`     | edit_asset        |
-| POST   | `/api/assets/[id]/history`         | any auth          |
-| POST   | `/api/assets/[id]/condition`       | any auth          |
-| POST   | `/api/assets/[id]/image`           | any auth          |
+| POST   | `/api/assets/[id]/history`         | any auth; status changes require edit_asset |
+| PUT    | `/api/assets/[id]/condition`       | update_condition  |
+| POST   | `/api/assets/[id]/image/upload-url`| edit_asset        |
+| PUT    | `/api/assets/[id]/image`           | edit_asset        |
 | POST   | `/api/assets/bulk`                 | register_asset    |
-| DELETE | `/api/assets/clear`                | system_settings   |
+| DELETE | `/api/assets/clear`                | system_settings + typed confirmation |
 
-**Bulk import** returns `{ createdIds[], createdProductIds[], warnings[] }` — warnings are issued when a custodian ID is not found and the uploader is assigned instead.
+`GET /api/assets` is scoped server-side. Users with `view_all_reports` can see the active register; scoped users only see assets assigned to them. The endpoint supports `limit` and `skip` with a maximum limit of 500.
+
+**Bulk import** returns `{ createdIds[], createdProductIds[], warnings[] }` — warnings are issued when a custodian ID is not found or inactive and the uploader is assigned instead.
+
+Bulk upload and spreadsheet exports use CSV files. XLSX parsing is intentionally not supported because the previous `xlsx` dependency had unresolved security advisories.
 
 ### Transfers
 
@@ -251,7 +288,6 @@ Every `/api/*` route requires an authenticated session cookie **except** `POST /
 |--------|--------------------|--------------|
 | GET    | `/api/users`       | any auth     |
 | POST   | `/api/users`       | manage_users |
-| GET    | `/api/users/[id]`  | any auth     |
 | PUT    | `/api/users/[id]`  | edit_users   |
 | DELETE | `/api/users/[id]`  | delete_users |
 
@@ -288,16 +324,30 @@ Images must be base64 data URIs with MIME type `image/jpeg`, `image/png`, `image
    - `DATABASE_URL` — use a pooler connection string (Neon, Supabase, etc.)
    - `SESSION_SECRET` — 32+ character random string
    - `GEMINI_API_KEY` — optional
-4. Deploy
+   - `ASSET_IMAGE_*` variables — required for asset image uploads
+   - `UPSTASH_REDIS_REST_*` variables — required for distributed rate limiting
+4. Run `npm run db:deploy` against the production database before each release that includes migrations
+5. Deploy
 
 Recommended PostgreSQL provider: **Neon** (serverless, free tier, automatic TLS).
 
 ### Self-hosted (VPS / on-premise)
 
 ```bash
+npm ci
+npm run db:deploy
 npm run build
 npm run start        # default port 3000
 ```
+
+### Docker
+
+```bash
+docker build -t qet-asset-manager .
+docker run --env-file .env -p 3000:3000 qet-asset-manager
+```
+
+The image uses Next.js standalone output. Run `npm run db:deploy` as a release step before starting a new container version.
 
 Terminate TLS with nginx:
 
@@ -322,31 +372,40 @@ server {
 
 For production set `NODE_ENV=production` so the session cookie becomes `Secure`.
 
+### Health checks
+
+Use `GET /api/health` or `GET /api/health/live` for public liveness checks. Use `GET /api/health/ready` for database readiness checks; set `HEALTH_CHECK_TOKEN` and send it as `X-Health-Token` from internal probes.
+
+### Backup and restore
+
+Schedule encrypted PostgreSQL backups with a defined retention period before going live. A minimum operational baseline is:
+
+```bash
+pg_dump "$DATABASE_URL" --format=custom --file=qet_asset_manager_$(date +%Y%m%d_%H%M%S).dump
+pg_restore --clean --if-exists --dbname "$DATABASE_URL" qet_asset_manager_<timestamp>.dump
+```
+
+Test restore into a staging database before relying on backups for disaster recovery. Record the target RPO/RTO for the deployment environment.
+
 ---
 
 ## Next steps
 
-### Immediate
+### Before scaling beyond one app instance
 
-- **Wire up Toast notifications** — add `<ToastProvider>` to `AppClient.tsx` and replace the remaining `alert()` / `prompt()` calls in components with `useToast()`
-- **Wire up ErrorBoundary** — wrap major sections in `AppClient.tsx` with `<ErrorBoundary>`
-- **Change all seed passwords** — run `npm run db:seed` with `SEED_DEFAULT_PASSWORD` and `SEED_OKALU_PASSWORD` set in `.env`, then change passwords via the UI
+- Configure `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`, then set `REQUIRE_DISTRIBUTED_RATE_LIMITS=true`.
+- Add request tracing and error reporting (Sentry, Datadog, or equivalent) around the structured logs.
+- Test object-storage CORS for browser `PUT` uploads from the production domain.
 
-### Short-term
+### Product hardening backlog
 
-- **Multi-instance rate limiting** — replace the in-memory rate limiter in `middleware.ts` with a Redis-backed store (Upstash) when deploying more than one server instance
-- **Pagination** — `GET /api/assets` returns all rows; add `limit` / `cursor` query params for large inventories
-- **Soft-delete for assets** — add `isActive` flag instead of hard-delete to preserve audit trail
-- **CSRF double-submit token** — add explicit CSRF protection for state-mutating routes (currently mitigated by `SameSite: lax`)
-
-### Medium-term
-
-- **Email notifications** — notify approvers on new transfer requests; notify custodians on approval (Resend / Nodemailer)
-- **File storage** — move asset images from base64 in the database to object storage (S3 / Cloudflare R2) with presigned URLs
-- **Audit trail completeness** — capture field-level diffs on all asset updates via Prisma middleware
-- **Automated depreciation run** — scheduled job to record annual depreciation charges at fiscal year-end
+- Persist physical audit sessions and verifications in the database for compliance reporting.
+- Replace remaining blocking `alert()` calls with the shared toast/dialog system.
+- Add email notifications for transfer approvals and custodian changes.
+- Add a scheduled depreciation close process for fiscal year-end.
 
 ### Long-term
 
 - **Mobile app** — React Native with the existing API; QR/barcode scanning is already implemented in the web UI
 - **ERP integration** — export to SAP / Sage; IFRS-compliant depreciation schedules
+

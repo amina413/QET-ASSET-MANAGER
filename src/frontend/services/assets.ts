@@ -1,8 +1,25 @@
 import { api } from './api-client';
 import type { Asset } from '@/shared/types';
 
+const ASSET_PAGE_SIZE = 500;
+
 export const assetService = {
-  getAll: () => api.get<Asset[]>('/api/assets'),
+  getAll: async () => {
+    const allAssets: Asset[] = [];
+    let skip = 0;
+
+    while (true) {
+      const result = await api.get<Asset[]>(`/api/assets?limit=${ASSET_PAGE_SIZE}&skip=${skip}`);
+      if (!result.success) return result;
+
+      allAssets.push(...result.data);
+      if (result.data.length < ASSET_PAGE_SIZE) {
+        return { success: true as const, data: allAssets };
+      }
+
+      skip += ASSET_PAGE_SIZE;
+    }
+  },
 
   create: (data: unknown) => api.post<{ assetId: string; productId: string }>('/api/assets', data),
 
@@ -22,8 +39,14 @@ export const assetService = {
   updateImage: (id: string, imageUrl: string) =>
     api.put<{ updated: boolean }>(`/api/assets/${id}/image`, { imageUrl }),
 
+  createImageUploadUrl: (id: string, file: File) =>
+    api.post<{ uploadUrl: string; publicUrl: string; key: string; maxBytes: number }>(
+      `/api/assets/${id}/image/upload-url`,
+      { fileName: file.name, contentType: file.type, contentLength: file.size },
+    ),
+
   getNextSerial: (prefix: string) =>
     api.get<{ next: string }>(`/api/assets/serial?prefix=${encodeURIComponent(prefix)}`),
 
-  clearAll: () => api.delete<{ cleared: boolean }>('/api/assets/clear'),
+  clearAll: (confirmation: string) => api.delete<{ cleared: boolean }>('/api/assets/clear', { confirmation }),
 };

@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow documented placeholder values only"
+regexes = [
+  '''change-this''',
+  '''your_.*_here''',
+  '''your_.*_token''',
+  '''postgres:postgres@localhost''',
+]

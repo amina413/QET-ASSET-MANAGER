@@ -1,18 +1,18 @@
 import { NextRequest } from 'next/server';
 import { ok, handleError } from '@/backend/lib/api';
-import { requireAuth } from '@/backend/lib/auth-helpers';
+import { requirePermission } from '@/backend/lib/auth-helpers';
 import prisma from '@/backend/lib/prisma';
 
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireAuth();
+    const { error } = await requirePermission('register_asset');
     if (error) return error;
 
     const prefix = req.nextUrl.searchParams.get('prefix') ?? '';
     const normalized = prefix.endsWith('/') ? prefix : `${prefix}/`;
 
     const assets = await prisma.asset.findMany({
-      where: { productId: { startsWith: normalized } },
+      where: { isActive: true, productId: { startsWith: normalized } },
       select: { productId: true },
     });
 

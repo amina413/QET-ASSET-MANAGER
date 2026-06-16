@@ -29,6 +29,7 @@ export interface Asset {
   location: string;
   subLocation?: string;
   custodian: string;
+  custodianId?: string;
   assignedUser?: string;
   status: 'Active' | 'Disposed' | 'Maintenance' | 'Pending Transfer';
   conditionCode?: ConditionCode;
@@ -90,8 +91,9 @@ export interface AssetHistoryEvent {
   date: string;
   action: string;
   user: string;
+  userId: string;
   details: string;
-  type: 'Registration' | 'Transfer' | 'Maintenance' | 'Audit' | 'Issue';
+  type: 'Registration' | 'Transfer' | 'Maintenance' | 'Audit' | 'Issue' | 'Update';
   fromLocation?: string;
   toLocation?: string;
   toCustodian?: string;
@@ -120,7 +122,9 @@ export interface User {
 export interface ChartDataPoint {
   name: string;
   value: number;
-  [key: string]: any;
+  fill?: string;
+  color?: string;
+  label?: string;
 }
 
 export interface DepreciationPoint {

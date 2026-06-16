@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, X, Info } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -21,19 +21,39 @@ let nextId = 0;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const timeoutIds = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+
+  const dismissToast = useCallback((id: number) => {
+    const timeoutId = timeoutIds.current.get(id);
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutIds.current.delete(id);
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
 
   const toast = useCallback((message: string, type: ToastType = 'info') => {
     const id = ++nextId;
     setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+    timeoutIds.current.set(id, setTimeout(() => dismissToast(id), 4000));
+  }, [dismissToast]);
+
+  useEffect(() => {
+    const timers = timeoutIds.current;
+    return () => {
+      timers.forEach(timeoutId => clearTimeout(timeoutId));
+      timers.clear();
+    };
   }, []);
 
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+      <div
+        className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"
+        aria-live="polite"
+        aria-atomic="true"
+      >
         {toasts.map(t => (
-          <ToastItem key={t.id} item={t} onDismiss={() => setToasts(prev => prev.filter(x => x.id !== t.id))} />
+          <ToastItem key={t.id} item={t} onDismiss={() => dismissToast(t.id)} />
         ))}
       </div>
     </ToastContext.Provider>
@@ -56,10 +76,10 @@ function ToastItem({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
   };
 
   return (
-    <div className={`pointer-events-auto flex items-start gap-3 rounded-lg border p-3 shadow-md ${bg[item.type]}`}>
+    <div className={`pointer-events-auto flex items-start gap-3 rounded-lg border p-3 shadow-md ${bg[item.type]}`} role={item.type === 'error' ? 'alert' : 'status'}>
       {icons[item.type]}
       <p className="text-sm text-slate-800 flex-1">{item.message}</p>
-      <button onClick={onDismiss} className="text-slate-400 hover:text-slate-600">
+      <button onClick={onDismiss} className="text-slate-400 hover:text-slate-600" aria-label="Dismiss notification">
         <X className="w-4 h-4" />
       </button>
     </div>

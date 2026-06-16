@@ -1,59 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getIronSession } from 'iron-session';
 import type { AppSession } from '@/backend/lib/session';
-import { sessionOptions } from '@/backend/lib/session';
+import { getSessionOptions } from '@/backend/lib/session';
+import { checkRateLimit } from '@/backend/lib/rate-limit';
 
-const PUBLIC_PATHS = ['/api/auth/login'];
+const PUBLIC_PATHS = ['/api/auth/login', '/api/auth/csrf', '/api/health', '/api/health/live', '/api/health/ready'];
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
 
-// In-memory rate limiter (per IP, resets on process restart)
-// For multi-instance deployments, replace with Redis-backed rate limiting.
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 60;         // requests
 const RATE_WINDOW_MS = 60_000; // per 60 seconds
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return true;
+function getClientIp(req: NextRequest): string {
+  if (process.env.TRUST_PROXY === 'true') {
+    return req.headers.get('x-forwarded-for')?.split(',')[0].trim()
+      ?? req.headers.get('cf-connecting-ip')
+      ?? req.headers.get('x-real-ip')
+      ?? 'unknown';
   }
-
-  if (entry.count >= RATE_LIMIT) return false;
-
-  entry.count++;
-  return true;
+  return req.headers.get('x-real-ip') ?? 'unknown';
 }
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
-    return NextResponse.next();
-  }
-
   if (!pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
 
-  // Rate limiting on API routes
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim()
-    ?? req.headers.get('x-real-ip')
-    ?? 'unknown';
+  const ip = getClientIp(req);
+  const rateLimit = await checkRateLimit({
+    key: `api:${ip}`,
+    limit: RATE_LIMIT,
+    windowMs: RATE_WINDOW_MS,
+  });
 
-  if (!checkRateLimit(ip)) {
+  if (!rateLimit.allowed) {
     return NextResponse.json(
       { success: false, error: 'Too many requests. Please slow down.' },
       { status: 429, headers: { 'Retry-After': '60' } },
     );
   }
 
+  if (PUBLIC_PATHS.includes(pathname)) {
+    return NextResponse.next();
+  }
+
   const res = NextResponse.next();
-  const session = await getIronSession<AppSession>(req, res, sessionOptions);
+  const session = await getIronSession<AppSession>(req, res, getSessionOptions());
 
   if (!session.user) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (MUTATING_METHODS.has(req.method)) {
+    const headerToken = req.headers.get('x-csrf-token');
+    if (!headerToken || !session.csrfToken || headerToken !== session.csrfToken) {
+      return NextResponse.json({ success: false, error: 'Invalid or missing CSRF token' }, { status: 403 });
+    }
   }
 
   return res;

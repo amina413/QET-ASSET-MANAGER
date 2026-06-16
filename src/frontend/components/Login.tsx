@@ -44,7 +44,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         <div className="relative z-10">
           <div className="mb-24">
-            <img src="/qet-logo-sidebar.png" alt="QET Logo" className="h-20 w-auto object-contain" />
+            <img src="/qet-logo-sidebar.svg" alt="QET Logo" className="h-20 w-auto object-contain" />
           </div>
           <h1 className="text-4xl xl:text-5xl font-bold leading-tight mb-8">
             Asset Management<br />&amp; Tracking System
@@ -74,7 +74,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center mb-10 pb-6 border-b border-slate-200">
             <div className="bg-[#081020] p-3 rounded-xl shadow-lg border border-slate-800">
-              <img src="/qet-logo-sidebar.png" alt="QET Logo" className="h-8 w-auto object-contain" />
+              <img src="/qet-logo-sidebar.svg" alt="QET Logo" className="h-8 w-auto object-contain" />
             </div>
           </div>
 

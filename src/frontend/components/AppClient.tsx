@@ -2,18 +2,16 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import { ErrorBoundary } from './ErrorBoundary';
+import { useToast } from './Toast';
+import GeminiAssistantLauncher from './GeminiAssistantLauncher';
 import { View, Asset } from '@/shared/types';
 import type { SessionUser } from '@/frontend/services/auth';
+import { setUnauthorizedHandler } from '@/frontend/services/api-client';
+import { canAccessView } from '@/shared/view-access';
+import { hasPermission } from '@/shared/permissions';
 import Sidebar from './Sidebar';
 import Dashboard from './Dashboard';
-import AssetForm from './AssetForm';
-import AssetLookup from './AssetLookup';
-import Reports from './Reports';
-import UserManagement from './UserManagement';
-import WipManagement from './WipManagement';
-import Profile from './Profile';
-import AdminSettings from './AdminSettings';
-import Audit from './Audit';
 import Login from './Login';
 import { Menu, Loader2 } from 'lucide-react';
 import { authService } from '@/frontend/services/auth';
@@ -21,7 +19,14 @@ import { assetService } from '@/frontend/services/assets';
 import type { DbUser } from '@/frontend/services/users';
 import { userService } from '@/frontend/services/users';
 
-const GeminiAssistant = dynamic(() => import('./GeminiAssistant'), { ssr: false });
+const AssetForm = dynamic(() => import('./AssetForm'), { ssr: false });
+const AssetLookup = dynamic(() => import('./AssetLookup'), { ssr: false });
+const Reports = dynamic(() => import('./Reports'), { ssr: false });
+const UserManagement = dynamic(() => import('./UserManagement'), { ssr: false });
+const WipManagement = dynamic(() => import('./WipManagement'), { ssr: false });
+const Profile = dynamic(() => import('./Profile'), { ssr: false });
+const AdminSettings = dynamic(() => import('./AdminSettings'), { ssr: false });
+const Audit = dynamic(() => import('./Audit'), { ssr: false });
 
 export default function AppClient() {
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
@@ -36,24 +41,66 @@ export default function AppClient() {
   const [users, setUsers] = useState<DbUser[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(false);
 
+  const [dataError, setDataError] = useState<string | null>(null);
+  const { toast } = useToast();
+
   const refreshAssets = useCallback(async () => {
     const result = await assetService.getAll();
-    if (result.success) setAssets(result.data);
-  }, []);
+    if (result.success) {
+      setAssets(result.data);
+    } else {
+      console.error('Failed to load assets:', result.error);
+      setDataError(result.error);
+      toast('Failed to refresh assets', 'error');
+    }
+  }, [toast]);
 
   const refreshUsers = useCallback(async () => {
     const result = await userService.getAll();
-    if (result.success) setUsers(result.data);
-  }, []);
+    if (result.success) {
+      setUsers(result.data);
+    } else {
+      console.error('Failed to load users:', result.error);
+      setDataError(result.error);
+      toast('Failed to refresh users', 'error');
+    }
+  }, [toast]);
 
-  const loadInitialData = useCallback(async () => {
+  const loadInitialData = useCallback(async (isCancelled?: () => boolean) => {
     setIsDataLoading(true);
-    await Promise.all([refreshAssets(), refreshUsers()]);
+    const [assetResult, userResult] = await Promise.all([assetService.getAll(), userService.getAll()]);
+    if (isCancelled?.()) return;
+
+    if (assetResult.success) {
+      setAssets(assetResult.data);
+    } else {
+      console.error('Failed to load assets:', assetResult.error);
+      setDataError(assetResult.error);
+      toast('Failed to refresh assets', 'error');
+    }
+
+    if (userResult.success) {
+      setUsers(userResult.data);
+    } else {
+      console.error('Failed to load users:', userResult.error);
+      setDataError(userResult.error);
+      toast('Failed to refresh users', 'error');
+    }
+
     setIsDataLoading(false);
   }, [refreshAssets, refreshUsers]);
 
   // Restore session from HttpOnly cookie via /api/auth/me
   useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setCurrentUser(null);
+      setAssets([]);
+      setUsers([]);
+      setCurrentView(View.DASHBOARD);
+      setDashboardSearchTerm('');
+      toast('Your session has expired. Please sign in again.', 'error');
+    });
+
     const restoreSession = async () => {
       const result = await authService.me();
       if (result.success) {
@@ -62,12 +109,14 @@ export default function AppClient() {
       setIsRestoringSession(false);
     };
     restoreSession();
-  }, []);
+    return () => setUnauthorizedHandler(null);
+  }, [toast]);
 
   // Load data once user is known
   useEffect(() => {
+    let cancelled = false;
     if (currentUser) {
-      loadInitialData();
+      loadInitialData(() => cancelled);
       // Apply saved dark mode preference
       if (typeof window !== 'undefined') {
         const theme = localStorage.getItem('qet_theme');
@@ -76,6 +125,9 @@ export default function AppClient() {
         }
       }
     }
+    return () => {
+      cancelled = true;
+    };
   }, [currentUser, loadInitialData]);
 
   const handleLogin = (user: SessionUser) => {
@@ -111,6 +163,12 @@ export default function AppClient() {
   };
 
   const handleNav = (view: View) => {
+    if (!currentUser) return;
+    if (!canAccessView(currentUser.role, view)) {
+      toast('You do not have permission to access that area.', 'error');
+      setCurrentView(View.DASHBOARD);
+      return;
+    }
     setDashboardSearchTerm('');
     setInitialAssetId(undefined);
     setCurrentView(view);
@@ -134,10 +192,23 @@ export default function AppClient() {
     email: currentUser.email,
     department: currentUser.department,
     role: currentUser.role,
-    lastLogin: new Date().toISOString(),
+    lastLogin: currentUser.lastLogin ?? new Date().toISOString(),
   };
 
   const renderView = () => {
+    if (!canAccessView(currentUser.role, currentView)) {
+      return (
+        <Dashboard
+          currentUser={userForComponents}
+          onNavigateToSearch={handleDashboardSearch}
+          onLogout={handleLogout}
+          onNavigate={handleNav}
+          onNavigateToAsset={handleNavigateToAsset}
+          assets={assets}
+        />
+      );
+    }
+
     switch (currentView) {
       case View.DASHBOARD:
         return (
@@ -194,7 +265,7 @@ export default function AppClient() {
       case View.PROFILE:
         return <Profile currentUser={userForComponents} onBack={handleBackToDashboard} assets={assets} />;
       case View.SETTINGS:
-        return <AdminSettings currentUser={userForComponents} />;
+        return <AdminSettings currentUser={userForComponents} onBack={handleBackToDashboard} />;
       default:
         return (
           <Dashboard
@@ -227,14 +298,30 @@ export default function AppClient() {
         >
           <Menu size={24} />
         </button>
+        {dataError && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+            <div className="font-semibold">Data failed to load</div>
+            <div>{dataError}</div>
+            <button
+              type="button"
+              onClick={() => {
+                setDataError(null);
+                loadInitialData();
+              }}
+              className="mt-2 rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         {isDataLoading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
           </div>
         ) : (
-          renderView()
+          <ErrorBoundary key={currentView}>{renderView()}</ErrorBoundary>
         )}
-        <GeminiAssistant assets={assets} />
+        <GeminiAssistantLauncher assets={assets} canUseAI={hasPermission(currentUser.role, 'view_all_reports')} />
       </main>
     </div>
   );

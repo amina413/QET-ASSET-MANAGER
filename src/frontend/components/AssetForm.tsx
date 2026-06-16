@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import * as XLSX from 'xlsx';
 import { CATEGORIES, LOCATIONS, LOCATION_BRANCHES, LOCATION_CODES, DEPARTMENT_CODES, SUB_CATEGORIES } from '@/frontend/constants';
 import { Asset, ConditionCode, User } from '@/shared/types';
 import { assetService } from '@/frontend/services/assets';
 import { settingsService } from '@/frontend/services/settings';
-import { canRegisterAsset } from '@/backend/lib/permissions';
+import { canRegisterAsset } from '@/shared/permissions';
 import { CheckCircle, ChevronRight, Save, UploadCloud, FileSpreadsheet, Download, AlertCircle, Table, Printer, Plus, ArrowLeft, QrCode, ImagePlus, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import JsBarcode from 'jsbarcode';
+import { downloadCsv, parseCsv, rowsToCsv } from '@/frontend/utils/csv';
+import { QRCodeSVG } from 'qrcode.react';
 
 const steps = ['Acquisition Details', 'Physical Details', 'Custodian & Financial'];
 
@@ -380,75 +381,17 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
     setShowQrCode(false);
   };
 
-  const getQRCodeSVGString = (size = 25) => {
-    const modules: string[] = [];
-    const isReserved = (r: number, c: number) => {
-      if (r < 8 && c < 8) return true;
-      if (r < 8 && c >= size - 8) return true;
-      if (r >= size - 8 && c < 8) return true;
-      if (r >= size - 9 && r <= size - 5 && c >= size - 9 && c <= size - 5) return true;
-      const midSize = Math.floor(size / 2);
-      if (r >= midSize - 4 && r <= midSize + 4 && c >= midSize - 4 && c <= midSize + 4) return true;
-      return false;
-    };
-
-    for (let r = 0; r < size; r++) {
-      for (let c = 0; c < size; c++) {
-        if (!isReserved(r, c)) {
-          if (r === 6 || c === 6) {
-            if ((r + c) % 2 === 0) modules.push(`<rect x="${c}" y="${r}" width="1" height="1" fill="black" />`);
-          } else if (Math.random() > 0.5) {
-            modules.push(`<rect x="${c}" y="${r}" width="1" height="1" fill="black" />`);
-          }
-        }
-      }
-    }
-
-    const drawFinder = (x: number, y: number) => `
-      <g>
-        <rect x="${x}" y="${y}" width="7" height="7" fill="black" />
-        <rect x="${x + 1}" y="${y + 1}" width="5" height="5" fill="white" />
-        <rect x="${x + 2}" y="${y + 2}" width="3" height="3" fill="black" />
-      </g>
-    `;
-
-    const mid = size / 2;
-    return `
-      <svg viewBox="0 0 ${size} ${size}" width="100%" height="100%" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0" y="0" width="${size}" height="${size}" fill="white" />
-        ${modules.join('')}
-        ${drawFinder(0, 0)}
-        ${drawFinder(size - 7, 0)}
-        ${drawFinder(0, size - 7)}
-        <g>
-          <rect x="${size - 9}" y="${size - 9}" width="5" height="5" fill="black" />
-          <rect x="${size - 8}" y="${size - 8}" width="3" height="3" fill="white" />
-          <rect x="${size - 7}" y="${size - 7}" width="1" height="1" fill="black" />
-        </g>
-        <circle cx="${mid}" cy="${mid}" r="4.5" fill="white" stroke="#e2e8f0" stroke-width="0.2" />
-        <image href="./qet-logo-circular.png" x="${mid - 3.5}" y="${mid - 3.5}" width="7" height="7" clip-path="circle(50%)" />
-      </svg>
-    `;
-  };
-
-  const renderRealisticQRCode = () => {
-    return <div dangerouslySetInnerHTML={{ __html: getQRCodeSVGString() }} className="w-full h-full" />;
-  };
-
   const handlePrintTag = () => {
     const content = document.getElementById('asset-tag-card');
     if (content) {
       const printWindow = window.open('', '', 'height=600,width=800');
       if (printWindow) {
         printWindow.document.write('<html><head><title>Print Asset Tag</title>');
-        printWindow.document.write('<script src="https://cdn.tailwindcss.com"></script>');
-        printWindow.document.write('</head><body class="flex flex-col items-center justify-center h-screen bg-white">');
+        printWindow.document.write('<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fff;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.print-hidden{display:none!important}#asset-tag-card{transform:scale(1.25);transform-origin:center}</style>');
+        printWindow.document.write('</head><body>');
 
-        printWindow.document.write('<div class="scale-125 transform origin-center">');
         printWindow.document.write(content.outerHTML);
-        printWindow.document.write('</div>');
 
-        printWindow.document.write('<style>.print-hidden { display: none !important; } body { -webkit-print-color-adjust: exact; }</style>');
         printWindow.document.write('<script>setTimeout(() => { window.print(); window.close(); }, 800);</script>');
         printWindow.document.write('</body></html>');
         printWindow.document.close();
@@ -495,7 +438,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
         await QRCode.toCanvas(canvas, firstId || 'N/A', { width: 120, margin: 2, errorCorrectionLevel: 'H', color: { dark: '#000000', light: '#ffffff' } });
         const logoImg = new Image();
         logoImg.crossOrigin = 'anonymous';
-        await new Promise<void>((resolve) => { logoImg.onload = () => resolve(); logoImg.onerror = () => resolve(); logoImg.src = '/qet-logo-circular.png'; });
+        await new Promise<void>((resolve) => { logoImg.onload = () => resolve(); logoImg.onerror = () => resolve(); logoImg.src = '/qet-logo-circular.svg'; });
         if (logoImg.width && logoImg.height) {
           const ctx = canvas.getContext('2d');
           if (ctx) {
@@ -538,7 +481,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
       await new Promise<void>((resolve) => {
         logoImg.onload = () => resolve();
         logoImg.onerror = () => resolve();
-        logoImg.src = '/qet-logo-circular.png';
+        logoImg.src = '/qet-logo-circular.svg';
       });
       if (logoImg.width && logoImg.height) {
         const ctx = canvas.getContext('2d');
@@ -644,7 +587,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
         await QRCode.toCanvas(qrCanvas, productId || 'N/A', { width: 300, margin: 2, errorCorrectionLevel: 'H', color: { dark: '#000000', light: '#ffffff' } });
         const logoImg = new Image();
         logoImg.crossOrigin = 'anonymous';
-        await new Promise<void>((resolve) => { logoImg.onload = () => resolve(); logoImg.onerror = () => resolve(); logoImg.src = '/qet-logo-circular.png'; });
+        await new Promise<void>((resolve) => { logoImg.onload = () => resolve(); logoImg.onerror = () => resolve(); logoImg.src = '/qet-logo-circular.svg'; });
         if (logoImg.width && logoImg.height) {
           const ctx = qrCanvas.getContext('2d');
           if (ctx) {
@@ -750,14 +693,10 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(sheet);
+        const data = String(e.target?.result ?? '');
+        const jsonData = parseCsv(data);
 
-        // Helper function to parse Excel dates
-        const parseExcelDate = (value: any): string => {
+        const parseCsvDate = (value: unknown): string => {
           if (!value) return '';
           
           // If it's already a valid date string in YYYY-MM-DD format
@@ -765,11 +704,9 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
             return value;
           }
           
-          // If it's an Excel serial number (numeric)
+          // Retain numeric spreadsheet-date support for CSVs exported from spreadsheet tools.
           if (typeof value === 'number') {
-            // Excel epoch starts from January 1, 1900, but Excel incorrectly treats 1900 as a leap year
-            // So we need to adjust: Excel serial 1 = Jan 1, 1900
-            const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899 (Excel's epoch)
+            const excelEpoch = new Date(1899, 11, 30);
             const date = new Date(excelEpoch.getTime() + (value - 1) * 24 * 60 * 60 * 1000);
             if (!isNaN(date.getTime())) {
               return date.toISOString().split('T')[0];
@@ -805,25 +742,25 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
           return '';
         };
 
-        const initialRows = jsonData.map((row: any, index: number) => ({
+        const initialRows = jsonData.map((row, index: number) => ({
           rowId: index,
           name: row['Asset Name*'] || row['Asset Name'] || row['Name'] || '',
           category: row['Category*'] || row['Category'] || '',
           subCategory: row['Asset Type (for IT/Office)*'] || row['Asset Type'] || row['Sub-Category'] || '',
-          cost: row['Acquisition Cost*'] || row['Acquisition Cost'] || row['Cost'] || 0,
-          date: parseExcelDate(row['Acquisition Date*'] || row['Acquisition Date'] || row['Date'] || ''),
-          registrationDate: parseExcelDate(row['Registration Date*'] || row['Registration Date'] || ''),
+          cost: Number(row['Acquisition Cost*'] || row['Acquisition Cost'] || row['Cost'] || 0),
+          date: parseCsvDate(row['Acquisition Date*'] || row['Acquisition Date'] || row['Date'] || ''),
+          registrationDate: parseCsvDate(row['Registration Date*'] || row['Registration Date'] || ''),
           vendor: row['Vendor Name*'] || row['Vendor Name'] || row['Vendor'] || '',
           invoice: row['Invoice Number*'] || row['Invoice Number'] || row['Invoice'] || '',
           model: row['Model/Serial Number'] || row['Model'] || row['Serial Number'] || '',
-          life: row['Useful Life (Years)*'] || row['Useful Life (Years)'] || row['Useful Life'] || row['Life'] || 0,
+          life: Number(row['Useful Life (Years)*'] || row['Useful Life (Years)'] || row['Useful Life'] || row['Life'] || 0),
           location: row['Location*'] || row['Location'] || '',
           subLocation: row['Department/Unit*'] || row['Department/Unit'] || row['Department'] || row['Unit'] || '',
           condition: row['Condition'] || 'New',
           assetClass: row['Asset Class*'] || row['Asset Class'] || 'General Purpose',
           custodian: row['Assigned Custodian*'] || row['Assigned Custodian'] || row['Custodian'] || '',
           assignedUser: row['Assigned User'] || row['User'] || row["User's Name"] || '',
-          salvageValue: row['Salvage Value*'] || row['Salvage Value'] || row['Salvage'] || 0,
+          salvageValue: Number(row['Salvage Value*'] || row['Salvage Value'] || row['Salvage'] || 0),
           depreciationMethod: row['Depreciation Method'] || 'Straight-Line',
           previousId: row['Previous ID'] || row['Existing ID'] || row['Old ID'] || '',
           isValid: true,
@@ -834,12 +771,12 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
         setParsedData(validated);
       } catch (error) {
         console.error("Error parsing file:", error);
-        alert("Error parsing file. Please ensure it is a valid Excel or CSV file.");
+        alert("Error parsing file. Please ensure it is a valid CSV file.");
       } finally {
         setIsProcessingFile(false);
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsText(file);
   };
 
   const revalidateRows = (rows: BulkAssetRow[]): BulkAssetRow[] => {
@@ -943,10 +880,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
   const downloadImportedTags = () => {
     if (importedAssets.length === 0) return;
     const data = importedAssets.map(a => ({ "Asset Name": a.name, "Generated Tag ID": a.productId, "Category": a.category, "Location": a.location }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "New Asset Tags");
-    XLSX.writeFile(wb, "QET_Generated_Tags.xlsx");
+    downloadCsv("QET_Generated_Tags.csv", rowsToCsv(data));
   };
 
   // Column headers must match parser and single-entry form
@@ -1006,12 +940,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
     };
 
     const combinedData = [...instructions, sampleRow];
-    const ws = XLSX.utils.json_to_sheet(combinedData);
-    const colCount = Object.keys(TEMPLATE_COLUMNS).length;
-    ws['!cols'] = Array.from({ length: colCount }, () => ({ wch: 18 }));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Assets");
-    XLSX.writeFile(wb, "QET_Asset_Upload_Template.xlsx");
+    downloadCsv("QET_Asset_Upload_Template.csv", rowsToCsv(combinedData));
   };
 
   if (!canRegisterAsset(currentUser.role)) {
@@ -1088,14 +1017,14 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
                   </div>
                   <div className="text-center">
                     <div className="flex justify-center mb-2">
-                      <img src="./qet-logo-circular.png" className="h-12 object-contain" alt="QET Logo" />
+                      <img src="/qet-logo-circular.svg" className="h-12 object-contain" alt="QET Logo" />
                     </div>
                     <h3 className="font-bold text-slate-900 text-xl mb-1 tracking-tight">QET ASSET TAG</h3>
 
                     <div className="h-48 bg-white border border-slate-300 my-4 flex items-center justify-center overflow-hidden px-4 rounded-sm">
                       {showQrCode ? (
                         <div className="w-40 h-40 p-1">
-                          {renderRealisticQRCode()}
+                          <QRCodeSVG value={registeredAsset?.productId ?? ''} size={152} includeMargin />
                         </div>
                       ) : (
                         <div className="flex items-end h-16 space-x-[3px] w-full justify-center opacity-90">
@@ -1383,7 +1312,7 @@ const AssetForm: React.FC<AssetFormProps> = ({ onBack, currentUser, onSuccess })
             </div>
           ) : (
             <>
-              <div className="flex flex-col items-center justify-center mb-8"><div className="text-center max-w-lg"><div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-qet-600"><FileSpreadsheet size={32} /></div><h2 className="text-xl font-bold text-slate-800 mb-2">Upload Asset Data File</h2><p className="text-slate-500 text-sm mb-6">Support for Excel (.xlsx, .xls) and CSV. Ensure your file matches the template structure.</p><button onClick={downloadTemplate} className="inline-flex items-center px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors mb-6"><Download size={16} className="mr-2" /> Download Template</button></div><div className={`w-full max-w-2xl h-48 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-colors cursor-pointer ${dragActive ? 'border-qet-500 bg-qet-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}><UploadCloud size={40} className={`mb-3 ${dragActive ? 'text-qet-600' : 'text-slate-400'}`} /><p className="text-sm font-medium text-slate-700">Drag & Drop your file here</p><p className="text-xs text-slate-400 mt-1">or click to browse</p><input ref={fileInputRef} type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileChange} /></div></div>
+              <div className="flex flex-col items-center justify-center mb-8"><div className="text-center max-w-lg"><div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-qet-600"><FileSpreadsheet size={32} /></div><h2 className="text-xl font-bold text-slate-800 mb-2">Upload Asset Data File</h2><p className="text-slate-500 text-sm mb-6">Support for CSV files. Ensure your file matches the template structure.</p><button onClick={downloadTemplate} className="inline-flex items-center px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors mb-6"><Download size={16} className="mr-2" /> Download Template</button></div><div className={`w-full max-w-2xl h-48 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-colors cursor-pointer ${dragActive ? 'border-qet-500 bg-qet-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}><UploadCloud size={40} className={`mb-3 ${dragActive ? 'text-qet-600' : 'text-slate-400'}`} /><p className="text-sm font-medium text-slate-700">Drag & Drop your CSV file here</p><p className="text-xs text-slate-400 mt-1">or click to browse</p><input ref={fileInputRef} type="file" className="hidden" accept=".csv,text/csv" onChange={handleFileChange} /></div></div>
               {isProcessingFile && <div className="flex items-center justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-qet-600"></div><span className="ml-3 text-slate-600 font-medium">Processing file...</span></div>}
               {parsedData.length > 0 && (
                 <div className="animate-slideIn">

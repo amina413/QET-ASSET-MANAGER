@@ -3,11 +3,11 @@ import { api } from './api-client';
 export type DbUser = {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   department: string;
-  role: string;
-  lastLogin: string;
-  createdAt: string;
+  role?: string;
+  lastLogin?: string;
+  createdAt?: string;
 };
 
 export const userService = {

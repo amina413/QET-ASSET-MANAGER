@@ -2,8 +2,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import * as XLSX from 'xlsx';
-import { useRouter } from 'next/navigation';
 import jsQR from 'jsqr';
 import { QRCodeSVG } from 'qrcode.react';
 import QRCode from 'qrcode';
@@ -12,10 +10,10 @@ import { Scan, Search, MapPin, User, Calendar, AlertTriangle, ArrowRightLeft, Fi
 import { CONDITION_DESCRIPTIONS, LOCATIONS, LOCATION_BRANCHES } from '@/frontend/constants';
 import { Asset, ConditionCode, AuditSession, AuditVerification, User as UserType, AssetImprovement } from '@/shared/types';
 import { calculateDepreciationSchedule, calculateMonthlyDepreciationSchedule } from '@/shared/utils/depreciation';
-import { GoogleGenAI } from "@google/genai";
 import { assetService } from '@/frontend/services/assets';
 import { transferService } from '@/frontend/services/transfers';
-import { canInitiateTransfer, canApproveTransfer, canStartAudit } from '@/backend/lib/permissions';
+import { canInitiateTransfer, canApproveTransfer, canStartAudit } from '@/shared/permissions';
+import { downloadCsv, rowsToCsv } from '@/frontend/utils/csv';
 
 const DepreciationView = ({ activeAsset }: { activeAsset: Asset }) => {
   const [viewMode, setViewMode] = useState<'Annual' | 'Monthly'>('Annual');
@@ -297,7 +295,7 @@ const AssetListView: React.FC<AssetListViewProps> = memo(({
             <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fadeIn">
               <button onClick={onExportExcel} className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
                 <FileSpreadsheet size={18} className="text-green-600" />
-                Export to Excel
+                Export to CSV
               </button>
               <button onClick={onExportCSV} className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
                 <FileText size={18} className="text-blue-600" />
@@ -444,7 +442,6 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   users = [],
   onDataChange
 }) => {
-  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [trackingId, setTrackingId] = useState(''); // New Tracking Field State
   const [trackedAsset, setTrackedAsset] = useState<Asset | null>(null);
@@ -514,53 +511,61 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Image must be under 10MB.');
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be under 5MB.');
       e.target.value = '';
       return;
     }
 
     setIsUploadingImage(true);
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const imageDataUrl = event.target?.result as string;
-      try {
-        const result = await assetService.updateImage(imageUploadAssetId, imageDataUrl);
-        if (result.success) {
-          // Update search results if the asset is there
-          setSearchResults(prev => prev.map(asset =>
-            asset.id === imageUploadAssetId
-              ? { ...asset, imageUrl: imageDataUrl }
-              : asset
-          ));
-
-          // Update active asset if it's the one being updated
-          if (activeAsset?.id === imageUploadAssetId) {
-            setActiveAsset({ ...activeAsset, imageUrl: imageDataUrl });
-          }
-
-          // Update tracked asset if it's the one being updated
-          if (trackedAsset?.id === imageUploadAssetId) {
-            setTrackedAsset({ ...trackedAsset, imageUrl: imageDataUrl });
-          }
-
-          setNotificationMessage('Image uploaded successfully!');
-          setNotificationType('success');
-          setShowNotification(true);
-          onDataChange?.();
-        } else {
-          alert(result.error || 'Failed to upload image');
-        }
-      } catch (error) {
-        console.error('Error uploading image:', error);
-        alert('Failed to upload image. Please try again.');
-      } finally {
-        setIsUploadingImage(false);
-        setImageUploadAssetId(null);
-        e.target.value = '';
+    try {
+      const upload = await assetService.createImageUploadUrl(imageUploadAssetId, file);
+      if (!upload.success) {
+        alert(upload.error || 'Failed to prepare image upload');
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+
+      const uploadResponse = await fetch(upload.data.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Object storage upload failed');
+      }
+
+      const result = await assetService.updateImage(imageUploadAssetId, upload.data.publicUrl);
+      if (result.success) {
+        setSearchResults(prev => prev.map(asset =>
+          asset.id === imageUploadAssetId
+            ? { ...asset, imageUrl: upload.data.publicUrl }
+            : asset
+        ));
+
+        if (activeAsset?.id === imageUploadAssetId) {
+          setActiveAsset({ ...activeAsset, imageUrl: upload.data.publicUrl });
+        }
+
+        if (trackedAsset?.id === imageUploadAssetId) {
+          setTrackedAsset({ ...trackedAsset, imageUrl: upload.data.publicUrl });
+        }
+
+        setNotificationMessage('Image uploaded successfully!');
+        setNotificationType('success');
+        setShowNotification(true);
+        onDataChange?.();
+      } else {
+        alert(result.error || 'Failed to save uploaded image');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setIsUploadingImage(false);
+      setImageUploadAssetId(null);
+      e.target.value = '';
+    }
   };
 
   // Depreciation Calculator State
@@ -610,6 +615,8 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
   const [currentAuditSession, setCurrentAuditSession] = useState<AuditSession | null>(null);
   const [sessionCount, setSessionCount] = useState(0);
   const [auditVerifications, setAuditVerifications] = useState<Map<string, AuditVerification>>(new Map());
+  const [auditNoteRequest, setAuditNoteRequest] = useState<{ asset: Asset; status: 'Not Found' | 'Damaged'; required: boolean } | null>(null);
+  const [auditNoteText, setAuditNoteText] = useState('');
   const [isCompletingAudit, setIsCompletingAudit] = useState(false);
 
   const [isViewAllOpen, setIsViewAllOpen] = useState(false);
@@ -639,7 +646,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     } else if (initialSearchTerm) {
       handleSearch(initialSearchTerm);
     }
-  }, [initialSearchTerm, initialAssetId]);
+  }, [initialSearchTerm, initialAssetId, assets]);
 
   useEffect(() => {
     if (activeAsset) {
@@ -857,23 +864,28 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
       conditionMatch: true,
     };
 
-    const newMap = new Map(auditVerifications);
-    newMap.set(asset.id, verification);
-    setAuditVerifications(newMap);
-
-    // Persist to DB
-    await assetService.addHistory(asset.id, {
+    const result = await assetService.addHistory(asset.id, {
       action: `Audit Verification: ${status}`,
       details: `Asset verified during audit ${currentAuditSession.id}${notes ? `. Notes: ${notes}` : ''}`,
       type: 'Audit'
     });
+    if (!result.success) {
+      setNotificationMessage(result.error || 'Failed to persist audit verification.');
+      setNotificationType('error');
+      setShowNotification(true);
+      return;
+    }
+
+    const newMap = new Map(auditVerifications);
+    newMap.set(asset.id, verification);
+    setAuditVerifications(newMap);
     onDataChange?.();
 
-    // Update session counts
+    const verifications = Array.from(newMap.values());
     const updatedSession = {
       ...currentAuditSession,
-      verifiedAssets: status === 'Verified' ? currentAuditSession.verifiedAssets + 1 : currentAuditSession.verifiedAssets,
-      notFoundAssets: status === 'Not Found' ? currentAuditSession.notFoundAssets + 1 : currentAuditSession.notFoundAssets,
+      verifiedAssets: verifications.filter(v => v.status === 'Verified').length,
+      notFoundAssets: verifications.filter(v => v.status === 'Not Found' || v.status === 'Damaged').length,
     };
     setCurrentAuditSession(updatedSession);
   };
@@ -956,7 +968,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
     await new Promise<void>((resolve) => {
       logoImg.onload = () => resolve();
       logoImg.onerror = () => resolve();
-      logoImg.src = '/qet-logo-circular.png';
+      logoImg.src = '/qet-logo-circular.svg';
     });
     if (logoImg.width && logoImg.height) {
       const ctx = canvas.getContext('2d');
@@ -1840,12 +1852,9 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
       "Status": asset.status
     }));
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Assets");
-    XLSX.writeFile(wb, `QET_Asset_Inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
+    downloadCsv(`QET_Asset_Inventory_${new Date().toISOString().split('T')[0]}.csv`, rowsToCsv(data));
 
-    setNotificationMessage("Excel exported successfully");
+    setNotificationMessage("CSV exported successfully");
     setNotificationType('success');
     setShowNotification(true);
     setShowExportOptions(false);
@@ -2020,7 +2029,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
             <div className="flex justify-between items-start">
               <div className="flex items-start gap-4 text-qet-800">
                 <img
-                  src="./qet-logo-transparent.png"
+                  src="/qet-logo-transparent.svg"
                   alt="QET Logo"
                   className="h-12 w-auto object-contain"
                 />
@@ -2382,8 +2391,8 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                                   </button>
                                   <button
                                     onClick={() => {
-                                      const notes = prompt('Notes about missing asset (optional):');
-                                      handleVerifyAsset(asset, 'Not Found', notes || undefined);
+                                      setAuditNoteRequest({ asset, status: 'Not Found', required: false });
+                                      setAuditNoteText('');
                                     }}
                                     className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs font-bold"
                                   >
@@ -2391,8 +2400,8 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                                   </button>
                                   <button
                                     onClick={() => {
-                                      const notes = prompt('Describe the damage:');
-                                      if (notes) handleVerifyAsset(asset, 'Damaged', notes);
+                                      setAuditNoteRequest({ asset, status: 'Damaged', required: true });
+                                      setAuditNoteText('');
                                     }}
                                     className="px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-xs font-bold"
                                   >
@@ -2538,7 +2547,7 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
                       size={72}
                       level="H"
                       imageSettings={{
-                        src: '/qet-logo-circular.png',
+                        src: '/qet-logo-circular.svg',
                         height: 20,
                         width: 20,
                         excavate: true,
@@ -3125,6 +3134,45 @@ const AssetLookup: React.FC<AssetLookupProps> = ({
               </div>
             )
           }
+
+          {auditNoteRequest && (
+            <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                <h3 className="text-xl font-bold text-slate-800 mb-2">
+                  {auditNoteRequest.status === 'Damaged' ? 'Describe Damage' : 'Missing Asset Notes'}
+                </h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  {auditNoteRequest.asset.productId} - {auditNoteRequest.asset.name}
+                </p>
+                <textarea
+                  value={auditNoteText}
+                  onChange={e => setAuditNoteText(e.target.value)}
+                  className="w-full p-3 border border-slate-300 rounded-lg h-28 resize-none outline-none focus:ring-2 focus:ring-qet-500"
+                  placeholder={auditNoteRequest.required ? 'Notes are required for damaged assets' : 'Optional notes'}
+                />
+                <div className="flex justify-end gap-3 mt-5">
+                  <button
+                    type="button"
+                    onClick={() => setAuditNoteRequest(null)}
+                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={auditNoteRequest.required && !auditNoteText.trim()}
+                    onClick={() => {
+                      void handleVerifyAsset(auditNoteRequest.asset, auditNoteRequest.status, auditNoteText.trim() || undefined);
+                      setAuditNoteRequest(null);
+                    }}
+                    className="px-5 py-2 bg-qet-600 text-white font-bold rounded-lg hover:bg-qet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save Verification
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Notification Modal */}
           {

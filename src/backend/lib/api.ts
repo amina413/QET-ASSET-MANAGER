@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import { Prisma } from '@prisma/client';
+import { logger } from '@/backend/lib/logger';
 
 export type ApiSuccess<T> = { success: true; data: T };
 export type ApiError = { success: false; error: string; details?: unknown };
@@ -29,10 +31,14 @@ export function handleError(error: unknown): NextResponse<ApiError> {
   if (error instanceof ZodError) {
     return err('Validation failed', 422, error.flatten());
   }
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2025') return notFound('Resource');
+    if (error.code === 'P2002') return err('A record with that value already exists', 409);
+  }
   if (error instanceof Error) {
-    console.error('[API Error]', error.message, error.stack);
+    logger.error('API request failed', { message: error.message, stack: error.stack });
   } else {
-    console.error('[API Error]', error);
+    logger.error('API request failed', { error });
   }
   return err('Internal server error', 500);
 }

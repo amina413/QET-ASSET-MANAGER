@@ -15,21 +15,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const req_ = await prisma.transferRequest.findUnique({ where: { id }, include: { asset: true } });
     if (!req_) return notFound('Transfer request');
+    if (!req_.asset.isActive) return notFound('Asset');
     if (req_.status !== 'PENDING') return err('Transfer request is no longer pending', 409);
+    if (req_.toCustodianId !== custodianId) {
+      return err('Approved custodian must match the transfer request custodian', 422);
+    }
 
-    const custodian = await prisma.user.findUnique({ where: { id: custodianId }, select: { id: true } });
-    if (!custodian) return notFound('Custodian user');
+    const custodian = await prisma.user.findUnique({ where: { id: custodianId }, select: { id: true, isActive: true } });
+    if (!custodian || !custodian.isActive) return notFound('Custodian user');
 
-    await prisma.$transaction([
-      prisma.asset.update({
+    await prisma.$transaction(async tx => {
+      const resolved = await tx.transferRequest.updateMany({
+        where: { id, status: 'PENDING' },
+        data: { status: 'APPROVED', approvedById: user.id, resolvedAt: new Date() },
+      });
+      if (resolved.count !== 1) throw new Error('TRANSFER_NOT_PENDING');
+
+      await tx.asset.update({
         where: { id: req_.assetId },
         data: { location: req_.toLocation, custodianId, status: 'ACTIVE' },
-      }),
-      prisma.transferRequest.update({
-        where: { id },
-        data: { status: 'APPROVED', approvedById: user.id, resolvedAt: new Date() },
-      }),
-      prisma.assetHistory.create({
+      });
+      await tx.assetHistory.create({
         data: {
           assetId: req_.assetId,
           userId: user.id,
@@ -40,11 +46,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           toLocation: req_.toLocation,
           toCustodian: req_.toCustodian,
         },
-      }),
-    ]);
+      });
+    });
 
     return ok({ approved: true });
   } catch (error) {
+    if (error instanceof Error && error.message === 'TRANSFER_NOT_PENDING') {
+      return err('Transfer request is no longer pending', 409);
+    }
     return handleError(error);
   }
 }

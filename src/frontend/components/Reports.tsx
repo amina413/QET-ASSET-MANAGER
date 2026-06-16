@@ -1,6 +1,7 @@
 
+"use client";
+
 import React, { useState, useMemo } from 'react';
-import * as XLSX from 'xlsx';
 import { Download, Filter, FileText, CheckCircle, Loader2, Calendar, ArrowLeft, ArrowRightLeft, Trash2 } from 'lucide-react';
 import { CATEGORIES, CONDITION_DESCRIPTIONS } from '@/frontend/constants';
 import { ConditionCode, Asset } from '@/shared/types';
@@ -8,6 +9,7 @@ import { calculateDepreciationSchedule } from '@/shared/utils/depreciation';
 import { getFullyDepreciatedAssets, generatePeriodScheduleByCategory, generateCustomPeriodScheduleByCategory, clearAssetCache } from '@/shared/utils/reportData';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { arraysToCsv, downloadCsv } from '@/frontend/utils/csv';
 
 interface ReportsProps {
   onBack?: () => void;
@@ -202,7 +204,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
 
   const loadLogoAsBase64 = async (): Promise<string | null> => {
     try {
-      const res = await fetch('/qet-logo-circular.png');
+      const res = await fetch('/qet-logo-circular.svg');
       const blob = await res.blob();
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -540,11 +542,8 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
         ? [Object.keys(data[0]) as string[], ...data.map((row) => Object.values(row) as (string | number)[])]
         : [['No data'], ['No records match the current filters.']];
       const allRows = [...headerRows, ...dataRows];
-      const ws = XLSX.utils.aoa_to_sheet(allRows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, reportType.slice(0, 31));
       const periodSuffix = (reportType === 'Fixed Asset Schedule' || reportType === 'Depreciation Schedule') ? `_Period_${reportPeriodYear}` : '';
-      XLSX.writeFile(wb, `QET_Report_${reportTitle}${periodSuffix}_${dateStr}.xlsx`);
+      downloadCsv(`QET_Report_${reportTitle}${periodSuffix}_${dateStr}.csv`, arraysToCsv(allRows));
     } catch (err) {
       console.error('Export error:', err);
       alert('Export failed. Please try again.');
@@ -1244,7 +1243,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
         <div className="flex justify-between items-start mb-8">
           <div className="flex items-start gap-4">
             <img
-              src="./qet-logo-transparent.png"
+              src="/qet-logo-transparent.svg"
               alt="QET Logo"
               className="h-12 w-auto object-contain"
             />
@@ -1264,7 +1263,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
               onChange={(e) => setExportFormat(e.target.value as 'excel' | 'pdf')}
               className="p-2 border border-slate-300 rounded-lg text-sm bg-white"
             >
-              <option value="excel">Excel (XLSX)</option>
+              <option value="excel">CSV (spreadsheet)</option>
               <option value="pdf">PDF</option>
             </select>
             <button
@@ -1273,7 +1272,7 @@ const Reports: React.FC<ReportsProps> = ({ onBack, onNavigateToAsset, assets = [
               className="flex items-center px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium text-sm disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
               {isExporting ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Download size={16} className="mr-2" />}
-              {isExporting ? 'Exporting...' : `Export to ${exportFormat === 'pdf' ? 'PDF' : 'Excel'}`}
+              {isExporting ? 'Exporting...' : `Export to ${exportFormat === 'pdf' ? 'PDF' : 'CSV'}`}
             </button>
           </div>
         </div>

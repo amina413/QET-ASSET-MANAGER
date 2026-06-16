@@ -1,8 +1,10 @@
 
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '@/shared/types';
-import { Plus, Edit2, Trash2, Shield, X, Loader2, ArrowLeft } from 'lucide-react';
-import { canEditUsers, canDeleteUsers } from '@/backend/lib/permissions';
+import { Plus, Edit2, Trash2, Shield, X, Loader2, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { canEditUsers, canDeleteUsers } from '@/shared/permissions';
 import { userService, DbUser } from '@/frontend/services/users';
 
 interface UserManagementProps {
@@ -16,6 +18,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack, on
   const [editingUser, setEditingUser] = useState<DbUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState<DbUser | null>(null);
 
   // Add User State
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
@@ -36,6 +40,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack, on
     const result = await userService.getAll();
     if (result.success) {
       setUsers(result.data);
+      setErrorMessage(null);
+    } else {
+      setErrorMessage(result.error || 'Failed to load users.');
     }
     setIsLoading(false);
   };
@@ -45,17 +52,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack, on
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to remove this user?')) {
-      setIsLoading(true);
-      const result = await userService.delete(id);
-      if (result.success) {
-        setUsers(users.filter(u => u.id !== id));
-        onDataChange?.();
-      } else {
-        alert(result.error || 'Failed to delete user.');
-      }
-      setIsLoading(false);
+    setConfirmDeleteUser(null);
+    setIsLoading(true);
+    const result = await userService.delete(id);
+    if (result.success) {
+      setUsers(users.filter(u => u.id !== id));
+      onDataChange?.();
+    } else {
+      setErrorMessage(result.error || 'Failed to delete user.');
     }
+    setIsLoading(false);
   };
 
   const handleSaveRole = async (newRole: string) => {
@@ -67,7 +73,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack, on
       onDataChange?.();
       setEditingUser(null);
     } else {
-      alert(result.error || 'Failed to update user.');
+      setErrorMessage(result.error || 'Failed to update user.');
     }
     setIsSaving(false);
   };
@@ -89,7 +95,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack, on
       setIsAddUserOpen(false);
       setNewUser({ name: '', email: '', department: '', role: 'Custodian', password: '' });
     } else {
-      alert(result.error || 'Failed to create user.');
+      setErrorMessage(result.error || 'Failed to create user.');
     }
     setIsSaving(false);
   };
@@ -109,7 +115,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack, on
       <div className="flex justify-between items-start mb-8">
         <div className="flex items-start gap-4">
           <img
-            src="./qet-logo-transparent.png"
+            src="/qet-logo-transparent.svg"
             alt="QET Logo"
             className="h-12 w-auto object-contain"
           />
@@ -127,6 +133,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack, on
           </button>
         )}
       </div>
+
+      {errorMessage && (
+        <div className="mb-6 p-4 rounded-xl flex items-center justify-between gap-2 bg-red-50 text-red-800 border border-red-200">
+          <span className="font-medium flex items-center gap-2"><AlertTriangle size={18} /> {errorMessage}</span>
+          <button onClick={() => setErrorMessage(null)} className="text-red-500 hover:text-red-700"><X size={16} /></button>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px] relative">
         {isLoading ? (
@@ -184,7 +197,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack, on
                       </button>
                       {canRemoveUsers && (
                         <button
-                          onClick={() => handleDelete(user.id)}
+                          onClick={() => setConfirmDeleteUser(user)}
                           className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
                         >
                           <Trash2 size={16} />
@@ -229,7 +242,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack, on
                 Cancel
               </button>
               <button
-                onClick={() => handleSaveRole(editingUser.role)}
+                onClick={() => handleSaveRole(editingUser.role ?? 'CUSTODIAN')}
                 disabled={isSaving}
                 className="px-4 py-2 bg-qet-600 text-white rounded-lg hover:bg-qet-700 flex items-center"
               >
@@ -322,6 +335,35 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onBack, on
               >
                 {isSaving ? <Loader2 size={16} className="animate-spin mr-2" /> : <Plus size={18} className="mr-2" />}
                 Create User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Modal */}
+      {confirmDeleteUser && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-xl p-6 w-96 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-full"><AlertTriangle size={20} className="text-red-600" /></div>
+              <h3 className="text-lg font-bold text-slate-800">Remove User</h3>
+            </div>
+            <p className="text-sm text-slate-600 mb-6">
+              Are you sure you want to remove <span className="font-semibold">{confirmDeleteUser.name}</span>? They will lose access immediately.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDeleteUser(null)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(confirmDeleteUser.id)}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Remove
               </button>
             </div>
           </div>

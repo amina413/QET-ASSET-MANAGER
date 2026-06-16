@@ -9,17 +9,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (error) return error;
 
     const { id } = await params;
-    const req_ = await prisma.transferRequest.findUnique({ where: { id } });
+    const req_ = await prisma.transferRequest.findUnique({ where: { id }, include: { asset: true } });
     if (!req_) return notFound('Transfer request');
+    if (!req_.asset.isActive) return notFound('Asset');
     if (req_.status !== 'PENDING') return err('Transfer request is no longer pending', 409);
 
-    await prisma.$transaction([
-      prisma.asset.update({ where: { id: req_.assetId }, data: { status: 'ACTIVE' } }),
-      prisma.transferRequest.update({
-        where: { id },
+    await prisma.$transaction(async tx => {
+      const resolved = await tx.transferRequest.updateMany({
+        where: { id, status: 'PENDING' },
         data: { status: 'REJECTED', approvedById: user.id, resolvedAt: new Date() },
-      }),
-      prisma.assetHistory.create({
+      });
+      if (resolved.count !== 1) throw new Error('TRANSFER_NOT_PENDING');
+
+      await tx.asset.update({ where: { id: req_.assetId }, data: { status: 'ACTIVE' } });
+      await tx.assetHistory.create({
         data: {
           assetId: req_.assetId,
           userId: user.id,
@@ -29,11 +32,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           fromLocation: req_.fromLocation,
           toLocation: req_.toLocation,
         },
-      }),
-    ]);
+      });
+    });
 
     return ok({ rejected: true });
   } catch (error) {
+    if (error instanceof Error && error.message === 'TRANSFER_NOT_PENDING') {
+      return err('Transfer request is no longer pending', 409);
+    }
     return handleError(error);
   }
 }

@@ -4,11 +4,11 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log('Start seeding users...');
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_SEED !== 'true') {
+        throw new Error('Refusing to run seed in production without ALLOW_PROD_SEED=true.');
+    }
 
-    // Hash password using bcryptjs
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('password123', salt);
+    console.log('Start seeding users...');
 
     // Passwords come from environment variables; fall back to a placeholder that must be changed.
     // Set SEED_ADMIN_PASSWORD, SEED_OKALU_PASSWORD etc. in .env before seeding in production.
@@ -25,13 +25,11 @@ async function main() {
 
     for (const u of users) {
         const passwordToHash = u.customPassword || defaultPassword;
-        const userPassword = await bcrypt.hash(passwordToHash, salt);
+        const userPassword = await bcrypt.hash(passwordToHash, 12);
 
         const user = await prisma.user.upsert({
             where: { email: u.email },
-            update: {
-                password: userPassword
-            },
+            update: {},
             create: {
                 name: u.name,
                 email: u.email,
@@ -41,7 +39,7 @@ async function main() {
                 lastLogin: new Date(),
             },
         });
-        console.log(`Created/Updated user: ${user.name} (${user.role})`);
+        console.log(`Ensured user exists: ${user.name} (${user.role})`);
     }
 
     console.log('Start seeding departments...');
@@ -91,10 +89,9 @@ async function main() {
     ];
 
     for (const cust of custodians) {
-        const custodian = await prisma.custodian.create({
-            data: cust,
-        });
-        console.log(`Created custodian: ${custodian.name}`);
+        const existing = await prisma.custodian.findFirst({ where: { email: cust.email } });
+        const custodian = existing ?? await prisma.custodian.create({ data: cust });
+        console.log(`Ensured custodian exists: ${custodian.name}`);
     }
 
     console.log('Start seeding categories...');
