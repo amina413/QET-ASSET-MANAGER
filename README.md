@@ -197,17 +197,17 @@ npm run db:deploy
 npm run db:seed
 ```
 
-Default seeded accounts:
+Default seeded accounts (all share the same password unless overridden via `.env`):
 
-| Email              | Role          |
-|--------------------|---------------|
-| admin@qet.com      | System Admin  |
-| manager@qet.com    | Asset Manager |
-| emeka@qet.com      | Custodian     |
-| audit@qet.com      | Auditor       |
-| okalu@qet.com      | System Admin  |
+| Email              | Password       | Role          | Department       |
+|--------------------|----------------|---------------|------------------|
+| admin@qet.com      | ChangeMe123!   | System Admin  | IT               |
+| manager@qet.com    | ChangeMe123!   | Asset Manager | Finance          |
+| emeka@qet.com      | ChangeMe123!   | Custodian     | Operations       |
+| audit@qet.com      | ChangeMe123!   | Auditor       | Internal Audit   |
+| okalu@qet.com      | ChangeMe123!   | System Admin  | Administration   |
 
-> **Change all passwords immediately after first login.**
+> **Change all passwords immediately after first login.** You can override the default before seeding by setting `SEED_DEFAULT_PASSWORD` in `.env`.
 
 ### 6. Start the development server
 
