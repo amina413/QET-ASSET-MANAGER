@@ -1,19 +1,12 @@
-import { NextRequest } from 'next/server';
-import { ok, err, handleError } from '@/backend/lib/api';
-import { requireAuth, requirePermission } from '@/backend/lib/auth-helpers';
-import { hasPermission } from '@/backend/lib/permissions';
-import { CreateAssetSchema } from '@/backend/lib/validation';
-import { calculateDepreciationSchedule } from '@/shared/utils/depreciation';
-import prisma from '@/backend/lib/prisma';
+﻿import { NextRequest } from 'next/server';
+import { ok, err, handleError } from '@/lib/api';
+import { requireAuth, requirePermission } from '@/lib/auth-helpers';
+import { hasPermission } from '@/lib/permissions';
+import { CreateAssetSchema } from '@/lib/validation';
+import { calculateDepreciationSchedule } from '@/utils/depreciation';
+import { STATUS_MAP } from '@/lib/asset-constants';
+import prisma from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
-
-type DisplayStatus = 'Active' | 'Disposed' | 'Maintenance' | 'Pending Transfer';
-const STATUS_MAP: Record<string, DisplayStatus> = {
-  ACTIVE: 'Active',
-  DISPOSED: 'Disposed',
-  MAINTENANCE: 'Maintenance',
-  PENDING_TRANSFER: 'Pending Transfer',
-};
 
 export async function GET(req: NextRequest) {
   try {
@@ -36,7 +29,7 @@ export async function GET(req: NextRequest) {
       skip,
       include: {
         custodian: { select: { id: true, name: true, email: true, department: true } },
-        history: { include: { user: { select: { id: true, name: true } } }, orderBy: { date: 'desc' } },
+        ...(canViewAuditLogs ? { history: { include: { user: { select: { id: true, name: true } } }, orderBy: { date: 'desc' as const } } } : {}),
         improvements: true,
         schedules: { orderBy: { fiscalYear: 'asc' } },
       },
@@ -48,6 +41,21 @@ export async function GET(req: NextRequest) {
     const mapped = assets.map(a => {
       const currentSchedule = a.schedules.find(s => s.fiscalYear === currentYear)
         ?? a.schedules[a.schedules.length - 1];
+      const history = canViewAuditLogs && Array.isArray((a as { history?: unknown }).history)
+        ? a.history as Array<{
+          id: string;
+          assetId: string;
+          date: Date;
+          action: string;
+          user?: { name: string } | null;
+          userId: string;
+          details: string;
+          type: string;
+          fromLocation: string | null;
+          toLocation: string | null;
+          toCustodian: string | null;
+        }>
+        : [];
 
       return {
         id: a.id,
@@ -77,7 +85,7 @@ export async function GET(req: NextRequest) {
           description: imp.description,
           newAcquisitionCost: Number(imp.newAcquisitionCost),
         })),
-        history: canViewAuditLogs ? a.history.map(h => ({
+        history: history.map(h => ({
           id: h.id,
           assetId: h.assetId,
           date: h.date.toISOString().slice(0, 16).replace('T', ' '),
@@ -89,7 +97,7 @@ export async function GET(req: NextRequest) {
           fromLocation: h.fromLocation ?? undefined,
           toLocation: h.toLocation ?? undefined,
           toCustodian: h.toCustodian ?? undefined,
-        })) : [],
+        })),
       };
     });
 
@@ -114,26 +122,6 @@ export async function POST(req: NextRequest) {
     const acquisitionDate = new Date(data.acquisitionDate);
     const registrationDate = data.registrationDate ? new Date(data.registrationDate) : new Date();
 
-    const asset = await prisma.asset.create({
-      data: {
-        productId: data.productId,
-        name: data.name,
-        category: data.category,
-        subCategory: data.subCategory,
-        acquisitionCost: data.acquisitionCost,
-        acquisitionDate,
-        registrationDate,
-        salvageValue: data.salvageValue,
-        usefulLife: data.usefulLife,
-        method: data.depreciationMethod as Parameters<typeof prisma.asset.create>[0]['data']['method'],
-        location: data.location,
-        subLocation: data.subLocation,
-        custodianId: data.custodianId,
-        conditionCode: data.condition ?? 'A1',
-        status: 'ACTIVE',
-      },
-    });
-
     const scheduleData = calculateDepreciationSchedule({
       acquisition_cost: data.acquisitionCost,
       registration_date: registrationDate.toISOString(),
@@ -142,27 +130,49 @@ export async function POST(req: NextRequest) {
       method: data.depreciationMethod as Parameters<typeof calculateDepreciationSchedule>[0]['method'],
     });
 
-    await prisma.$transaction([
-      prisma.depreciationSchedule.createMany({
+    const asset = await prisma.$transaction(async tx => {
+      const createdAsset = await tx.asset.create({
+        data: {
+          productId: data.productId,
+          name: data.name,
+          category: data.category,
+          subCategory: data.subCategory,
+          acquisitionCost: data.acquisitionCost,
+          acquisitionDate,
+          registrationDate,
+          salvageValue: data.salvageValue,
+          usefulLife: data.usefulLife,
+          method: data.depreciationMethod as Parameters<typeof tx.asset.create>[0]['data']['method'],
+          location: data.location,
+          subLocation: data.subLocation,
+          custodianId: data.custodianId,
+          conditionCode: data.condition ?? 'A1',
+          status: 'ACTIVE',
+        },
+      });
+
+      await tx.depreciationSchedule.createMany({
         data: scheduleData.map(s => ({
-          assetId: asset.id,
+          assetId: createdAsset.id,
           year: s.year,
           fiscalYear: s.fiscal_year,
           depreciationExpense: s.depreciation_expense,
           accumulatedDepr: s.accumulated_depreciation,
           netBookValue: s.net_book_value,
         })),
-      }),
-      prisma.assetHistory.create({
+      });
+      await tx.assetHistory.create({
         data: {
-          assetId: asset.id,
+          assetId: createdAsset.id,
           userId: user.id,
           action: 'Asset Registered',
-          details: `Initial registration of ${asset.name}`,
+          details: `Initial registration of ${createdAsset.name}`,
           type: 'Registration',
         },
-      }),
-    ]);
+      });
+
+      return createdAsset;
+    });
 
     return ok({ assetId: asset.id, productId: asset.productId }, 201);
   } catch (error) {

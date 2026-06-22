@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/backend/lib/prisma';
+﻿import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
   const expectedToken = process.env.HEALTH_CHECK_TOKEN;

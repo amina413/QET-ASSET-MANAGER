@@ -1,9 +1,9 @@
-import { NextRequest } from 'next/server';
-import { ok, err, handleError, notFound } from '@/backend/lib/api';
-import { requireAssetAccess, requireAuth, requirePermission } from '@/backend/lib/auth-helpers';
-import { hasPermission } from '@/backend/lib/permissions';
-import { InitiateTransferSchema } from '@/backend/lib/validation';
-import prisma from '@/backend/lib/prisma';
+﻿import { NextRequest } from 'next/server';
+import { ok, err, handleError, notFound } from '@/lib/api';
+import { requireAssetAccess, requireAuth, requirePermission } from '@/lib/auth-helpers';
+import { hasPermission } from '@/lib/permissions';
+import { InitiateTransferSchema } from '@/lib/validation';
+import prisma from '@/lib/prisma';
 import type { Prisma, TransferStatus } from '@prisma/client';
 
 const VALID_STATUSES: TransferStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
@@ -15,6 +15,8 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
+    const take = Math.min(parseInt(searchParams.get('limit') ?? '100', 10) || 100, 200);
+    const skip = Math.max(parseInt(searchParams.get('skip') ?? '0', 10) || 0, 0);
 
     let where: Prisma.TransferRequestWhereInput = { status: 'PENDING', asset: { isActive: true } };
     if (status === 'all') {
@@ -37,6 +39,8 @@ export async function GET(req: NextRequest) {
       where,
       include: { asset: { include: { custodian: { select: { id: true, name: true } } } } },
       orderBy: { requestedAt: 'desc' },
+      take,
+      skip,
     });
 
     return ok(transfers);

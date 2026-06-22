@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+﻿import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
 
 const mocks = vi.hoisted(() => {
@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => {
     },
     user: {
       findUnique: vi.fn(),
+      findMany: vi.fn(),
       update: vi.fn(),
     },
     $transaction: vi.fn(),
@@ -43,21 +44,21 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('@/backend/lib/prisma', () => ({ default: mocks.prisma }));
-vi.mock('@/backend/lib/auth-helpers', () => ({
+vi.mock('@/lib/prisma', () => ({ default: mocks.prisma }));
+vi.mock('@/lib/auth-helpers', () => ({
   requireAuth: mocks.requireAuth,
   requirePermission: mocks.requirePermission,
   requireAssetAccess: mocks.requireAssetAccess,
 }));
-vi.mock('@/backend/lib/asset-image-storage', () => ({
+vi.mock('@/lib/asset-image-storage', () => ({
   createAssetImageUploadUrl: mocks.createAssetImageUploadUrl,
   isManagedAssetImageUrl: mocks.isManagedAssetImageUrl,
 }));
-vi.mock('@/backend/lib/rate-limit', () => ({
+vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: mocks.checkRateLimit,
   isRateLimited: mocks.isRateLimited,
 }));
-vi.mock('@/backend/lib/session', () => ({
+vi.mock('@/lib/session', () => ({
   getSession: mocks.getSession,
   dbRoleToDisplay: (role: string) => ({
     SYSTEM_ADMIN: 'System Admin',
@@ -69,6 +70,7 @@ vi.mock('@/backend/lib/session', () => ({
 vi.mock('bcryptjs', () => ({ default: mocks.bcrypt }));
 
 import { GET as getAsset, DELETE as deleteAsset } from '@/app/api/assets/[id]/route';
+import { POST as bulkCreateAssets } from '@/app/api/assets/bulk/route';
 import { PUT as putAssetImage } from '@/app/api/assets/[id]/image/route';
 import { POST as createUploadUrl } from '@/app/api/assets/[id]/image/upload-url/route';
 import { POST as login } from '@/app/api/auth/login/route';
@@ -146,6 +148,7 @@ describe('security-critical API routes', () => {
       lastLogin: null,
       password: 'hash',
       isActive: true,
+      sessionVersion: 1,
     });
     mocks.prisma.user.update.mockResolvedValue({});
 
@@ -194,7 +197,7 @@ describe('security-critical API routes', () => {
     expect(result.status).toBe(200);
     expect(mocks.prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: actor.id },
-      data: { password: 'new-hash' },
+      data: { password: 'new-hash', sessionVersion: { increment: 1 } },
     }));
     expect(session.destroy).toHaveBeenCalledOnce();
   });
@@ -224,7 +227,8 @@ describe('security-critical API routes', () => {
       toCustodian: 'New Custodian',
       toCustodianId: 'user-2',
       status: 'PENDING',
-      asset: { isActive: true },
+      requestedById: 'requester-1',
+      asset: { isActive: true, status: 'PENDING_TRANSFER' },
     });
     mocks.prisma.user.findUnique.mockResolvedValue({ id: 'user-2', isActive: true });
     mocks.prisma.transferRequest.updateMany.mockResolvedValue({ count: 0 });
@@ -249,7 +253,30 @@ describe('security-critical API routes', () => {
     }), { params: Promise.resolve({ id: 'asset-1' }) }));
 
     expect(result.status).toBe(422);
+    expect(mocks.isManagedAssetImageUrl).toHaveBeenCalledWith('https://example.com/unmanaged.png', 'asset-1');
     expect(mocks.requireAssetAccess).not.toHaveBeenCalled();
+  });
+
+  it('blocks transfer self-approval', async () => {
+    mocks.requirePermission.mockResolvedValue({ user: { ...actor, role: 'Asset Manager' }, error: null });
+    mocks.prisma.transferRequest.findUnique.mockResolvedValue({
+      id: 'transfer-1',
+      assetId: 'asset-1',
+      fromLocation: 'Old',
+      toLocation: 'New',
+      toCustodian: 'New Custodian',
+      toCustodianId: 'user-2',
+      requestedById: actor.id,
+      status: 'PENDING',
+      asset: { isActive: true, status: 'PENDING_TRANSFER' },
+    });
+
+    const result = await payload(await approveTransfer(request('POST', 'http://test.local/api/transfers/transfer-1/approve', {
+      custodianId: 'user-2',
+    }), { params: Promise.resolve({ id: 'transfer-1' }) }));
+
+    expect(result.status).toBe(403);
+    expect(mocks.prisma.transferRequest.updateMany).not.toHaveBeenCalled();
   });
 
   it('creates upload URLs only after permission and asset access checks', async () => {
@@ -300,5 +327,31 @@ describe('security-critical API routes', () => {
 
     expect(result.status).toBe(409);
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('fails bulk import when requested custodian IDs are inactive or missing', async () => {
+    mocks.requirePermission.mockResolvedValue({ user: { ...actor, role: 'Asset Manager' }, error: null });
+    mocks.prisma.user.findMany.mockResolvedValue([]);
+
+    const result = await payload(await bulkCreateAssets(request('POST', 'http://test.local/api/assets/bulk', {
+      rows: [{
+        prefix: 'QET/ABJ/ITE/',
+        name: 'Laptop',
+        category: 'IT Equipment',
+        cost: 1000,
+        date: '2026-01-01',
+        registrationDate: '2026-01-01',
+        salvageValue: 0,
+        life: 5,
+        depreciationMethod: 'Straight Line',
+        location: 'Abuja HQ',
+        condition: 'Good',
+        custodianId: 'missing-user',
+      }],
+    })));
+
+    expect(result.status).toBe(422);
+    expect(result.body.error).toContain('missing-user');
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 });

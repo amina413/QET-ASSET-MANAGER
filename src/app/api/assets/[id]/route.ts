@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
-import { ok, err, handleError, notFound } from '@/backend/lib/api';
-import { requireAuth, requirePermission } from '@/backend/lib/auth-helpers';
-import { hasPermission } from '@/backend/lib/permissions';
-import prisma from '@/backend/lib/prisma';
+import { ok, err, handleError, notFound } from '@/lib/api';
+import { requireAuth, requirePermission } from '@/lib/auth-helpers';
+import { hasPermission } from '@/lib/permissions';
+import { STATUS_MAP } from '@/lib/asset-constants';
+import prisma from '@/lib/prisma';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -26,7 +27,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     if (!asset) return notFound('Asset');
-    return ok({ ...asset, history: canViewAuditLogs && 'history' in asset ? asset.history : [] });
+    return ok({
+      ...asset,
+      acquisitionCost: Number(asset.acquisitionCost),
+      salvageValue: Number(asset.salvageValue),
+      status: STATUS_MAP[asset.status] ?? 'Active',
+      history: canViewAuditLogs && Array.isArray((asset as { history?: unknown }).history) ? (asset as { history: unknown[] }).history : [],
+    });
   } catch (error) {
     return handleError(error);
   }
@@ -44,6 +51,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     // Soft delete: preserve the row so AssetHistory/improvements/schedules/transfer FKs stay intact.
     await prisma.$transaction([
+      // Reject any pending transfers so they don't linger in the queue
+      prisma.transferRequest.updateMany({ where: { assetId: id, status: 'PENDING' }, data: { status: 'REJECTED' } }),
       prisma.asset.update({ where: { id }, data: { isActive: false, status: 'DISPOSED' } }),
       prisma.assetHistory.create({
         data: {

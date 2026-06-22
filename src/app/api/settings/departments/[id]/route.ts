@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
-import { ok, err, handleError, notFound } from '@/backend/lib/api';
-import { requirePermission } from '@/backend/lib/auth-helpers';
-import { UpdateDepartmentSchema } from '@/backend/lib/validation';
-import prisma from '@/backend/lib/prisma';
+import { ok, err, handleError, notFound } from '@/lib/api';
+import { requirePermission } from '@/lib/auth-helpers';
+import { UpdateDepartmentSchema } from '@/lib/validation';
+import prisma from '@/lib/prisma';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

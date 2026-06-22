@@ -43,3 +43,4 @@ jobs:
       - run: npm test
       - run: npm audit --audit-level=high
       - run: npm run build
+      - run: docker build -t qet-asset-manager:ci .

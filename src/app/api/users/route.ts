@@ -1,10 +1,10 @@
-import { NextRequest } from 'next/server';
+﻿import { NextRequest } from 'next/server';
 import { Role } from '@prisma/client';
-import { ok, err, handleError } from '@/backend/lib/api';
-import { requireAuth, requirePermission } from '@/backend/lib/auth-helpers';
-import { hasPermission } from '@/backend/lib/permissions';
-import { CreateUserSchema } from '@/backend/lib/validation';
-import prisma from '@/backend/lib/prisma';
+import { ok, err, handleError } from '@/lib/api';
+import { requireAuth, requirePermission } from '@/lib/auth-helpers';
+import { hasPermission } from '@/lib/permissions';
+import { CreateUserSchema } from '@/lib/validation';
+import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 export async function GET() {

@@ -11,17 +11,18 @@ function originFromEnv(value: string | undefined): string | null {
 
 const assetImageOrigin = originFromEnv(process.env.ASSET_IMAGE_PUBLIC_BASE_URL);
 const assetUploadOrigin = originFromEnv(process.env.ASSET_IMAGE_S3_ENDPOINT);
+const isProduction = process.env.NODE_ENV === 'production';
 const connectSrc = [
   "'self'",
   assetImageOrigin,
   assetUploadOrigin,
-  "ws://localhost:*",
-  "http://localhost:*",
+  ...(!isProduction ? ["ws://localhost:*", "http://localhost:*"] : []),
 ].filter(Boolean).join(' ');
 const imgSrc = ["'self'", "data:", "blob:", assetImageOrigin].filter(Boolean).join(' ');
+const scriptSrc = ["'self'", "'unsafe-inline'", ...(!isProduction ? ["'unsafe-eval'"] : [])].join(' ');
 
 const securityHeaders = [
-  ...(process.env.NODE_ENV === 'production'
+  ...(isProduction
     ? [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' }]
     : []),
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -32,7 +33,7 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      `script-src ${scriptSrc}`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       `img-src ${imgSrc}`,

@@ -1,7 +1,7 @@
-import { NextRequest } from 'next/server';
-import { ok, handleError } from '@/backend/lib/api';
-import { requirePermission } from '@/backend/lib/auth-helpers';
-import prisma from '@/backend/lib/prisma';
+﻿import { NextRequest } from 'next/server';
+import { ok, handleError } from '@/lib/api';
+import { requirePermission } from '@/lib/auth-helpers';
+import prisma from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
   try {

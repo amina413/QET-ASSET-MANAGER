@@ -1,5 +1,5 @@
-import { ok } from '@/backend/lib/api';
-import { getSession } from '@/backend/lib/session';
+﻿import { ok } from '@/lib/api';
+import { getSession } from '@/lib/session';
 
 export async function POST() {
   const session = await getSession();

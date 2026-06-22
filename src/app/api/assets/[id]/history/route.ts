@@ -1,15 +1,10 @@
 import { NextRequest } from 'next/server';
-import { ok, handleError } from '@/backend/lib/api';
-import { requireAssetAccess, requireAuth, requirePermission } from '@/backend/lib/auth-helpers';
-import type { Permission } from '@/backend/lib/permissions';
-import { AddHistorySchema } from '@/backend/lib/validation';
-import prisma from '@/backend/lib/prisma';
-
-const STATUS_MAP: Record<string, string> = {
-  'Active': 'ACTIVE',
-  'Maintenance': 'MAINTENANCE',
-  'Disposed': 'DISPOSED',
-};
+import { ok, handleError } from '@/lib/api';
+import { requireAssetAccess, requireAuth, requirePermission } from '@/lib/auth-helpers';
+import type { Permission } from '@/lib/permissions';
+import { AddHistorySchema } from '@/lib/validation';
+import { STATUS_MAP_REVERSE } from '@/lib/asset-constants';
+import prisma from '@/lib/prisma';
 
 function permissionForHistory(type: string, updateStatus?: string): Permission | null {
   if (updateStatus) return 'change_asset_status';
@@ -32,8 +27,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (assetError) return assetError;
 
     await prisma.$transaction(async tx => {
-      if (data.updateStatus && STATUS_MAP[data.updateStatus]) {
-        await tx.asset.update({ where: { id: asset.id }, data: { status: STATUS_MAP[data.updateStatus] as Parameters<typeof tx.asset.update>[0]['data']['status'] } });
+      if (data.updateStatus && STATUS_MAP_REVERSE[data.updateStatus]) {
+        const newStatus = STATUS_MAP_REVERSE[data.updateStatus] as Parameters<typeof tx.asset.update>[0]['data']['status'];
+        await tx.asset.update({
+          where: { id: asset.id },
+          data: {
+            status: newStatus,
+            // Disposing via history must also deactivate the asset to stay consistent
+            // with the soft-delete behaviour in assets/[id]/route.ts DELETE
+            ...(data.updateStatus === 'Disposed' ? { isActive: false } : {}),
+          },
+        });
       }
       await tx.assetHistory.create({
         data: {

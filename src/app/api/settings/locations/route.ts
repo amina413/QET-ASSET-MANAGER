@@ -1,8 +1,8 @@
-import { NextRequest } from 'next/server';
-import { ok, err, handleError } from '@/backend/lib/api';
-import { requireAuth, requirePermission } from '@/backend/lib/auth-helpers';
-import { CreateLocationSchema } from '@/backend/lib/validation';
-import prisma from '@/backend/lib/prisma';
+﻿import { NextRequest } from 'next/server';
+import { ok, err, handleError } from '@/lib/api';
+import { requireAuth, requirePermission } from '@/lib/auth-helpers';
+import { CreateLocationSchema } from '@/lib/validation';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
   try {

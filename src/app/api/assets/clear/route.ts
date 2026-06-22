@@ -1,7 +1,7 @@
-import { NextRequest } from 'next/server';
-import { ok, err, handleError } from '@/backend/lib/api';
-import { requirePermission } from '@/backend/lib/auth-helpers';
-import prisma from '@/backend/lib/prisma';
+﻿import { NextRequest } from 'next/server';
+import { ok, err, handleError } from '@/lib/api';
+import { requirePermission } from '@/lib/auth-helpers';
+import prisma from '@/lib/prisma';
 
 const REQUIRED_CONFIRMATION = 'CLEAR ASSETS';
 
@@ -10,8 +10,8 @@ export async function DELETE(req: NextRequest) {
     const { error } = await requirePermission('system_settings');
     if (error) return error;
 
-    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_ASSET_CLEAR !== 'true') {
-      return err('Clearing all assets is disabled in production.', 403);
+    if (process.env.ALLOW_ASSET_CLEAR !== 'true') {
+      return err('Asset clear is disabled. Set ALLOW_ASSET_CLEAR=true to enable.', 403);
     }
 
     const body = await req.json().catch(() => null) as { confirmation?: string } | null;

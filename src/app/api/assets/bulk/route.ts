@@ -1,9 +1,9 @@
-import { NextRequest } from 'next/server';
-import { ok, handleError } from '@/backend/lib/api';
-import { requirePermission } from '@/backend/lib/auth-helpers';
-import { BulkCreateSchema } from '@/backend/lib/validation';
-import { calculateDepreciationSchedule } from '@/shared/utils/depreciation';
-import prisma from '@/backend/lib/prisma';
+﻿import { NextRequest } from 'next/server';
+import { ok, err, handleError } from '@/lib/api';
+import { requirePermission } from '@/lib/auth-helpers';
+import { BulkCreateSchema } from '@/lib/validation';
+import { calculateDepreciationSchedule } from '@/utils/depreciation';
+import prisma from '@/lib/prisma';
 
 const METHOD_MAP: Record<string, string> = {
   'Reducing Balance': 'REDUCING_BALANCE',
@@ -25,9 +25,21 @@ export async function POST(req: NextRequest) {
 
     const uniquePrefixes = [...new Set(rows.map(r => r.prefix.endsWith('/') ? r.prefix : r.prefix + '/'))];
 
+    const requestedCustodianIds = [...new Set(rows.map(r => r.custodianId).filter((id): id is string => !!id))];
+    if (requestedCustodianIds.length > 0) {
+      const activeCustodians = await prisma.user.findMany({
+        where: { id: { in: requestedCustodianIds }, isActive: true },
+        select: { id: true },
+      });
+      const activeCustodianIds = new Set(activeCustodians.map(c => c.id));
+      const missingCustodians = requestedCustodianIds.filter(id => !activeCustodianIds.has(id));
+      if (missingCustodians.length > 0) {
+        return err(`Invalid or inactive custodian IDs: ${missingCustodians.join(', ')}`, 422);
+      }
+    }
+
     const createdIds: string[] = [];
     const createdProductIds: string[] = [];
-    const warnings: string[] = [];
 
     await prisma.$transaction(async tx => {
       // Serial computation happens INSIDE the transaction to prevent race conditions
@@ -57,12 +69,7 @@ export async function POST(req: NextRequest) {
         const method = METHOD_MAP[row.depreciationMethod] ?? 'STRAIGHT_LINE';
         const condition = COND_MAP[row.condition ?? ''] ?? 'A2';
 
-        const custodianId = row.custodianId ?? user.id;
-        const custodianExists = await tx.user.findUnique({ where: { id: custodianId }, select: { id: true, isActive: true } });
-        const resolvedCustodianId = custodianExists?.isActive ? custodianId : user.id;
-        if ((!custodianExists || !custodianExists.isActive) && row.custodianId) {
-          warnings.push(`Row "${row.name}": custodian ID "${row.custodianId}" not found or inactive — assigned to uploader.`);
-        }
+        const resolvedCustodianId = row.custodianId ?? user.id;
 
         const asset = await tx.asset.create({
           data: {
@@ -103,7 +110,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    return ok({ createdIds, createdProductIds, warnings }, 201);
+    return ok({ createdIds, createdProductIds }, 201);
   } catch (error) {
     return handleError(error);
   }

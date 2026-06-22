@@ -23,44 +23,50 @@ QET-ASSET-MANAGER/
 │   │   ├── page.tsx
 │   │   └── globals.css
 │   │
-│   ├── frontend/                   # React UI (client components)
-│   │   ├── components/
-│   │   │   ├── AppClient.tsx       # Root authenticated shell
-│   │   │   ├── Dashboard.tsx
-│   │   │   ├── AssetForm.tsx       # Register / bulk import
-│   │   │   ├── AssetLookup.tsx     # Browse, filter, export, print tags
-│   │   │   ├── Reports.tsx         # Depreciation & inventory reports
-│   │   │   ├── AdminSettings.tsx   # Lookup tables CRUD
-│   │   │   ├── UserManagement.tsx
-│   │   │   ├── WipManagement.tsx
-│   │   │   ├── Audit.tsx
-│   │   │   ├── GeminiAssistant.tsx
-│   │   │   ├── ErrorBoundary.tsx   # React error boundary
-│   │   │   └── Toast.tsx           # Toast notification system
-│   │   ├── services/
-│   │   │   └── api-client.ts       # Typed fetch wrapper (ApiResult<T>)
-│   │   └── constants/              # Static lookup data
+│   ├── components/                 # React UI components
+│   │   ├── AppClient.tsx           # Root authenticated shell
+│   │   ├── Dashboard.tsx
+│   │   ├── AssetForm.tsx           # Register / bulk import
+│   │   ├── AssetLookup.tsx         # Browse, filter, export, print tags
+│   │   ├── Reports.tsx             # Depreciation & inventory reports
+│   │   ├── AdminSettings.tsx       # Lookup tables CRUD
+│   │   ├── UserManagement.tsx
+│   │   ├── WipManagement.tsx
+│   │   ├── Audit.tsx
+│   │   ├── GeminiAssistant.tsx
+│   │   ├── ErrorBoundary.tsx       # React error boundary
+│   │   └── Toast.tsx               # Toast notification system
 │   │
-│   ├── backend/                    # Server-only code
-│   │   └── lib/
-│   │       ├── prisma.ts           # Prisma client singleton
-│   │       ├── session.ts          # iron-session config (AES-256, HttpOnly)
-│   │       ├── auth-helpers.ts     # requireAuth() / requirePermission()
-│   │       ├── permissions.ts      # RBAC permission map
-│   │       ├── api.ts              # ok() / err() / handleError() helpers
-│   │       ├── logger.ts           # Structured JSON logging
-│   │       ├── asset-image-storage.ts # S3-compatible image upload URLs
-│   │       ├── validation.ts       # Zod schemas for all API inputs
-│   │       └── env.ts              # Startup env-var validation
+│   ├── lib/                        # Server-side utilities
+│   │   ├── prisma.ts               # Prisma client singleton
+│   │   ├── session.ts              # iron-session config (AES-256, HttpOnly)
+│   │   ├── auth-helpers.ts         # requireAuth() / requirePermission()
+│   │   ├── permissions.ts          # RBAC permission map
+│   │   ├── view-access.ts          # View-level access control
+│   │   ├── api.ts                  # ok() / err() / handleError() helpers
+│   │   ├── logger.ts               # Structured JSON logging
+│   │   ├── asset-image-storage.ts  # S3-compatible image upload URLs
+│   │   ├── validation.ts           # Zod schemas for all API inputs
+│   │   └── env.ts                  # Startup env-var validation
 │   │
-│   ├── shared/                     # Isomorphic code (frontend + backend)
-│   │   ├── types/                  # TypeScript types (Asset, User, etc.)
-│   │   └── utils/
-│   │       ├── depreciation.ts     # Straight-line / reducing balance / SYD
-│   │       ├── dates.ts            # formatDate, formatDateTime, fiscalYearLabel
-│   │       └── reportData.ts       # Report aggregation helpers
+│   ├── services/                   # Client-side API callers
+│   │   ├── api-client.ts           # Typed fetch wrapper (ApiResult<T>)
+│   │   ├── assets.ts
+│   │   ├── auth.ts
+│   │   ├── settings.ts
+│   │   ├── transfers.ts
+│   │   └── users.ts
 │   │
-│   └── middleware.ts               # API rate limiting, session auth, CSRF checks
+│   ├── utils/                      # Pure utility functions
+│   │   ├── csv.ts                  # CSV parse / export helpers
+│   │   ├── dates.ts                # formatDate, formatDateTime, fiscalYearLabel
+│   │   ├── depreciation.ts         # Straight-line / reducing balance / SYD
+│   │   └── reportData.ts           # Report aggregation helpers
+│   │
+│   ├── types.ts                    # Shared TypeScript types (Asset, User, etc.)
+│   ├── constants.ts                # Static lookup data
+│   ├── middleware.ts               # API rate limiting, session auth, CSRF checks
+│   └── instrumentation.ts          # Next.js startup hook (env validation)
 │
 ├── prisma/
 │   ├── schema.prisma               # PostgreSQL schema

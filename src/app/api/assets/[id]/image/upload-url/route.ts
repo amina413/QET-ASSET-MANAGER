@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { ok, err, handleError } from '@/backend/lib/api';
-import { requireAssetAccess, requirePermission } from '@/backend/lib/auth-helpers';
-import { createAssetImageUploadUrl } from '@/backend/lib/asset-image-storage';
+import { ok, err, handleError } from '@/lib/api';
+import { requireAssetAccess, requirePermission } from '@/lib/auth-helpers';
+import { createAssetImageUploadUrl } from '@/lib/asset-image-storage';
 
 const CreateUploadUrlSchema = z.object({
   fileName: z.string().min(1).max(200),

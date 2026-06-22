@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
-import { ok, err, handleError } from '@/backend/lib/api';
-import { requireAssetAccess, requirePermission } from '@/backend/lib/auth-helpers';
-import { AddImprovementSchema } from '@/backend/lib/validation';
-import { calculateDepreciationSchedule } from '@/shared/utils/depreciation';
-import prisma from '@/backend/lib/prisma';
+import { ok, err, handleError } from '@/lib/api';
+import { requireAssetAccess, requirePermission } from '@/lib/auth-helpers';
+import { AddImprovementSchema } from '@/lib/validation';
+import { calculateDepreciationSchedule } from '@/utils/depreciation';
+import prisma from '@/lib/prisma';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -46,11 +46,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Addition/Reduction are deltas applied to the current cost; Revaluation
     // sets the cost to an absolute new value.
+    // Round to 2dp to avoid float arithmetic drift (e.g. 100.10 + 0.20 = 100.30000000000001).
+    // TODO: switch to a Decimal library for full production-grade financial precision.
     const newCost = data.type === 'Addition'
-      ? currentCost + data.amount
+      ? Math.round((currentCost + data.amount) * 100) / 100
       : data.type === 'Reduction'
-        ? currentCost - data.amount
-        : data.amount;
+        ? Math.round((currentCost - data.amount) * 100) / 100
+        : Math.round(data.amount * 100) / 100;
 
     const scheduleData = calculateDepreciationSchedule({
       acquisition_cost: newCost,

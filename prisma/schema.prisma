@@ -16,6 +16,7 @@ model User {
   role       Role           @default(CUSTODIAN)
   isActive   Boolean        @default(true)
   lastLogin  DateTime       @default(now())
+  sessionVersion Int        @default(1)
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
   assets     Asset[]        @relation("AssetCustodian")
@@ -82,7 +83,7 @@ model TransferRequest {
   fromLocation  String
   toLocation    String
   toCustodian   String
-  toCustodianId String?
+  toCustodianId String
   requestedById String
   approvedById  String?
   status        TransferStatus @default(PENDING)

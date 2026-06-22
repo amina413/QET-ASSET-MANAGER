@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
 import { Prisma, Role } from '@prisma/client';
-import { ok, err, handleError, notFound } from '@/backend/lib/api';
-import { requirePermission } from '@/backend/lib/auth-helpers';
-import { UpdateUserSchema } from '@/backend/lib/validation';
-import prisma from '@/backend/lib/prisma';
+import { ok, err, handleError, notFound } from '@/lib/api';
+import { requirePermission } from '@/lib/auth-helpers';
+import { UpdateUserSchema } from '@/lib/validation';
+import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -18,6 +18,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const existing = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
     if (!existing) return notFound('User');
 
+    // Prevent editing accounts of equal or higher rank (IDOR guard)
+    const ROLE_RANK: Record<string, number> = { CUSTODIAN: 1, AUDITOR: 2, ASSET_MANAGER: 3, SYSTEM_ADMIN: 4 };
+    const actorRank = ROLE_RANK[actor.role.toUpperCase().replace(' ', '_')] ?? 0;
+    const targetRank = ROLE_RANK[existing.role] ?? 0;
+    if (actor.role !== 'System Admin' && actorRank <= targetRank) {
+      return err('You cannot edit a user with the same or higher role', 403);
+    }
     if (existing.role === 'SYSTEM_ADMIN' && actor.role !== 'System Admin') {
       return err('Only System Admins can edit System Admin accounts', 403);
     }
@@ -29,7 +36,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (data.name) updateData.name = data.name;
     if (data.department) updateData.department = data.department;
     if (data.role) updateData.role = data.role as Role;
-    if (data.password) updateData.password = await bcrypt.hash(data.password, 12);
+    if (data.password) {
+      updateData.password = await bcrypt.hash(data.password, 12);
+      updateData.sessionVersion = { increment: 1 };
+    }
 
     const user = await prisma.user.update({
       where: { id },
@@ -61,8 +71,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return err(`Reassign ${activeAssetCount} active asset(s) before deactivating this user.`, 409);
     }
 
+    // Cancel any pending transfers initiated by this user so they don't linger in the queue
+    await prisma.transferRequest.updateMany({ where: { requestedById: id, status: 'PENDING' }, data: { status: 'REJECTED' } });
     // Soft delete: preserve the row so AssetHistory/AssetCustodian FKs stay intact.
-    await prisma.user.update({ where: { id }, data: { isActive: false } });
+    await prisma.user.update({ where: { id }, data: { isActive: false, sessionVersion: { increment: 1 } } });
     return ok({ deleted: true });
   } catch (error) {
     return handleError(error);

@@ -1,10 +1,10 @@
-import { NextRequest } from 'next/server';
+﻿import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { ok, err, handleError } from '@/backend/lib/api';
-import { requireAuth } from '@/backend/lib/auth-helpers';
-import { getSession } from '@/backend/lib/session';
-import { ChangePasswordSchema } from '@/backend/lib/validation';
-import prisma from '@/backend/lib/prisma';
+import { ok, err, handleError } from '@/lib/api';
+import { requireAuth } from '@/lib/auth-helpers';
+import { getSession } from '@/lib/session';
+import { ChangePasswordSchema } from '@/lib/validation';
+import prisma from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,11 +25,15 @@ export async function POST(req: NextRequest) {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: await bcrypt.hash(newPassword, 12) },
+      data: {
+        password: await bcrypt.hash(newPassword, 12),
+        sessionVersion: { increment: 1 },
+      },
     });
 
     const session = await getSession();
     session.destroy();
+    await session.save(); // Write cleared cookie back to the client
 
     return ok({ changed: true });
   } catch (error) {

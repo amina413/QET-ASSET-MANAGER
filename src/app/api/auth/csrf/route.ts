@@ -1,6 +1,6 @@
-import { randomUUID } from 'crypto';
-import { ok, handleError, unauthorized } from '@/backend/lib/api';
-import { getSession } from '@/backend/lib/session';
+﻿import { randomUUID } from 'crypto';
+import { ok, handleError, unauthorized } from '@/lib/api';
+import { getSession } from '@/lib/session';
 
 export async function GET() {
   try {

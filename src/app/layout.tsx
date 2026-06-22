@@ -1,8 +1,8 @@
-
+﻿
 import React from "react";
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
-import { ToastProvider } from "@/frontend/components/Toast";
+import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
